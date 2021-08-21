@@ -42,7 +42,7 @@ Here $Z=Z_f+Z_g$ and $Z_{f/g}=\int \rho_{f/g}({x})d{x}$ are the partition sums o
 
 Similarly, the variance of $G_{\rm MC}$ can be written as 
 ```math
-\sigma^2_{G_{\rm MC}}=  \int \frac{g^2(x)}{\rho_g(x)} \frac{{\rm d}{x}}{Z} - \frac{G^2}{Z^2}
+\sigma^2_{G_{\rm MC}}=  \int \frac{g^2(x)}{\rho_g(x)} \frac{dx}{Z} - \frac{G^2}{Z^2}
 ```
 
 By substituting $\rho_{f}(x)=|f(x)|$ and  $\rho_{g}(x)=|g(x)|$, the variances of $F_{\rm MC}$ and $G_{\rm MC}$ are given by
