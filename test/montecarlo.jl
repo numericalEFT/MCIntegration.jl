@@ -181,7 +181,7 @@ function Lorentz2(totalstep)
 end
 
 @testset "MonteCarlo Sampler" begin
-    totalStep = 1000_000
+    totalStep = 1000_00
 
     avg, err = Sphere1(totalStep)
     println("MC integration 1: $avg ± $err (exact: $(π / 4.0))")
@@ -209,11 +209,11 @@ end
     @test abs(avg[1] - 1.0) < 5.0 * err[1]
     @test abs(avg[2] - 1.0) < 5.0 * err[2]
 
-    avg, err = Lorentz1(totalStep * 10)
+    avg, err = Lorentz1(totalStep)
     println("MC integration 6: $avg ± $err (exact: $((LorentzN / 2 * π + LorentzN * atan(LorentzN)))")
     @test abs(avg - (LorentzN / 2 * π + LorentzN * atan(LorentzN))) < 5.0 * err
 
-    avg, err = Lorentz2(totalStep * 10)
+    avg, err = Lorentz2(totalStep)
     println("MC integration 7: $(avg[1]) ± $(err[1]) (exact: $((LorentzN / 2 * π + LorentzN * atan(LorentzN)))")
     println("MC integration 7: $(avg[2]) ± $(err[2]) (exact: $((LorentzN / 2 * π + LorentzN * atan(LorentzN)))")
     @test abs(avg[1] - ((LorentzN / 2 * π + LorentzN * atan(LorentzN)))) < 5.0 * err[1]
