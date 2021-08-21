@@ -1,13 +1,18 @@
 # Important Sampling
 
+## Introduction
 
-Consider the MC sampling of an one-dimensional functions $f(x)$ (its sign may oscillate).
+This note compares two important sampling approaches for Monte Carlo integration. The first approach introduces a normalization sector and lets the Markov chain jumps between this additional sector and the integrand sector following a calibrated probability density for important sampling. One can infer the integration between the ratio of weights between two sectors. On the other hand, the second approach reweights the original integrand to make it as flat as possible, one then perform a random walk uniformly in the parameter space to calculate the integration. This is the conventional approach used in Vegas algorithm.
+
+In general, the first approach is more robust than the second one, but less efficient. In many applications, for example, high order Feynman diagrams with a sign alternation, the important sampling probability can't represent the complicated integrand well. Then the first approach is as efficient as the second one, but tends to be much robust.
+
+We next present a benchmark between two approaches. Consider the MC sampling of an one-dimensional functions $f(x)$ (its sign may oscillate).
 
 We want to design an efficient algorithm to calculate the integral $\int_a^b dx f(x)$. To do that, we normalize the integrand with an ansatz $g(x)>0$ to reduce the variant. 
 
 Our package supports two important sampling schemes. 
 
-## Approach 1: Algorithm with a Normalization Section
+## Approach 1: Algorithm with a Normalization Sector
 
 In this approach, the configuration spaces consist of two sub-spaces: the physical sector with orders $n\ge 1$ and the normalization sector with the order $n=0$. The weight function of the latter, $g({x})$, should be simple enough so that the integral $G=\int g({x}) d x$ is explicitly known. In our algorithm we use a constant $g(x) \propto 1$ for simplicity. In this setup, the physical sector weight, namely the integral $F = \int f(x) d{x}$, can be calculated with the equation
 ```math
