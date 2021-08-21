@@ -4,11 +4,14 @@ CurrentModule = MCIntegration
 
 # MCIntegration
 
-Documentation for [MCIntegration](https://github.com/kunyuan/MCIntegration.jl).
+Documentation for [MCIntegration](https://github.com/numericaleft/MCIntegration.jl).
 
 ```@index
 ```
 
 ```@autodocs
-Modules = [MCIntegration]
+Pages = [
+    "lib/montecarlo.md",
+]
+Depth = 1
 ```
