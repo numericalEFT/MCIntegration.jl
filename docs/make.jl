@@ -26,7 +26,7 @@ makedocs(;
 )
 
 deploydocs(;
-    repo="github.com/numericaleft/MCIntegration.jl",
+    repo="github.com/numericalEFT/MCIntegration.jl",
 )
 
 # using Lehmann
