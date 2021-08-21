@@ -1,0 +1,13 @@
+name = "MCIntegration"
+uuid = "ea1e2de9-7db7-4b42-91ee-0cd1bf6df167"
+authors = ["Kun Chen", "Xiansheng Cai"]
+version = "0.1.0"
+
+[compat]
+julia = "1.4"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
