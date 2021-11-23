@@ -85,6 +85,10 @@ function sample(config::Configuration, integrand::Function, measure::Function; N
 
         summary = addStat(config, summary)  # collect MC information
 
+        if (config.normalization > 0.0) == false #in case config.normalization is not a number
+            error("normalization of block $i is $(config.normalization), which is not positively defined!")
+        end
+
         if typeof(obsSum) <: AbstractArray
             obsSum .+= config.observable ./ config.normalization
             obsSquaredSum .+= (config.observable ./ config.normalization) .^ 2

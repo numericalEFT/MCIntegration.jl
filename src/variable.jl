@@ -243,7 +243,7 @@ mutable struct TauPair <: Variable
     λ::Float64
     β::Float64
     function TauPair(β = 1.0, λ = 0.5, size = MaxOrder)
-        t = [@MVector [β * (i - 0.4) / size, β * (i - 0.6) / size] for i = 1:size]
+        t = [@MVector [β * (i - 0.4) / size, β * (i - 0.6) / size] for i = 1:size] #avoid dulication
         return new(t, λ, β)
     end
 end
@@ -254,7 +254,7 @@ mutable struct Discrete <: Variable
     upper::Int
     size::Int
     function Discrete(lower, upper, size = MaxOrder)
-        d = [i for i = 1:size]
+        d = [i for i = 1:size] #avoid dulication
         @assert upper > lower
         return new(d, lower, upper, upper - lower + 1)
     end
