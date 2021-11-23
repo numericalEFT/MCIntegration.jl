@@ -34,7 +34,7 @@ mutable struct Configuration
  - `observable`: observables that is required to calculate the integrands, will be used in the `measure` function call.
     It is either an array of any type with the common operations like +-*/^ defined. 
 
- - `reweight`: reweight factors for each integrands. 
+ - `reweight`: reweight factors for each integrands. The reweight factor of the normalization diagram is assumed to be 1. Note that you don't need to explicitly add the normalization diagram. 
 
  - `visited`: how many times this integrand is visited by the Markov chain.
 
@@ -108,7 +108,7 @@ mutable struct Configuration{V,P,O}
     
     By default, we assume the N integrands are in the increase order, meaning the neighbor will be set to ([N+1, 2], [1, 3], [2, 4], ..., [N-1,], [1, ]), where the first N entries are for diagram 1, 2, ..., N and the last entry is for the normalization diagram. Only the first diagram is connected to the normalization diagram.
 """
-    function Configuration(totalStep, var::V, dof, obs::O; para::P=nothing, reweight=nothing, seed=nothing, neighbor=Vector{Vector{Int}}([])) where {V,P,O}
+    function Configuration(totalStep, var::V, dof, obs::O; para::P = nothing, reweight = nothing, seed = nothing, neighbor = Vector{Vector{Int}}([])) where {V,P,O}
         @assert totalStep > 0 "Total step should be positive!"
         # @assert O <: AbstractArray "observable is expected to be an array. Noe get $(typeof(obs))."
         @assert V <: Tuple{Vararg{Variable}} || V <: Tuple{Variable} "Configuration.var must be a tuple of Variable to maximize efficiency. Now get $(typeof(V))"
@@ -130,17 +130,19 @@ mutable struct Configuration{V,P,O}
         if neighbor == []
             # By default, only the order-1 and order+1 diagrams are considered to be the neighbors
             # Nd is the normalization diagram, by default, it only connects to the first diagram
-            neighbor = Vector{Vector{Int}}([[d - 1, d + 1] for d in 1:Nd])
-            neighbor[1] = (Nd == 2 ? [2, ] : [Nd, 2]) # if Nd=2, then 2 must be the normalization diagram
-            neighbor[end] = [1, ] # norm to the first diag
-            (Nd >= 3) && (neighbor[end - 1] = [Nd - 2, ]) # last diag to the second last, possible only for Nd>=3
+            neighbor = Vector{Vector{Int}}([[d - 1, d + 1] for d = 1:Nd])
+            neighbor[1] = (Nd == 2 ? [2,] : [Nd, 2]) # if Nd=2, then 2 must be the normalization diagram
+            neighbor[end] = [1,] # norm to the first diag
+            (Nd >= 3) && (neighbor[end-1] = [Nd - 2,]) # last diag to the second last, possible only for Nd>=3
         end
         @assert typeof(neighbor) == Vector{Vector{Int}} "Configuration.neighbor should be with a type of Vector{Vector{Int}} to avoid mistakes. Now get $(typeof(neighbor))"
         @assert Nd == length(neighbor) "$Nd elements are expected for neighbor=$neighbor"
 
         ############# initialize reweight factors ########################
         if isnothing(reweight)
-            reweight = [1.0 for d in 1:Nd] # the last element is for the normalization diagram
+            reweight = [1.0 for d = 1:Nd] # the last element is for the normalization diagram
+        else
+            push!(reweight, 1.0)
         end
         @assert Nd == length(reweight) "reweight vector size is wrong! Note that the last element in reweight vector is for the normalization diagram."
 
@@ -153,7 +155,7 @@ mutable struct Configuration{V,P,O}
         norm = Nd
         # a small initial absweight makes the initial configuaration quickly updated,
         # so that no error is caused even if the intial absweight is wrong, 
-        absweight = 1.0e-10 
+        absweight = 1.0e-10
         normalization = 1.0e-10
 
         # visited[end] is for the normalization diagram
@@ -162,16 +164,16 @@ mutable struct Configuration{V,P,O}
         # propose and accept shape: number of updates X integrand number X max(integrand number, variable number)
         # the last index will waste some memory, but the dimension is small anyway
         propose = zeros(Float64, (2, Nd, max(Nd, Nv))) .+ 1.0e-8 # add a small initial value to avoid Inf when inverted
-        accept = zeros(Float64, (2, Nd, max(Nd, Nv))) 
+        accept = zeros(Float64, (2, Nd, max(Nd, Nv)))
 
         return new{V,P,O}(seed, rng, para, totalStep, var,  # static parameters
-        collect(neighbor), collect(dof), obs, collect(reweight), visited, # integrand properties
-        0, curr, norm, normalization, absweight, propose, accept  # current MC state
-) 
+            collect(neighbor), collect(dof), obs, collect(reweight), visited, # integrand properties
+            0, curr, norm, normalization, absweight, propose, accept  # current MC state
+        )
     end
 end
 
-function reset!(config, reweight=nothing)
+function reset!(config, reweight = nothing)
     if typeof(config.observable) <: AbstractArray
         fill!(config.observable, zero(eltype(config.observable))) # reinialize observable
     else
@@ -193,10 +195,10 @@ mutable struct FermiK{D} <: Variable
     kF::Float64
     δk::Float64
     maxK::Float64
-    function FermiK(dim, kF, δk, maxK, size=MaxOrder)
+    function FermiK(dim, kF, δk, maxK, size = MaxOrder)
         k0 = SVector{dim,Float64}([kF for i = 1:dim])
         # k0 = @SVector [kF for i = 1:dim]
-        k = [k0 for i in 1:size]
+        k = [k0 for i = 1:size]
         return new{dim}(k, kF, δk, maxK)
     end
 end
@@ -205,8 +207,8 @@ mutable struct RadialFermiK <: Variable
     data::Vector{Float64}
     kF::Float64
     δk::Float64
-    function RadialFermiK(kF=1.0, δk=0.01, size=MaxOrder)
-        k = [kF for i = 1:size]
+    function RadialFermiK(kF = 1.0, δk = 0.01, size = MaxOrder)
+        k = [kF * (i - 0.5) / size for i = 1:size] #avoid dulication
         return new(k, kF, δk)
     end
 end
@@ -220,8 +222,8 @@ mutable struct Tau <: Variable
     data::Vector{Float64}
     λ::Float64
     β::Float64
-    function Tau(β=1.0, λ=0.5, size=MaxOrder)
-        t = [β / 2.0 for i = 1:size]
+    function Tau(β = 1.0, λ = 0.5, size = MaxOrder)
+        t = [β * (i - 0.5) / size for i = 1:size] #avoid dulication
         return new(t, λ, β)
     end
 end
@@ -229,8 +231,8 @@ end
 mutable struct Angle <: Variable
     data::Vector{Float64}
     λ::Float64
-    function Angle(λ=0.5, size=MaxOrder)
-        theta = [π for i = 1:size]
+    function Angle(λ = 0.5, size = MaxOrder)
+        theta = [π * (i - 0.5) / size for i = 1:size] #avoid dulication
         return new(theta, λ)
     end
 end
@@ -240,8 +242,8 @@ mutable struct TauPair <: Variable
     data::Vector{MVector{2,Float64}}
     λ::Float64
     β::Float64
-    function TauPair(β=1.0, λ=0.5, size=MaxOrder)
-        t = [@MVector [β / 3.0, β / 2.0] for i = 1:size]
+    function TauPair(β = 1.0, λ = 0.5, size = MaxOrder)
+        t = [@MVector [β * (i - 0.4) / size, β * (i - 0.6) / size] for i = 1:size]
         return new(t, λ, β)
     end
 end
@@ -251,8 +253,8 @@ mutable struct Discrete <: Variable
     lower::Int
     upper::Int
     size::Int
-    function Discrete(lower, upper, size=MaxOrder)
-        d = [1 for i in 1:size]
+    function Discrete(lower, upper, size = MaxOrder)
+        d = [i for i = 1:size]
         @assert upper > lower
         return new(d, lower, upper, upper - lower + 1)
     end
