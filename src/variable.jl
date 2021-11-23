@@ -228,6 +228,25 @@ mutable struct Tau <: Variable
     end
 end
 
+mutable struct Continuous <: Variable
+    data::Vector{Float64}
+    λ::Float64
+    lower::Float64
+    range::Float64
+    function Continuous(bound, λ = nothing, size = MaxOrder)
+        lower, upper = bound
+        @assert upper > lower
+        @assert isnothing(λ) || (0 < λ < (upper - lower))
+        t = [lower + (upper - lower) * (i - 0.5) / size for i = 1:size] #avoid dulication
+
+        if isnothing(λ)
+            λ = (upper - lower) / 2.0
+        end
+
+        return new(t, λ, lower, upper - lower)
+    end
+end
+
 mutable struct Angle <: Variable
     data::Vector{Float64}
     λ::Float64
