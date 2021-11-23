@@ -81,9 +81,11 @@ More supported variables types can be found in the [source code](src/variable.jl
 
 MCIntegration supports MPI parallelization. To run your code in MPI mode, simply use the command
 ```bash
-mpiexec julia -n #NCPU ./your_script
+mpiexec julia -n #NCPU ./your_script.jl
 ```
 where `#CPU` is the number of workers. Internally, the MC sampler will send the blocks (controlled by the argument `Nblock`, see above example code) to different workers, then collect the estimates in the root node. 
+
+Note that you need to install the package [MPI.jl](https://github.com/JuliaParallel/MPI.jl) to use the MPI mode. See this [link](https://juliaparallel.github.io/MPI.jl/stable/configuration/) for the instruction on the configuration.
 
 The user essentially doesn't need to write additional code to support the parallelization. The only tricky part is the output: only the function `MCIntegratoin.sample` of the root node returns meaningful estimates, while other workers simply returns `nothing`. 
 
