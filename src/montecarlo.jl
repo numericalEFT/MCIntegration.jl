@@ -81,7 +81,7 @@ function sample(config::Configuration, integrand::Function, measure::Function; N
 
         reset!(config, config.reweight) # reset configuration, keep the previous reweight factors
 
-        config = montecarlo(config, integrand, measure, print, save, timer, doReweight)
+        config = montecarlo(config, integrand, measure, print, save, timer, reweight)
 
         summary = addStat(config, summary)  # collect MC information
 
