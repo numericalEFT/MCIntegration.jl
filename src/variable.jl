@@ -88,7 +88,7 @@ mutable struct Configuration{V,P,O}
 
  ## Static parameters
 
- - `totalStep`: the total number of updates for this configuration
+ - `totalStep`: the total number MC steps of each block (one block, one configuration)
 
  - `var`: TUPLE of variables, each variable should be derived from the abstract type Variable, see variable.jl for details). Use a tuple rather than a vector improves the performance.
 

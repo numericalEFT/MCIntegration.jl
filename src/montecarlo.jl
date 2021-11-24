@@ -45,10 +45,11 @@ sample(config::Configuration, integrand::Function, measure::Function; Nblock=16,
 
 - `timer`: `StopWatch` other than print and save.
 
-- `reweight = 1000_00`: the MC steps before reweighting the integrands. Set to -1 if reweighting is not wanted.
+- `reweight = config.totalStep/10`: the MC steps before reweighting the integrands. Set to -1 if reweighting is not wanted.
 """
-function sample(config::Configuration, integrand::Function, measure::Function; Nblock = 16, print = 0, printio = stdout, save = 0, saveio = nothing, timer = [], reweight = 1000_00)
+function sample(config::Configuration, integrand::Function, measure::Function; Nblock = 16, print = 0, printio = stdout, save = 0, saveio = nothing, timer = [], reweight = config.totalStep / 10)
 
+    println(reweight)
 
     ############ initialized timer ####################################
     if print > 0
