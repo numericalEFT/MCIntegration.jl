@@ -13,25 +13,25 @@ function changeIntegrand(config, integrand)
     prop = length(config.neighbor[curr]) / length(config.neighbor[new])
 
     # create/remove variables if there are more/less degrees of freedom
-    for vi in 1:length(config.var)
+    for vi = 1:length(config.var)
         if (currdof[vi] < newdof[vi]) # more degrees of freedom
-            for pos = currdof[vi] + 1:newdof[vi]
+            for pos = currdof[vi]+1:newdof[vi]
                 prop *= create!(config.var[vi], pos, config)
             end
         elseif (currdof[vi] > newdof[vi]) # less degrees of freedom
-            for pos = newdof[vi] + 1:currdof[vi]
+            for pos = newdof[vi]+1:currdof[vi]
                 prop *= remove!(config.var[vi], pos, config)
             end
         end
     end
 
     # sampler may want to reject, then prop has already been set to zero
-    if prop <= eps(0.0) 
+    if prop <= eps(0.0)
         return
     end
 
     config.curr = new
-    newAbsWeight = (new == config.norm ?  1.0 : abs(integrand(config)))
+    newAbsWeight = (new == config.norm ? 1.0 : abs(integrand(config)))
     R = prop * newAbsWeight * config.reweight[new] / currAbsWeight / config.reweight[curr]
 
     config.propose[1, curr, new] += 1.0
@@ -41,15 +41,15 @@ function changeIntegrand(config, integrand)
     else # reject the change
         config.curr = curr # reset the current diagram index
         config.absWeight = currAbsWeight
-        
+
         ############ Redo changes to config.var #############
-        for vi in 1:length(config.var)
+        for vi = 1:length(config.var)
             if (currdof[vi] < newdof[vi]) # more degrees of freedom
-                for pos = currdof[vi] + 1:newdof[vi]
+                for pos = currdof[vi]+1:newdof[vi]
                     createRollback!(config.var[vi], pos, config)
                 end
             elseif (currdof[vi] > newdof[vi]) # less degrees of freedom
-                for pos = newdof[vi] + 1:currdof[vi]
+                for pos = newdof[vi]+1:currdof[vi]
                     removeRollback!(config.var[vi], pos, config)
                 end
             end
@@ -74,7 +74,7 @@ function changeVariable(config, integrand)
     currAbsWeight = config.absWeight
 
     prop = shift!(var, idx, config)
-    
+
     # sampler may want to reject, then prop has already been set to zero
     if prop <= eps(0.0)
         return
@@ -92,7 +92,7 @@ function changeVariable(config, integrand)
         config.absWeight = newAbsWeight
     else
         # var[idx] = oldvar
-        config.absWeight = currAbsWeight 
+        config.absWeight = currAbsWeight
         shiftRollback!(var, idx, config)
     end
 end

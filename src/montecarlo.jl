@@ -45,10 +45,11 @@ sample(config::Configuration, integrand::Function, measure::Function; Nblock=16,
 
 - `timer`: `StopWatch` other than print and save.
 
-- `doReweight`: reweight the integrands from time to time if true.
+- `reweight = config.totalStep/10`: the MC steps before reweighting the integrands. Set to -1 if reweighting is not wanted.
 """
-function sample(config::Configuration, integrand::Function, measure::Function; Nblock=16, print=0, printio=stdout, save=0, saveio=nothing, timer=[], doReweight=true)
+function sample(config::Configuration, integrand::Function, measure::Function; Nblock = 16, print = 0, printio = stdout, save = 0, saveio = nothing, timer = [], reweight = config.totalStep / 10)
 
+    println(reweight)
 
     ############ initialized timer ####################################
     if print > 0
@@ -56,7 +57,7 @@ function sample(config::Configuration, integrand::Function, measure::Function; N
     end
 
     ########### initialized MPI #######################################
-    (MPI.Initialized() == false ) && MPI.Init()
+    (MPI.Initialized() == false) && MPI.Init()
     comm = MPI.COMM_WORLD
     Nworker = MPI.Comm_size(comm)  # number of MPI workers
     rank = MPI.Comm_rank(comm)  # rank of current MPI worker
@@ -75,19 +76,23 @@ function sample(config::Configuration, integrand::Function, measure::Function; N
     summary = nothing
     startTime = time()
 
-    for i in 1:Nblock
+    for i = 1:Nblock
         # MPI thread rank will run the block with the indexes: rank, rank+Nworker, rank+2Nworker, ...
         (i % Nworker != rank) && continue
 
         reset!(config, config.reweight) # reset configuration, keep the previous reweight factors
 
-        config = montecarlo(config, integrand, measure, print, save, timer, doReweight)
+        config = montecarlo(config, integrand, measure, print, save, timer, reweight)
 
         summary = addStat(config, summary)  # collect MC information
 
+        if (config.normalization > 0.0) == false #in case config.normalization is not a number
+            error("normalization of block $i is $(config.normalization), which is not positively defined!")
+        end
+
         if typeof(obsSum) <: AbstractArray
             obsSum .+= config.observable ./ config.normalization
-            obsSquaredSum .+= (config.observable ./ config.normalization).^2
+            obsSquaredSum .+= (config.observable ./ config.normalization) .^ 2
         else
             obsSum += config.observable / config.normalization
             obsSquaredSum += (config.observable / config.normalization)^2
@@ -122,13 +127,13 @@ function sample(config::Configuration, integrand::Function, measure::Function; N
     end
 end
 
-function montecarlo(config::Configuration, integrand::Function, measure::Function, print, save, timer, doReweight)
+function montecarlo(config::Configuration, integrand::Function, measure::Function, print, save, timer, reweight)
     ##############  initialization  ################################
     # don't forget to initialize the diagram weight
     config.absWeight = abs(integrand(config))
-    
+
     updates = [changeIntegrand, changeVariable] # TODO: sample changeVariable more often
-    for i in 2:length(config.var)
+    for i = 2:length(config.var)
         push!(updates, changeVariable)
     end
 
@@ -137,13 +142,13 @@ function montecarlo(config::Configuration, integrand::Function, measure::Functio
         println(green("Seed $(config.seed) Start Simulation ..."))
     end
     startTime = time()
-        
+
     for i = 1:config.totalStep
         config.step += 1
         config.visited[config.curr] += 1
         _update = rand(config.rng, updates) # randomly select an update
         _update(config, integrand)
-        if i % 10 == 0 && i >= config.totalStep / 100 
+        if i % 10 == 0 && i >= config.totalStep / 100
             if config.curr == config.norm # the last diagram is for normalization
                 config.normalization += 1.0 / config.reweight[config.norm]
             else
@@ -154,8 +159,8 @@ function montecarlo(config::Configuration, integrand::Function, measure::Functio
             for t in timer
                 check(t, config, config.neighbor, config.var)
             end
-            if doReweight && i > 1000_00 && i % 1000_00 == 0
-                reweight(config)
+            if i >= reweight && i % reweight == 0
+                doReweight(config)
             end
         end
     end
@@ -168,7 +173,7 @@ function montecarlo(config::Configuration, integrand::Function, measure::Functio
     return config
 end
 
-function reweight(config)
+function doReweight(config)
     avgstep = sum(config.visited) / length(config.visited)
     for (vi, v) in enumerate(config.visited)
         if v > 1000
@@ -202,7 +207,7 @@ function printSummary(summary, neighbor, var)
         )
         totalproposed += propose[1, Nd, n]
     end
-    for idx in 1:Nd - 1
+    for idx = 1:Nd-1
         for n in neighbor[idx]
             if n == Nd  # normalization diagram
                 @printf("  %d ->Norm:           %11.6f%% %11.6f%% %12.6f\n",
@@ -225,7 +230,7 @@ function printSummary(summary, neighbor, var)
     println(bar)
 
     println(yellow(@sprintf("%-20s %12s %12s %12s", "ChangeVariable", "Proposed", "Accepted", "Ratio  ")))
-    for idx in 1:Nd - 1 # normalization diagram don't have variable to change
+    for idx = 1:Nd-1 # normalization diagram don't have variable to change
         for (vi, var) in enumerate(var)
             typestr = "$(typeof(var))"
             typestr = split(typestr, ".")[end]
@@ -242,7 +247,7 @@ function printSummary(summary, neighbor, var)
     println(bar)
     println(yellow("Diagrams            Visited      ReWeight\n"))
     @printf("  Norm   :     %12i %12.6f\n", visited[end], reweight[end])
-    for idx in 1:Nd - 1
+    for idx = 1:Nd-1
         @printf("  Order%2d:     %12i %12.6f\n", idx, visited[idx], reweight[idx])
     end
     println(bar)
