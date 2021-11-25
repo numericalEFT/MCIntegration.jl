@@ -11,7 +11,7 @@ MCIntegration is Monte Carlo calculator for generic high-dimensional integral. T
 
 # Quick start
 
-The following example demonstrates the basic usage of this package. This code calculates the are of a circle and the volume of a sphere using one Markov chain. The code can be found [here](example/sphere.jl).
+The following example demonstrates the basic usage of this package. This code calculates the area of a circle and the volume of a sphere using one Markov chain. The code can be found [here](example/sphere.jl).
 
 ```julia
 using MCIntegration

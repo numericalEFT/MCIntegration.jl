@@ -190,13 +190,13 @@ function reset!(config, reweight = nothing)
 end
 
 mutable struct FermiK{D} <: Variable
-    data::Vector{SVector{D,Float64}}
+    data::Vector{MVector{D,Float64}}
     # data::Vector{Vector{Float64}}
     kF::Float64
     δk::Float64
     maxK::Float64
     function FermiK(dim, kF, δk, maxK, size = MaxOrder)
-        k0 = SVector{dim,Float64}([kF for i = 1:dim])
+        k0 = MVector{dim,Float64}([kF for i = 1:dim])
         # k0 = @SVector [kF for i = 1:dim]
         k = [k0 for i = 1:size]
         return new{dim}(k, kF, δk, maxK)
@@ -208,7 +208,7 @@ mutable struct RadialFermiK <: Variable
     kF::Float64
     δk::Float64
     function RadialFermiK(kF = 1.0, δk = 0.01, size = MaxOrder)
-        k = [kF * (i - 0.5) / size for i = 1:size] #avoid dulication
+        k = [kF * (i - 0.5) / size for i = 1:size] #avoid duplication
         return new(k, kF, δk)
     end
 end
@@ -223,7 +223,7 @@ mutable struct Tau <: Variable
     λ::Float64
     β::Float64
     function Tau(β = 1.0, λ = 0.5, size = MaxOrder)
-        t = [β * (i - 0.5) / size for i = 1:size] #avoid dulication
+        t = [β * (i - 0.5) / size for i = 1:size] #avoid duplication
         return new(t, λ, β)
     end
 end
@@ -237,7 +237,7 @@ mutable struct Continuous <: Variable
         lower, upper = bound
         @assert upper > lower
         @assert isnothing(λ) || (0 < λ < (upper - lower))
-        t = [lower + (upper - lower) * (i - 0.5) / size for i = 1:size] #avoid dulication
+        t = [lower + (upper - lower) * (i - 0.5) / size for i = 1:size] #avoid duplication
 
         if isnothing(λ)
             λ = (upper - lower) / 2.0
@@ -262,7 +262,7 @@ mutable struct TauPair <: Variable
     λ::Float64
     β::Float64
     function TauPair(β = 1.0, λ = 0.5, size = MaxOrder)
-        t = [@MVector [β * (i - 0.4) / size, β * (i - 0.6) / size] for i = 1:size] #avoid dulication
+        t = [@MVector [β * (i - 0.4) / size, β * (i - 0.6) / size] for i = 1:size] #avoid duplication
         return new(t, λ, β)
     end
 end
