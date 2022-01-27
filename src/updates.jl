@@ -68,7 +68,7 @@ function changeVariable(config, integrand)
     vi = rand(config.rng, 1:length(currdof)) # update the variable type of the index vi
     var = config.var[vi]
     (currdof[vi] <= 0) && return # return if the var has zero degree of freedom
-    idx = rand(config.rng, 1:currdof[vi]) # randomly choose one var to update
+    idx = var.offset + rand(config.rng, 1:currdof[vi]) # randomly choose one var to update
 
     # oldvar = copy(var[idx])
     currAbsWeight = config.absWeight

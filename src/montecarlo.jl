@@ -47,7 +47,8 @@ sample(config::Configuration, integrand::Function, measure::Function; Nblock=16,
 
 - `reweight = config.totalStep/10`: the MC steps before reweighting the integrands. Set to -1 if reweighting is not wanted.
 """
-function sample(config::Configuration, integrand::Function, measure::Function; Nblock = 16, print = 0, printio = stdout, save = 0, saveio = nothing, timer = [], reweight = config.totalStep / 10)
+function sample(config::Configuration, integrand::Function, measure::Function;
+    Nblock = 16, print = 0, printio = stdout, save = 0, saveio = nothing, timer = [], reweight = config.totalStep / 10)
 
     # println(reweight)
 
