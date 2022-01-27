@@ -81,12 +81,17 @@ function create!(K::FermiK{D}, idx::Int, config) where {D}
     if D == 3 # dimension 3
         θ = π * rand(rng)
         # newK .= Kamp .* Mom(cos(ϕ) * sin(θ), sin(ϕ) * sin(θ), cos(θ))
-        K[idx] = @SVector [Kamp * cos(ϕ) * sin(θ), Kamp * sin(ϕ) * sin(θ), Kamp * cos(θ)]
+        # K[idx] = @SVector [Kamp * cos(ϕ) * sin(θ), Kamp * sin(ϕ) * sin(θ), Kamp * cos(θ)]
+        K.data[1, idx] = Kamp * cos(ϕ) * sin(θ)
+        K.data[2, idx] = Kamp * sin(ϕ) * sin(θ)
+        K.data[3, idx] = Kamp * cos(θ)
         return 2 * K.δk * 2π * π * (sin(θ) * Kamp^2)
         # prop density of KAmp in [Kf-dK, Kf+dK), prop density of Phi
         # prop density of Theta, Jacobian
     else  # DIM==2
-        K[idx] = @SVector [Kamp * cos(ϕ), Kamp * sin(ϕ)]
+        # K[idx] = @SVector [Kamp * cos(ϕ), Kamp * sin(ϕ)]
+        K.data[1, idx] = Kamp * cos(ϕ)
+        K.data[2, idx] = Kamp * sin(ϕ)
         return 2 * K.δk * 2π * Kamp
         # prop density of KAmp in [Kf-dK, Kf+dK), prop density of Phi, Jacobian
     end
@@ -151,19 +156,29 @@ function shift!(K::FermiK{D}, idx::Int, config) where {D}
             # sample uniformly on sphere, check http://corysimon.github.io/articles/uniformdistn-on-sphere/ 
             θ = acos(1 - 2 * rand(rng))
             Kamp = sqrt(K[idx][1]^2 + K[idx][2]^2 + K[idx][3]^2)
-            K[idx] = @SVector [Kamp * cos(ϕ) * sin(θ), Kamp * sin(ϕ) * sin(θ), Kamp * cos(θ)]
+            # K[idx] = @SVector [Kamp * cos(ϕ) * sin(θ), Kamp * sin(ϕ) * sin(θ), Kamp * cos(θ)]
+            K.data[1, idx] = Kamp * cos(ϕ) * sin(θ)
+            K.data[2, idx] = Kamp * sin(ϕ) * sin(θ)
+            K.data[3, idx] = Kamp * cos(θ)
             return 1.0
         else # D=2
             Kamp = sqrt(K[idx][1]^2 + K[idx][2]^2)
-            K = @SVector [Kamp * cos(ϕ), Kamp * sin(ϕ)]
+            # K = @SVector [Kamp * cos(ϕ), Kamp * sin(ϕ)]
+            K.data[1, idx] = Kamp * cos(ϕ)
+            K.data[2, idx] = Kamp * sin(ϕ)
             return 1.0
         end
     else
         Kc, dk = K[idx], K.δk
         if (D == 3)
-            K[idx] = @SVector [Kc[1] + (rand(rng) - 0.5) * dk, Kc[2] + (rand(rng) - 0.5) * dk, Kc[3] + (rand(rng) - 0.5) * dk]
+            # K[idx] = @SVector [Kc[1] + (rand(rng) - 0.5) * dk, Kc[2] + (rand(rng) - 0.5) * dk, Kc[3] + (rand(rng) - 0.5) * dk]
+            K.data[1, idx] = Kc[1] + (rand(rng) - 0.5) * dk
+            K.data[2, idx] = Kc[2] + (rand(rng) - 0.5) * dk
+            K.data[3, idx] = Kc[3] + (rand(rng) - 0.5) * dk
         else # D=2
-            K[idx] = @SVector [Kc[1] + (rand(rng) - 0.5) * dk, Kc[2] + (rand(rng) - 0.5) * dk]
+            # K[idx] = @SVector [Kc[1] + (rand(rng) - 0.5) * dk, Kc[2] + (rand(rng) - 0.5) * dk]
+            K.data[1, idx] = Kc[1] + (rand(rng) - 0.5) * dk
+            K.data[2, idx] = Kc[2] + (rand(rng) - 0.5) * dk
         end
         # K[idx] += (rand(rng, D) .- 0.5) .* K.δk
         return 1.0

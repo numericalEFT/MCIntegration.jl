@@ -190,7 +190,8 @@ function reset!(config, reweight = nothing)
 end
 
 mutable struct FermiK{D} <: Variable
-    data::Vector{MVector{D,Float64}}
+    # data::Vector{MVector{D,Float64}}
+    data::Matrix{Float64}
     # data::Vector{Vector{Float64}}
     kF::Float64
     δk::Float64
@@ -198,9 +199,10 @@ mutable struct FermiK{D} <: Variable
     offset::Int
     function FermiK(dim, kF, δk, maxK, size = MaxOrder; offset = 0)
         @assert offset + 1 < size
-        k0 = MVector{dim,Float64}([kF for i = 1:dim])
+        k = zeros(D, size) .+ kF / sqrt(D)
+        # k0 = MVector{dim,Float64}([kF for i = 1:dim])
         # k0 = @SVector [kF for i = 1:dim]
-        k = [k0 for i = 1:size]
+        # k = [k0 for i = 1:size]
         return new{dim}(k, kF, δk, maxK, offset)
     end
 end
@@ -300,3 +302,9 @@ function Base.setindex!(Var::Variable, v, i::Int)
 end
 Base.firstindex(Var::Variable) = 1 # return index, not the value
 Base.lastindex(Var::Variable) = length(Var.data) # return index, not the value
+
+Base.getindex(Var::FermiK{D}, i::Int) where {D} = Var.data[:, i]
+function Base.setindex!(Var::FermiK{D}, v, i::Int) where {D}
+    view(Var.data, :, i) .= v
+end
+Base.lastindex(Var::FermiK{D}) where {D} = size(Var.data)[2] # return index, not the value
