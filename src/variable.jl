@@ -195,11 +195,13 @@ mutable struct FermiK{D} <: Variable
     kF::Float64
     δk::Float64
     maxK::Float64
-    function FermiK(dim, kF, δk, maxK, size = MaxOrder)
+    firstidx::Int
+    function FermiK(dim, kF, δk, maxK, size = MaxOrder; firstidx = 1)
+        @assert firstidx < size
         k0 = MVector{dim,Float64}([kF for i = 1:dim])
         # k0 = @SVector [kF for i = 1:dim]
         k = [k0 for i = 1:size]
-        return new{dim}(k, kF, δk, maxK)
+        return new{dim}(k, kF, δk, maxK, firstidx)
     end
 end
 
@@ -222,9 +224,11 @@ mutable struct Tau <: Variable
     data::Vector{Float64}
     λ::Float64
     β::Float64
-    function Tau(β = 1.0, λ = 0.5, size = MaxOrder)
+    firstidx::Int
+    function Tau(β = 1.0, λ = 0.5, size = MaxOrder; firstidx = 1)
+        @assert firstidx < size
         t = [β * (i - 0.5) / size for i = 1:size] #avoid duplication
-        return new(t, λ, β)
+        return new(t, λ, β, firstidx)
     end
 end
 
@@ -233,8 +237,10 @@ mutable struct Continuous <: Variable
     λ::Float64
     lower::Float64
     range::Float64
-    function Continuous(bound, λ = nothing, size = MaxOrder)
+    firstidx::Int
+    function Continuous(bound, λ = nothing, size = MaxOrder; firstidx = 1)
         lower, upper = bound
+        @assert firstidx < size
         @assert upper > lower
         @assert isnothing(λ) || (0 < λ < (upper - lower))
         t = [lower + (upper - lower) * (i - 0.5) / size for i = 1:size] #avoid duplication
@@ -243,7 +249,7 @@ mutable struct Continuous <: Variable
             λ = (upper - lower) / 2.0
         end
 
-        return new(t, λ, lower, upper - lower)
+        return new(t, λ, lower, upper - lower, firstidx)
     end
 end
 
