@@ -209,9 +209,11 @@ mutable struct RadialFermiK <: Variable
     data::Vector{Float64}
     kF::Float64
     δk::Float64
-    function RadialFermiK(kF = 1.0, δk = 0.01, size = MaxOrder)
+    firstidx::Int
+    function RadialFermiK(kF = 1.0, δk = 0.01, size = MaxOrder; firstidx = 1)
+        @assert firstidx < size
         k = [kF * (i - 0.5) / size for i = 1:size] #avoid duplication
-        return new(k, kF, δk)
+        return new(k, kF, δk, firstidx)
     end
 end
 
@@ -256,9 +258,11 @@ end
 mutable struct Angle <: Variable
     data::Vector{Float64}
     λ::Float64
-    function Angle(λ = 0.5, size = MaxOrder)
+    firstidx::Int
+    function Angle(λ = 0.5, size = MaxOrder; firstidx = 1)
+        @assert firstidx < size
         theta = [π * (i - 0.5) / size for i = 1:size] #avoid dulication
-        return new(theta, λ)
+        return new(theta, λ, firstidx)
     end
 end
 
@@ -267,9 +271,11 @@ mutable struct TauPair <: Variable
     data::Vector{MVector{2,Float64}}
     λ::Float64
     β::Float64
-    function TauPair(β = 1.0, λ = 0.5, size = MaxOrder)
+    firstidx::Int
+    function TauPair(β = 1.0, λ = 0.5, size = MaxOrder; firstidx = 1)
+        @assert firstidx < size
         t = [@MVector [β * (i - 0.4) / size, β * (i - 0.6) / size] for i = 1:size] #avoid duplication
-        return new(t, λ, β)
+        return new(t, λ, β, firstidx)
     end
 end
 
@@ -278,10 +284,12 @@ mutable struct Discrete <: Variable
     lower::Int
     upper::Int
     size::Int
-    function Discrete(lower, upper, size = MaxOrder)
+    firstidx::Int
+    function Discrete(lower, upper, size = MaxOrder; firstidx = 1)
         d = [i for i = 1:size] #avoid dulication
+        @assert firstidx < size
         @assert upper > lower
-        return new(d, lower, upper, upper - lower + 1)
+        return new(d, lower, upper, upper - lower + 1, firstidx)
     end
 end
 
