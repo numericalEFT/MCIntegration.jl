@@ -48,7 +48,7 @@ function Sphere2(totalstep)
     return avg, err
 end
 
-function Sphere3(totalstep)
+function Sphere3(totalstep; offset = 0)
     function integrand(config)
         @assert config.curr == 1 || config.curr == 2
         X = config.var[1]
@@ -73,7 +73,7 @@ function Sphere3(totalstep)
         config.observable[config.curr] += weight / abs(weight) * factor
     end
 
-    T = MCIntegration.Continuous([0.0, 1.0], 1.0 / 2.0)
+    T = MCIntegration.Continuous([0.0, 1.0], 1.0 / 2.0, offset = offset)
     dof = [[2,], [3,]] # number of T variable for the normalization and the integrand
     config = MCIntegration.Configuration(totalstep, (T,), dof, [0.0, 0.0])
     avg, err = MCIntegration.sample(config, integrand, measure; Nblock = 64, print = -1)
@@ -196,6 +196,12 @@ end
     avg, err = Sphere3(totalStep)
     println("MC integration 3: $(avg[1]) ± $(err[1]) (exact: $(π / 4.0))")
     println("MC integration 3: $(avg[2]) ± $(err[2]) (exact: $(4.0 * π / 3.0 / 8))")
+    @test abs(avg[1] - π / 4.0) < 5.0 * err[1]
+    @test abs(avg[2] - π / 6.0) < 5.0 * err[2]
+
+    avg, err = Sphere3(totalStep, offset = 2)
+    println("MC integration 3 with offset: $(avg[1]) ± $(err[1]) (exact: $(π / 4.0))")
+    println("MC integration 3 with offset: $(avg[2]) ± $(err[2]) (exact: $(4.0 * π / 3.0 / 8))")
     @test abs(avg[1] - π / 4.0) < 5.0 * err[1]
     @test abs(avg[2] - π / 6.0) < 5.0 * err[2]
 
