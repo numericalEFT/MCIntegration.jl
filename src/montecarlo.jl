@@ -153,7 +153,8 @@ function montecarlo(config::Configuration, integrand::Function, measure::Functio
             if config.curr == config.norm # the last diagram is for normalization
                 config.normalization += 1.0 / config.reweight[config.norm]
             else
-                measure(config)
+                # measure(config)
+                config.measure(config)
             end
         end
         if i % 1000 == 0
@@ -172,6 +173,14 @@ function montecarlo(config::Configuration, integrand::Function, measure::Functio
     end
 
     return config
+end
+
+function default_measure(config)
+    obs = config.observable
+    factor = 1.0 / config.reweight[config.curr]
+    # extidx = config.var[3][1]
+    weight = integrand(config)
+    view(obs, getindex(config)...) .+= weight / abs(weight) * factor
 end
 
 function doReweight(config)
