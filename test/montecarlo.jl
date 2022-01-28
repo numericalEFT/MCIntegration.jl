@@ -53,13 +53,13 @@ function Sphere3(totalstep; offset = 0)
         @assert config.curr == 1 || config.curr == 2
         X = config.var[1]
         if config.curr == 1
-            if (X[1]^2 + X[2]^2 < 1.0)
+            if (X[1+offset]^2 + X[2+offset]^2 < 1.0)
                 return 1.0
             else
                 return 0.0
             end
         else
-            if (X[1]^2 + X[2]^2 + X[3]^2 < 1.0)
+            if (X[1+offset]^2 + X[2+offset]^2 + X[3+offset]^2 < 1.0)
                 return 1.0
             else
                 return 0.0

@@ -199,7 +199,7 @@ mutable struct FermiK{D} <: Variable
     offset::Int
     function FermiK(dim, kF, δk, maxK, size = MaxOrder; offset = 0)
         @assert offset + 1 < size
-        k = zeros(D, size) .+ kF / sqrt(D)
+        k = zeros(dim, size) .+ kF / sqrt(dim)
         # k0 = MVector{dim,Float64}([kF for i = 1:dim])
         # k0 = @SVector [kF for i = 1:dim]
         # k = [k0 for i = 1:size]
