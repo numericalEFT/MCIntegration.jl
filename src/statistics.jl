@@ -8,7 +8,7 @@ mutable struct SummaryStat
     accept::Array{Float64,3}
 end
 
-function addStat(config, summary=nothing)
+function addStat(config, summary = nothing)
     if isnothing(summary)
         return SummaryStat(config.step, config.totalStep, config.visited, config.reweight, config.propose, config.accept)
     else
@@ -36,5 +36,33 @@ function reduceStat(summary, root, comm)
         return SummaryStat(step, totalStep, visited, reweight, propose, accept)
     else
         return summary
+    end
+end
+
+function MPIreduce(data)
+    comm = MPI.COMM_WORLD
+    Nworker = MPI.Comm_size(comm)  # number of MPI workers
+    rank = MPI.Comm_rank(comm)  # rank of current MPI worker
+    root = 0 # rank of the root worker
+
+    if Nworker == 1 #no parallelization
+        return data
+    end
+    if typeof(data) <: AbstractArray
+        if eltype(data) isa Complex
+            MPI.Reduce!(data, MPI.SUM, root, comm) # root node gets the sum of observables from all blocks
+            return data
+        else
+            # MPI.jl complaints that Matrix{Complex} is not a bitstype, and failed to work
+            # the following is a workaround 
+            rdata, idata = real(data), imag(data)
+            MPI.Reduce!(rdata, MPI.SUM, root, comm) # root node gets the sum of observables from all blocks
+            MPI.Reduce!(idata, MPI.SUM, root, comm) # root node gets the sum of observables from all blocks
+            return rdata .+ idata .* 1im
+        end
+    else
+        result = [data,]  # MPI.Reduce works for array only
+        MPI.Reduce!(result, MPI.SUM, root, comm) # root node gets the sum of observables from all blocks
+        return result[1]
     end
 end

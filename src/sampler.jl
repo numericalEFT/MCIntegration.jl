@@ -65,7 +65,7 @@ Propose to generate new Fermi K in [Kf-δK, Kf+δK)
 - `newK`:  vector of dimension of d=2 or 3
 """
 function create!(K::FermiK{D}, idx::Int, config) where {D}
-    # @assert idx >= K.offset + 1
+    @assert idx > K.offset
     (idx >= length(K.data) - 1) && error("$idx overflow!")
     rng = config.rng
     ############ Simple Way ########################
@@ -108,7 +108,7 @@ Propose to remove an existing Fermi K in [Kf-δK, Kf+δK)
 - `oldK`:  vector of dimension of d=2 or 3
 """
 function remove!(K::FermiK{D}, idx::Int, config) where {D}
-    # @assert idx >= K.offset + 1
+    @assert idx > K.offset
     (idx >= length(K.data) - 1) && error("$idx overflow!")
     ############## Simple Way #########################
     # for i in 1:DIM
@@ -142,7 +142,7 @@ removeRollback!(K::FermiK{D}, idx::Int, config) where {D} = nothing
 Propose to shift oldK to newK. Work for generic momentum vector
 """
 function shift!(K::FermiK{D}, idx::Int, config) where {D}
-    # @assert idx >= K.offset + 1
+    @assert idx > K.offset
     (idx >= length(K.data) - 1) && error("$idx overflow!")
     K[end] = K[idx]  # save current K
 

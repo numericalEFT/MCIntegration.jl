@@ -101,14 +101,8 @@ function sample(config::Configuration, integrand::Function, measure::Function;
     end
 
     #################### collect statistics  ####################################
-    if typeof(obsSum) <: AbstractArray
-        MPI.Reduce!(obsSum, MPI.SUM, root, comm) # root node gets the sum of observables from all blocks
-        MPI.Reduce!(obsSquaredSum, MPI.SUM, root, comm) # root node gets the squared sum of observables from all blocks
-    else
-        result = [obsSum, obsSquaredSum]  # MPI.Reduce works for array only
-        MPI.Reduce!(result, MPI.SUM, root, comm) # root node gets the sum of observables from all blocks
-        obsSum, obsSquaredSum = result
-    end
+    MPIreduce(obsSum)
+    MPIreduce(obsSquaredSum)
     summary = reduceStat(summary, root, comm) # root node gets the summed MC information
 
     if MPI.Comm_rank(comm) == root
