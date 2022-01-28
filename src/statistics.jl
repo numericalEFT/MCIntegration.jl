@@ -49,17 +49,8 @@ function MPIreduce(data)
         return data
     end
     if typeof(data) <: AbstractArray
-        if eltype(data) isa Complex
-            MPI.Reduce!(data, MPI.SUM, root, comm) # root node gets the sum of observables from all blocks
-            return data
-        else
-            # MPI.jl complaints that Matrix{Complex} is not a bitstype, and failed to work
-            # the following is a workaround 
-            rdata, idata = real(data), imag(data)
-            MPI.Reduce!(rdata, MPI.SUM, root, comm) # root node gets the sum of observables from all blocks
-            MPI.Reduce!(idata, MPI.SUM, root, comm) # root node gets the sum of observables from all blocks
-            return rdata .+ idata .* 1im
-        end
+        MPI.Reduce!(data, MPI.SUM, root, comm) # root node gets the sum of observables from all blocks
+        return data
     else
         result = [data,]  # MPI.Reduce works for array only
         MPI.Reduce!(result, MPI.SUM, root, comm) # root node gets the sum of observables from all blocks
