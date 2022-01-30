@@ -173,8 +173,19 @@ function doReweight(config)
     for (vi, v) in enumerate(config.visited)
         if v > 1000
             config.reweight[vi] *= avgstep / v
+            if config.reweight[vi] < 1e-10
+                config.reweight[vi] = 1e-10
+            end
         end
     end
+    # renoormalize all reweight to be (0.0, 1.0)
+    config.reweight .= config.reweight ./ sum(config.reweight)
+    # dample reweight factor to avoid rapid, destabilizing changes
+    # reweight factor close to 1.0 will not be changed much
+    # reweight factor close to zero will be amplified significantly
+    # Check Eq. (19) of https://arxiv.org/pdf/2009.05112.pdf for more detail
+    α = 2.0
+    config.reweight = @. ((1 - config.reweight) / log(1 / config.reweight))^α
 end
 
 function printSummary(summary, neighbor, var)
