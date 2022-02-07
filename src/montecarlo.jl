@@ -47,9 +47,10 @@ sample(config::Configuration, integrand::Function, measure::Function; Nblock=16,
 
 - `reweight = config.totalStep/10`: the MC steps before reweighting the integrands. Set to -1 if reweighting is not wanted.
 """
-function sample(config::Configuration, integrand::Function, measure::Function; Nblock = 16, print = 0, printio = stdout, save = 0, saveio = nothing, timer = [], reweight = config.totalStep / 10)
+function sample(config::Configuration, integrand::Function, measure::Function;
+    Nblock = 16, print = 0, printio = stdout, save = 0, saveio = nothing, timer = [], reweight = config.totalStep / 10)
 
-    println(reweight)
+    # println(reweight)
 
     ############ initialized timer ####################################
     if print > 0
@@ -100,14 +101,8 @@ function sample(config::Configuration, integrand::Function, measure::Function; N
     end
 
     #################### collect statistics  ####################################
-    if typeof(obsSum) <: AbstractArray
-        MPI.Reduce!(obsSum, MPI.SUM, root, comm) # root node gets the sum of observables from all blocks
-        MPI.Reduce!(obsSquaredSum, MPI.SUM, root, comm) # root node gets the squared sum of observables from all blocks
-    else
-        result = [obsSum, obsSquaredSum]  # MPI.Reduce works for array only
-        MPI.Reduce!(result, MPI.SUM, root, comm) # root node gets the sum of observables from all blocks
-        obsSum, obsSquaredSum = result
-    end
+    MPIreduce(obsSum)
+    MPIreduce(obsSquaredSum)
     summary = reduceStat(summary, root, comm) # root node gets the summed MC information
 
     if MPI.Comm_rank(comm) == root
@@ -178,8 +173,19 @@ function doReweight(config)
     for (vi, v) in enumerate(config.visited)
         if v > 1000
             config.reweight[vi] *= avgstep / v
+            if config.reweight[vi] < 1e-10
+                config.reweight[vi] = 1e-10
+            end
         end
     end
+    # renoormalize all reweight to be (0.0, 1.0)
+    config.reweight .= config.reweight ./ sum(config.reweight)
+    # dample reweight factor to avoid rapid, destabilizing changes
+    # reweight factor close to 1.0 will not be changed much
+    # reweight factor close to zero will be amplified significantly
+    # Check Eq. (19) of https://arxiv.org/pdf/2009.05112.pdf for more detail
+    α = 2.0
+    config.reweight = @. ((1 - config.reweight) / log(1 / config.reweight))^α
 end
 
 function printSummary(summary, neighbor, var)

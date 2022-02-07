@@ -14,13 +14,14 @@ function changeIntegrand(config, integrand)
 
     # create/remove variables if there are more/less degrees of freedom
     for vi = 1:length(config.var)
+        offset = config.var[vi].offset
         if (currdof[vi] < newdof[vi]) # more degrees of freedom
             for pos = currdof[vi]+1:newdof[vi]
-                prop *= create!(config.var[vi], pos, config)
+                prop *= create!(config.var[vi], pos + offset, config)
             end
         elseif (currdof[vi] > newdof[vi]) # less degrees of freedom
             for pos = newdof[vi]+1:currdof[vi]
-                prop *= remove!(config.var[vi], pos, config)
+                prop *= remove!(config.var[vi], pos + offset, config)
             end
         end
     end
@@ -44,13 +45,14 @@ function changeIntegrand(config, integrand)
 
         ############ Redo changes to config.var #############
         for vi = 1:length(config.var)
+            offset = config.var[vi].offset
             if (currdof[vi] < newdof[vi]) # more degrees of freedom
                 for pos = currdof[vi]+1:newdof[vi]
-                    createRollback!(config.var[vi], pos, config)
+                    createRollback!(config.var[vi], pos + offset, config)
                 end
             elseif (currdof[vi] > newdof[vi]) # less degrees of freedom
                 for pos = newdof[vi]+1:currdof[vi]
-                    removeRollback!(config.var[vi], pos, config)
+                    removeRollback!(config.var[vi], pos + offset, config)
                 end
             end
         end
@@ -68,7 +70,7 @@ function changeVariable(config, integrand)
     vi = rand(config.rng, 1:length(currdof)) # update the variable type of the index vi
     var = config.var[vi]
     (currdof[vi] <= 0) && return # return if the var has zero degree of freedom
-    idx = rand(config.rng, 1:currdof[vi]) # randomly choose one var to update
+    idx = var.offset + rand(config.rng, 1:currdof[vi]) # randomly choose one var to update
 
     # oldvar = copy(var[idx])
     currAbsWeight = config.absWeight
