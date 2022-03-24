@@ -207,6 +207,12 @@ mutable struct FermiK{D} <: Variable
     end
 end
 
+Base.getindex(Var::FermiK{D}, i::Int) where {D} = Var.data[:, i]
+function Base.setindex!(Var::FermiK{D}, v, i::Int) where {D}
+    view(Var.data, :, i) .= v
+end
+Base.lastindex(Var::FermiK{D}) where {D} = size(Var.data)[2] # return index, not the value
+
 mutable struct RadialFermiK <: Variable
     data::Vector{Float64}
     kF::Float64
@@ -302,9 +308,3 @@ function Base.setindex!(Var::Variable, v, i::Int)
 end
 Base.firstindex(Var::Variable) = 1 # return index, not the value
 Base.lastindex(Var::Variable) = length(Var.data) # return index, not the value
-
-Base.getindex(Var::FermiK{D}, i::Int) where {D} = Var.data[:, i]
-function Base.setindex!(Var::FermiK{D}, v, i::Int) where {D}
-    view(Var.data, :, i) .= v
-end
-Base.lastindex(Var::FermiK{D}) where {D} = size(Var.data)[2] # return index, not the value

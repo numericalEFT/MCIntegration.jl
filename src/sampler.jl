@@ -1,5 +1,5 @@
 """
-    createIdx!(newIdx::Int, size::Int, rng=GLOBAL_RNG)
+    create!(newIdx::Int, size::Int, rng=GLOBAL_RNG)
 
 Propose to generate new index (uniformly) randomly in [1, size]
 
@@ -17,7 +17,7 @@ end
 @inline createRollback!(d::Discrete, idx::Int, config) = nothing
 
 """
-    removeIdx!(newIdx::Int, size::Int, rng=GLOBAL_RNG)
+    remove!(newIdx::Int, size::Int, rng=GLOBAL_RNG)
 
 Propose to remove the old index in [1, size]
 
@@ -34,7 +34,7 @@ end
 @inline removeRollback!(d::Discrete, idx::Int, config) = nothing
 
 """
-    shiftIdx!(oldIdx::Int, newIdx::Int, size::Int, rng=GLOBAL_RNG)
+    shift!(d::Discrete, idx::Int, config)
 
 Propose to shift the old index in [1, size] to a new index
 
@@ -55,6 +55,24 @@ end
     (idx >= length(d.data) - 1) && error("$idx overflow!")
     d[idx] = d[end]
 end
+
+"""
+    swap!(d::Discrete, idx1::Int, idx2::Int, config)
+
+ Swap the variables idx1 and idx2
+
+"""
+@inline function swap!(d::Discrete, idx1::Int, idx2::Int, config)
+    ((idx1 >= length(d.data) - 1) || (idx2 >= length(d.data) - 1)) && error("$idx overflow!")
+    d[idx1], d[idx2] = d[idx2], d[idx1]
+    return 1.0
+end
+
+@inline function swapRollback!(d::Discrete, idx1::Int, idx2::Int, config)
+    ((idx1 >= length(d.data) - 1) || (idx2 >= length(d.data) - 1)) && error("$idx overflow!")
+    d[idx1], d[idx2] = d[idx2], d[idx1]
+end
+
 
 """
     create!(K::FermiK{D}, idx::Int, rng=GLOBAL_RNG)
@@ -193,6 +211,17 @@ function shiftRollback!(K::FermiK{D}, idx::Int, config) where {D}
     K[idx] = K[end]
 end
 
+@inline function swap!(K::FermiK{D}, idx1::Int, idx2::Int, config) where {D}
+    ((idx1 >= length(K.data) - 1) || (idx2 >= length(K.data) - 1)) && error("$idx1 or $idx2 overflow!")
+    K.data[:, idx1], K.data[:, idx2] .= K.data[:, idx2], K.data[:, idx1]
+    return 1.0
+end
+
+@inline function swapRollback!(K::FermiK{D}, idx1::Int, idx2::Int, config) where {D}
+    ((idx1 >= length(K.data) - 1) || (idx2 >= length(K.data) - 1)) && error("$idx1 or $idx2 overflow!")
+    K.data[:, idx1], K.data[:, idx2] .= K.data[:, idx2], K.data[:, idx1]
+end
+
 """
     create!(T::Tau, idx::Int, rng=GLOBAL_RNG)
 
@@ -261,6 +290,23 @@ end
 end
 
 """
+    swap!(T::Tau, idx1::Int, idx2::Int, config)
+
+ Swap the variables idx1 and idx2
+
+"""
+@inline function swap!(T::Tau, idx1::Int, idx2::Int, config)
+    ((idx1 >= length(T.data) - 1) || (idx2 >= length(T.data) - 1)) && error("$idx1 or $idx2 overflow!")
+    T[idx1], T[idx2] = T[idx2], T[idx1]
+    return 1.0
+end
+
+@inline function swapRollback!(T::Tau, idx1::Int, idx2::Int, config)
+    ((idx1 >= length(T.data) - 1) || (idx2 >= length(T.data) - 1)) && error("$idx1 or $idx2 overflow!")
+    T[idx1], T[idx2] = T[idx2], T[idx1]
+end
+
+"""
     create!(T::TauPair, idx::Int, rng=GLOBAL_RNG)
 
 Propose to generate a new pair of tau (uniformly) randomly in [0, β), return proposal probability
@@ -278,6 +324,7 @@ Propose to generate a new pair of tau (uniformly) randomly in [0, β), return pr
 end
 
 @inline createRollback!(T::TauPair, idx::Int, config) = nothing
+
 
 """
     remove(T::TauPair, idx::Int, rng=GLOBAL_RNG)
@@ -338,6 +385,17 @@ end
 @inline function shiftRollback!(T::TauPair, idx::Int, config)
     (idx >= length(T.data) - 1) && error("$idx overflow!")
     T[idx] .= T[end]
+end
+
+@inline function swap!(T::TauPair, idx1::Int, idx2::Int, config)
+    ((idx1 >= length(T.data) - 1) || (idx2 >= length(T.data) - 1)) && error("$idx1 or $idx2 overflow!")
+    T[idx1], T[idx2] = T[idx2], T[idx1]
+    return 1.0
+end
+
+@inline function swapRollback!(T::TauPair, idx1::Int, idx2::Int, config)
+    ((idx1 >= length(T.data) - 1) || (idx2 >= length(T.data) - 1)) && error("$idx1 or $idx2 overflow!")
+    T[idx1], T[idx2] = T[idx2], T[idx1]
 end
 
 """
@@ -526,6 +584,17 @@ end
     K[idx] = K[end]
 end
 
+@inline function swap!(K::RadialFermiK, idx1::Int, idx2::Int, config)
+    ((idx1 >= length(K.data) - 1) || (idx2 >= length(K.data) - 1)) && error("$idx1 or $idx2 overflow!")
+    K[idx1], K[idx2] = K[idx2], K[idx1]
+    return 1.0
+end
+
+@inline function swapRollback!(K::RadialFermiK, idx1::Int, idx2::Int, config)
+    ((idx1 >= length(K.data) - 1) || (idx2 >= length(K.data) - 1)) && error("$idx1 or $idx2 overflow!")
+    K[idx1], K[idx2] = K[idx2], K[idx1]
+end
+
 """
     create!(T::Continuous, idx::Int, rng=GLOBAL_RNG)
 
@@ -589,4 +658,16 @@ end
 @inline function shiftRollback!(T::Continuous, idx::Int, config)
     (idx >= length(T.data) - 1) && error("$idx overflow!")
     T[idx] = T[end]
+end
+
+
+@inline function swap!(T::Continuous, idx1::Int, idx2::Int, config)
+    ((idx1 >= length(T.data) - 1) || (idx2 >= length(T.data) - 1)) && error("$idx1 or $idx2 overflow!")
+    T[idx1], T[idx2] = T[idx2], T[idx1]
+    return 1.0
+end
+
+@inline function swapRollback!(T::Continuous, idx1::Int, idx2::Int, config)
+    ((idx1 >= length(T.data) - 1) || (idx2 >= length(T.data) - 1)) && error("$idx1 or $idx2 overflow!")
+    T[idx1], T[idx2] = T[idx2], T[idx1]
 end

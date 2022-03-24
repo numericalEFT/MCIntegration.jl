@@ -127,7 +127,7 @@ function montecarlo(config::Configuration, integrand::Function, measure::Functio
     # don't forget to initialize the diagram weight
     config.absWeight = abs(integrand(config))
 
-    updates = [changeIntegrand, changeVariable] # TODO: sample changeVariable more often
+    updates = [changeIntegrand, swapVariable, changeVariable] # TODO: sample changeVariable more often
     for i = 2:length(config.var)
         push!(updates, changeVariable)
     end
