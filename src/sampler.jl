@@ -213,13 +213,31 @@ end
 
 @inline function swap!(K::FermiK{D}, idx1::Int, idx2::Int, config) where {D}
     ((idx1 >= length(K.data) - 1) || (idx2 >= length(K.data) - 1)) && error("$idx1 or $idx2 overflow!")
-    K.data[:, idx1], K.data[:, idx2] .= K.data[:, idx2], K.data[:, idx1]
+    if D == 2
+        K.data[1, idx1], K.data[1, idx2] = K.data[1, idx2], K.data[1, idx1]
+        K.data[2, idx1], K.data[2, idx2] = K.data[2, idx2], K.data[2, idx1]
+    elseif D == 3
+        K.data[1, idx1], K.data[1, idx2] = K.data[1, idx2], K.data[1, idx1]
+        K.data[2, idx1], K.data[2, idx2] = K.data[2, idx2], K.data[2, idx1]
+        K.data[3, idx1], K.data[3, idx2] = K.data[3, idx2], K.data[3, idx1]
+    else
+        error("not implemented!")
+    end
     return 1.0
 end
 
 @inline function swapRollback!(K::FermiK{D}, idx1::Int, idx2::Int, config) where {D}
     ((idx1 >= length(K.data) - 1) || (idx2 >= length(K.data) - 1)) && error("$idx1 or $idx2 overflow!")
-    K.data[:, idx1], K.data[:, idx2] .= K.data[:, idx2], K.data[:, idx1]
+    if D == 2
+        K.data[1, idx1], K.data[1, idx2] = K.data[1, idx2], K.data[1, idx1]
+        K.data[2, idx1], K.data[2, idx2] = K.data[2, idx2], K.data[2, idx1]
+    elseif D == 3
+        K.data[1, idx1], K.data[1, idx2] = K.data[1, idx2], K.data[1, idx1]
+        K.data[2, idx1], K.data[2, idx2] = K.data[2, idx2], K.data[2, idx1]
+        K.data[3, idx1], K.data[3, idx2] = K.data[3, idx2], K.data[3, idx1]
+    else
+        error("not implemented!")
+    end
 end
 
 """
