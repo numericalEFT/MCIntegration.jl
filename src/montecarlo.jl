@@ -101,7 +101,7 @@ function sample(config::Configuration, integrand::Function, measure::Function;
             end
         else
             obsSum += config.observable / config.normalization
-            if type(obsSquaredSum) <: Complex
+            if typeof(obsSquaredSum) <: Complex
                 obsSquaredSum += (real(config.observable) / config.normalization)^2
                 obsSquaredSum += (imag(config.observable) / config.normalization)^2 * 1im
             else
