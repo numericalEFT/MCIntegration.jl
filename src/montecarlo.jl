@@ -33,7 +33,7 @@ sample(config::Configuration, integrand::Function, measure::Function; Nblock=16,
 
 - `measure`: function call to measure. It should accept an argument of the type `Configuration`, then manipulate observables `obs`. 
 
-- `Nblock`: repeat times. The tasks will automatically distributed to multi-process in MPI mode.
+- `Nblock`: Number of blocks, each block corresponds to one Configuration struct. The tasks will automatically distributed to multi-process in MPI mode. If the numebr of workers N is larger than Nblock, then Nblock will be set to be N.
 
 - `print`: -1 to not print anything, 0 to print minimal information, >0 to print summary for every `print` seconds
 
@@ -48,7 +48,7 @@ sample(config::Configuration, integrand::Function, measure::Function; Nblock=16,
 - `reweight = config.totalStep/10`: the MC steps before reweighting the integrands. Set to -1 if reweighting is not wanted.
 """
 function sample(config::Configuration, integrand::Function, measure::Function;
-    Nblock = 16, print = 0, printio = stdout, save = 0, saveio = nothing, timer = [], reweight = config.totalStep / 10)
+    Nblock=16, print=0, printio=stdout, save=0, saveio=nothing, timer=[], reweight=config.totalStep / 10)
 
     # println(reweight)
 
@@ -93,10 +93,20 @@ function sample(config::Configuration, integrand::Function, measure::Function;
 
         if typeof(obsSum) <: AbstractArray
             obsSum .+= config.observable ./ config.normalization
-            obsSquaredSum .+= (config.observable ./ config.normalization) .^ 2
+            if eltype(obsSquaredSum) <: Complex  #ComplexF16, ComplexF32 or ComplexF64 array
+                obsSquaredSum .+= (real.(config.observable) ./ config.normalization) .^ 2
+                obsSquaredSum .+= (imag.(config.observable) ./ config.normalization) .^ 2 * 1im
+            else
+                obsSquaredSum .+= (config.observable ./ config.normalization) .^ 2
+            end
         else
             obsSum += config.observable / config.normalization
-            obsSquaredSum += (config.observable / config.normalization)^2
+            if typeof(obsSquaredSum) <: Complex
+                obsSquaredSum += (real(config.observable) / config.normalization)^2
+                obsSquaredSum += (imag(config.observable) / config.normalization)^2 * 1im
+            else
+                obsSquaredSum += (config.observable / config.normalization)^2
+            end
         end
     end
 
@@ -113,7 +123,13 @@ function sample(config::Configuration, integrand::Function, measure::Function;
         println(red("All simulation ended. Cost $(time() - startTime) seconds."))
         ##################### Extract Statistics  ################################
         mean = obsSum ./ Nblock
-        std = @. sqrt((obsSquaredSum / Nblock - mean^2) / (Nblock - 1))
+        if eltype(obsSquaredSum) <: Complex
+            r_std = @. sqrt((real.(obsSquaredSum) / Nblock - real(mean)^2) / (Nblock - 1))
+            i_std = @. sqrt((imag.(obsSquaredSum) / Nblock - imag(mean)^2) / (Nblock - 1))
+            std = r_std + i_std * 1im
+        else
+            std = @. sqrt((obsSquaredSum / Nblock - mean^2) / (Nblock - 1))
+        end
         # MPI.Finalize()
         return mean, std
     else # if not the root, return nothing
