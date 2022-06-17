@@ -1,4 +1,5 @@
 abstract type Variable end
+abstract type Model end
 const MaxOrder = 16
 
 """
@@ -108,7 +109,7 @@ mutable struct Configuration{V,P,O}
     
     By default, we assume the N integrands are in the increase order, meaning the neighbor will be set to ([N+1, 2], [1, 3], [2, 4], ..., [N-1,], [1, ]), where the first N entries are for diagram 1, 2, ..., N and the last entry is for the normalization diagram. Only the first diagram is connected to the normalization diagram.
 """
-    function Configuration(totalStep, var::V, dof, obs::O; para::P = nothing, reweight = nothing, seed = nothing, neighbor = Vector{Vector{Int}}([])) where {V,P,O}
+    function Configuration(totalStep, var::V, dof, obs::O; para::P=nothing, reweight=nothing, seed=nothing, neighbor=Vector{Vector{Int}}([])) where {V,P,O}
         @assert totalStep > 0 "Total step should be positive!"
         # @assert O <: AbstractArray "observable is expected to be an array. Noe get $(typeof(obs))."
         @assert V <: Tuple{Vararg{Variable}} || V <: Tuple{Variable} "Configuration.var must be a tuple of Variable to maximize efficiency. Now get $(typeof(V))"
@@ -173,7 +174,7 @@ mutable struct Configuration{V,P,O}
     end
 end
 
-function reset!(config, reweight = nothing)
+function reset!(config, reweight=nothing)
     if typeof(config.observable) <: AbstractArray
         fill!(config.observable, zero(eltype(config.observable))) # reinialize observable
     else
@@ -197,7 +198,7 @@ mutable struct FermiK{D} <: Variable
     δk::Float64
     maxK::Float64
     offset::Int
-    function FermiK(dim, kF, δk, maxK, size = MaxOrder; offset = 0)
+    function FermiK(dim, kF, δk, maxK, size=MaxOrder; offset=0)
         @assert offset + 1 < size
         k = zeros(dim, size) .+ kF / sqrt(dim)
         # k0 = MVector{dim,Float64}([kF for i = 1:dim])
@@ -218,7 +219,7 @@ mutable struct RadialFermiK <: Variable
     kF::Float64
     δk::Float64
     offset::Int
-    function RadialFermiK(kF = 1.0, δk = 0.01, size = MaxOrder; offset = 0)
+    function RadialFermiK(kF=1.0, δk=0.01, size=MaxOrder; offset=0)
         @assert offset + 1 < size
         k = [kF * (i - 0.5) / size for i = 1:size] #avoid duplication
         return new(k, kF, δk, offset)
@@ -235,7 +236,7 @@ mutable struct Tau <: Variable
     λ::Float64
     β::Float64
     offset::Int
-    function Tau(β = 1.0, λ = 0.5, size = MaxOrder; offset = 0)
+    function Tau(β=1.0, λ=0.5, size=MaxOrder; offset=0)
         @assert offset + 1 < size
         t = [β * (i - 0.5) / size for i = 1:size] #avoid duplication
         return new(t, λ, β, offset)
@@ -248,7 +249,7 @@ mutable struct Continuous <: Variable
     lower::Float64
     range::Float64
     offset::Int
-    function Continuous(bound, λ = nothing, size = MaxOrder; offset = 0)
+    function Continuous(bound, λ=nothing, size=MaxOrder; offset=0)
         lower, upper = bound
         @assert offset + 1 < size
         @assert upper > lower
@@ -267,7 +268,7 @@ mutable struct Angle <: Variable
     data::Vector{Float64}
     λ::Float64
     offset::Int
-    function Angle(λ = 0.5, size = MaxOrder; offset = 0)
+    function Angle(λ=0.5, size=MaxOrder; offset=0)
         @assert offset + 1 < size
         theta = [π * (i - 0.5) / size for i = 1:size] #avoid dulication
         return new(theta, λ, offset)
@@ -280,7 +281,7 @@ mutable struct TauPair <: Variable
     λ::Float64
     β::Float64
     offset::Int
-    function TauPair(β = 1.0, λ = 0.5, size = MaxOrder; offset = 0)
+    function TauPair(β=1.0, λ=0.5, size=MaxOrder; offset=0)
         @assert offset + 1 < size
         t = [@MVector [β * (i - 0.4) / size, β * (i - 0.6) / size] for i = 1:size] #avoid duplication
         return new(t, λ, β, offset)
@@ -293,7 +294,7 @@ mutable struct Discrete <: Variable
     upper::Int
     size::Int
     offset::Int
-    function Discrete(lower, upper, size = MaxOrder; offset = 0)
+    function Discrete(lower, upper, size=MaxOrder; offset=0)
         d = [i for i = 1:size] #avoid dulication
         @assert offset + 1 < size
         @assert upper > lower
@@ -301,6 +302,40 @@ mutable struct Discrete <: Variable
     end
 end
 
+# mutable struct ContinuousND{D} <: Variable
+#     data::Vector{Float64}
+#     lower::Vector{Float64}
+#     range::Vector{Float64}
+#     offset::Int
+#     function ContinuousND{dim}(lower, upper, size=MaxOrder; offset=0) where {dim}
+#         if lower isa Number
+#             lower = ones(Float64, dim) * lower
+#         else
+#             @assert length(lower) == dim && eltype(lower) isa Number
+#         end
+#         if upper isa Number
+#             upper = ones(Float64, dim) * upper
+#         else
+#             @assert length(upper) == dim && eltype(upper) isa Number
+#         end
+#         @assert offset + 1 < size
+#         @assert all(x -> x > 0, upper .- lower)
+#         println(lower, ", ", upper)
+
+#         ######## deterministic initialization #####################
+#         t = []
+#         for i in 1:size
+#             for d in 1:dim
+#                 # the same value should not appear twice!
+#                 init = lower[d] + (upper[d] - lower[d]) * ((i - 1) * dim + d - 0.5) / (size * dim)
+#                 @assert lower[d] <= init <= upper[d]
+#                 append!(t, init)
+#             end
+#         end
+
+#         return new{dim}(t, lower, upper .- lower, offset)
+#     end
+# end
 
 Base.getindex(Var::Variable, i::Int) = Var.data[i]
 function Base.setindex!(Var::Variable, v, i::Int)
@@ -308,3 +343,48 @@ function Base.setindex!(Var::Variable, v, i::Int)
 end
 Base.firstindex(Var::Variable) = 1 # return index, not the value
 Base.lastindex(Var::Variable) = length(Var.data) # return index, not the value
+
+
+
+# struct Uniform{T,D} <: Model
+#     lower::T
+#     upper::T
+#     function Uniform{T,D}(lower, upper) where {T<:Number,D}
+#         return new{T,D}(lower, upper)
+#     end
+# end
+
+# mutable struct Var{T,D,M} <: Variable
+#     data::T
+#     model::M
+#     offset::Int
+#     function Var(model{type,D}::Model, size=MaxOrder; offset=0) where {type<:Number,D}
+#         # lower, upper = model.lower, model.upper
+#         # k = zeros(type, dim, size + offset)
+#         # for i in 1:size
+#         #     for d in 1:dim
+#         #         init = lower[d] + (upper[d] - lower[d]) * ((i - 1) * dim + d - 0.5) / (size * dim)
+#         #         @assert lower[d] <= init <= upper[d]
+#         #         k[d, i+offset] = init
+#         #     end
+#         # end
+#         if D == 1
+#             data = zeros(type, size)
+#         else
+#             data = zeros(type, (D, size))
+#         end
+#         return new{typeof(data),D,typeof(model)}(data, model, offset)
+#     end
+# end
+
+# Base.getindex(var::Var{T,1,M}, i::Int) where {T,M} = var.data[i]
+# function Base.setindex!(var::Var{T,1,M}, v, i::Int) where {T,M}
+#     var.data[i] = v
+# end
+# Base.lastindex(var::Var{T,1,M}) where {T,M} = length(var.data) # return index, not the value
+
+# Base.getindex(var::Var{T,D,M}, i::Int) where {T,D,M} = var.data[:, i]
+# function Base.setindex!(var::Var{T,D,M}, v, i::Int) where {T,M}
+#     var.data[:, i] = v
+# end
+# Base.lastindex(var::Var{T,D,M}) where {T,D,M} = size(var.data)[2] # return index, not the value

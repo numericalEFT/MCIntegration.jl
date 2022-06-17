@@ -1,3 +1,4 @@
+
 """
     create!(newIdx::Int, size::Int, rng=GLOBAL_RNG)
 
@@ -689,3 +690,96 @@ end
     ((idx1 >= length(T.data) - 1) || (idx2 >= length(T.data) - 1)) && error("$idx1 or $idx2 overflow!")
     T[idx1], T[idx2] = T[idx2], T[idx1]
 end
+
+# @inline function sample(model::Uniform{Int,D}, data, idx) where {D}
+#     p = 1.0
+#     for di in 1:D
+#         data[idx, di] = rand(config.rng, model.lower[di]:model.upper[di])
+#         p *= Float64(d.upper - d.lower + 1) # lower:upper has upper-lower+1 elements!
+#     end
+#     return p
+# end
+
+# @inline function sample(model::Uniform{T,D}, data, idx) where {T<:Real,D}
+#     p = T(1)
+#     for di in 1:D
+#         data[idx, di] = rand(config.rng, T) * (model.upper[di] - model.lower[di]) + model.lower[di]
+#         p *= d.upper[di] - d.lower[di]
+#     end
+#     return p
+# end
+
+# """
+#     create!(newIdx::Int, size::Int, rng=GLOBAL_RNG)
+
+# Propose to generate new index (uniformly) randomly in [1, size]
+
+# # Arguments
+# - `newIdx`:  index ∈ [1, size]
+# - `size` : up limit of the index
+# - `rng=GLOBAL_RNG` : random number generator
+# """
+# @inline function create!(d::Var{T,D,M}, idx::Int, config) where {T,D,M}
+#     (idx >= length(d.data) - 1) && error("$idx overflow!")
+#     d[idx] = rand(config.rng, d.lower:d.upper)
+#     return Float64(d.upper - d.lower + 1) # lower:upper has upper-lower+1 elements!
+# end
+
+# @inline createRollback!(d::Discrete, idx::Int, config) = nothing
+
+# """
+#     remove!(newIdx::Int, size::Int, rng=GLOBAL_RNG)
+
+# Propose to remove the old index in [1, size]
+
+# # Arguments
+# - `oldIdx`:  index ∈ [1, size]
+# - `size` : up limit of the index
+# - `rng=GLOBAL_RNG` : random number generator
+# """
+# @inline function remove!(d::Discrete, idx::Int, config)
+#     (idx >= length(d.data) - 1) && error("$idx overflow!")
+#     return 1.0 / Float64(d.upper - d.lower + 1)
+# end
+
+# @inline removeRollback!(d::Discrete, idx::Int, config) = nothing
+
+# """
+#     shift!(d::Discrete, idx::Int, config)
+
+# Propose to shift the old index in [1, size] to a new index
+
+# # Arguments
+# - `oldIdx`:  old index ∈ [1, size]
+# - `newIdx`:  new index ∈ [1, size], will be modified!
+# - `size` : up limit of the index
+# - `rng=GLOBAL_RNG` : random number generator
+# """
+# @inline function shift!(d::Discrete, idx::Int, config)
+#     (idx >= length(d.data) - 1) && error("$idx overflow!")
+#     d[end] = d[idx] # save the current variable
+#     d[idx] = rand(config.rng, d.lower:d.upper)
+#     return 1.0
+# end
+
+# @inline function shiftRollback!(d::Discrete, idx::Int, config)
+#     (idx >= length(d.data) - 1) && error("$idx overflow!")
+#     d[idx] = d[end]
+# end
+
+# """
+#     swap!(d::Discrete, idx1::Int, idx2::Int, config)
+
+#  Swap the variables idx1 and idx2
+
+# """
+# @inline function swap!(d::Discrete, idx1::Int, idx2::Int, config)
+#     ((idx1 >= length(d.data) - 1) || (idx2 >= length(d.data) - 1)) && error("$idx overflow!")
+#     d[idx1], d[idx2] = d[idx2], d[idx1]
+#     return 1.0
+# end
+
+# @inline function swapRollback!(d::Discrete, idx1::Int, idx2::Int, config)
+#     ((idx1 >= length(d.data) - 1) || (idx2 >= length(d.data) - 1)) && error("$idx overflow!")
+#     d[idx1], d[idx2] = d[idx2], d[idx1]
+# end

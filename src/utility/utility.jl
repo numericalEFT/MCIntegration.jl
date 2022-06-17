@@ -1,7 +1,7 @@
 """
 Utility data structures and functions
 """
-module Utility
+module MCUtility
 include("stopwatch.jl")
 export StopWatch, check
 
