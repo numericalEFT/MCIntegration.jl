@@ -5,6 +5,7 @@ Monte Carlo Calculator for Diagrams
 using Random, MPI
 using LinearAlgebra
 using StaticArrays, Printf, Dates
+using Graphs
 using .MCUtility
 const RNG = Random.GLOBAL_RNG
 

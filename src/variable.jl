@@ -25,10 +25,11 @@ mutable struct Configuration
 
  ## integrand properties
  
-- `neighbor::Vector{Vector{Int}}` : vectors that indicates the neighbors of each integrand. e.g., ([2, ], [1, ]) means the neighbor of the first integrand is the second one, while the neighbor of the second integrand is the first. 
-    There is a MC update proposes to jump from one integrand to another. If these two integrands' degrees of freedom are very different, then the update is unlikely to be accepted. To avoid this problem, one can specify neighbor to guide the update. 
-    
-    By default, we assume the N integrands are in the increase order, meaning the neighbor will be set to ([N+1, 2], [1, 3], [2, 4], ..., [N-1,], [1, ]), where the first N entries are for diagram 1, 2, ..., N and the last entry is for the normalization diagram. Only the first diagram is connected to the normalization diagram.
+- `neighbor::Vector{Tuple{Int, Int}}` : vector of tuples that defines the neighboring integrands. Two neighboring integrands are directly connected in the Markov chain. 
+    e.g., [(1, 2), (2, 3)] means the integrand 1 and 2 are neighbor, and 2 and 3 are neighbor.  
+   The neighbor vector defines a undirected graph showing how the integrands are connected. Please make sure all integrands are connected.
+   By default, we assume the N integrands are in the increase order, meaning the neighbor will be set to [(N+1, 1), (1, 2), (2, 4), ..., (N-1, N)], where the first N entries are for diagram 1, 2, ..., N and the last entry is for the normalization diagram. Only the first diagram is connected to the normalization diagram.
+   Only highly correlated integrands are not highly correlated should be defined as neighbors. Otherwise, most of the updates between the neighboring integrands will be rejected and wasted.
 
  - `dof::Vector{Vector{Int}}`: degrees of freedom of each integrand, e.g., [[0, 1], [2, 3]] means the first integrand has zero var#1 and one var#2; while the second integrand has two var#1 and 3 var#2. 
 
@@ -104,12 +105,13 @@ mutable struct Configuration{V,P,O}
 
  - `seed`: seed to initialize random numebr generator, also serves as the unique pid of the configuration. If it is nothing, then use RandomDevice() to generate a random seed in [1, 1000_1000]
 
-- `neighbor::Vector{Vector{Int}}` : vectors that indicates the neighbors of each integrand. e.g., ([2, ], [1, ]) means the neighbor of the first integrand is the second one, while the neighbor of the second integrand is the first. 
-    There is a MC update proposes to jump from one integrand to another. If these two integrands' degrees of freedom are very different, then the update is unlikely to be accepted. To avoid this problem, one can specify neighbor to guide the update. 
-    
-    By default, we assume the N integrands are in the increase order, meaning the neighbor will be set to ([N+1, 2], [1, 3], [2, 4], ..., [N-1,], [1, ]), where the first N entries are for diagram 1, 2, ..., N and the last entry is for the normalization diagram. Only the first diagram is connected to the normalization diagram.
+- `neighbor::Vector{Tuple{Int, Int}}` : vector of tuples that defines the neighboring integrands. Two neighboring integrands are directly connected in the Markov chain. 
+    e.g., [(1, 2), (2, 3)] means the integrand 1 and 2 are neighbor, and 2 and 3 are neighbor.  
+   The neighbor vector defines a undirected graph showing how the integrands are connected. Please make sure all integrands are connected.
+   By default, we assume the N integrands are in the increase order, meaning the neighbor will be set to [(N+1, 1), (1, 2), (2, 4), ..., (N-1, N)], where the first N entries are for diagram 1, 2, ..., N and the last entry is for the normalization diagram. Only the first diagram is connected to the normalization diagram.
+   Only highly correlated integrands are not highly correlated should be defined as neighbors. Otherwise, most of the updates between the neighboring integrands will be rejected and wasted.
 """
-    function Configuration(totalStep, var::V, dof, obs::O; para::P=nothing, reweight=nothing, seed=nothing, neighbor=Vector{Vector{Int}}([])) where {V,P,O}
+    function Configuration(totalStep, var::V, dof, obs::O; para::P=nothing, reweight=nothing, seed=nothing, neighbor::Union{Vector{Vector{Int}},Vector{Tuple{Int,Int}},Nothing}=nothing) where {V,P,O}
         @assert totalStep > 0 "Total step should be positive!"
         # @assert O <: AbstractArray "observable is expected to be an array. Noe get $(typeof(obs))."
         @assert V <: Tuple{Vararg{Variable}} || V <: Tuple{Variable} "Configuration.var must be a tuple of Variable to maximize efficiency. Now get $(typeof(V))"
@@ -128,13 +130,26 @@ mutable struct Configuration{V,P,O}
             @assert length(nv) == Nv "Each element of `dof` should have the same dimension as `var`"
         end
 
-        if neighbor == []
+        if isnothing(neighbor)
             # By default, only the order-1 and order+1 diagrams are considered to be the neighbors
             # Nd is the normalization diagram, by default, it only connects to the first diagram
             neighbor = Vector{Vector{Int}}([[d - 1, d + 1] for d = 1:Nd])
             neighbor[1] = (Nd == 2 ? [2,] : [Nd, 2]) # if Nd=2, then 2 must be the normalization diagram
             neighbor[end] = [1,] # norm to the first diag
             (Nd >= 3) && (neighbor[end-1] = [Nd - 2,]) # last diag to the second last, possible only for Nd>=3
+        # elseif neighbor isa SimpleGraph
+        #     @assert nv(neighbor) == Nd "The number of vertices in the neighbor graph should be equal to the number of integrands."
+        #     neighbor = [neighbors(neighbor, ver) for ver in vertices(neighbor)]
+        #     println(neighbor)
+        elseif neighbor isa Vector{Tuple{Int,Int}}
+            # @assert length(neighbor) == Nd "The number of neighbors should be equal to the number of integrands."
+            g = SimpleGraph()
+            add_vertices!(g, Nd)
+            for n in neighbor
+                add_edge!(g, n[1], n[2])
+            end
+            @assert is_connected(g) "The neighbor graph is not connected."
+            neighbor = [neighbors(g, ver) for ver in vertices(g)]
         end
         @assert typeof(neighbor) == Vector{Vector{Int}} "Configuration.neighbor should be with a type of Vector{Vector{Int}} to avoid mistakes. Now get $(typeof(neighbor))"
         @assert Nd == length(neighbor) "$Nd elements are expected for neighbor=$neighbor"
