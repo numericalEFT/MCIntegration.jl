@@ -61,7 +61,6 @@ mutable struct Configuration{V,P,O}
     seed::Int # seed to initialize random numebr generator, also serves as the unique pid of the configuration
     rng::MersenneTwister # random number generator seeded by seed
     para::P
-    totalStep::Int64
     var::V
 
     ########### integrand properties ##############
@@ -72,7 +71,7 @@ mutable struct Configuration{V,P,O}
     visited::Vector{Float64}
 
     ############# current state ######################
-    step::Int64
+    neval::Int64 # number of evaluations performed up to now
     curr::Int # index of current integrand
     norm::Int # index of the normalization diagram
     normalization::Float64 # normalization factor for observables
@@ -111,15 +110,12 @@ mutable struct Configuration{V,P,O}
    By default, we assume the N integrands are in the increase order, meaning the neighbor will be set to [(N+1, 1), (1, 2), (2, 4), ..., (N-1, N)], where the first N entries are for diagram 1, 2, ..., N and the last entry is for the normalization diagram. Only the first diagram is connected to the normalization diagram.
    Only highly correlated integrands are not highly correlated should be defined as neighbors. Otherwise, most of the updates between the neighboring integrands will be rejected and wasted.
 """
-    function Configuration(totalStep, var::V, dof, obs::O;
-        # nblock::Int=16,
+    function Configuration(var::V, dof, obs::O=zeros(length(dof));
         para::P=nothing,
         reweight::Vector{Float64}=ones(length(dof) + 1),
         seed::Int=rand(Random.RandomDevice(), 1:1000000),
         neighbor::Union{Vector{Vector{Int}},Vector{Tuple{Int,Int}},Nothing}=nothing
     ) where {V,P,O}
-        @assert totalStep > 0 "Total step should be positive!"
-        # @assert nblock > 0 "Number of blocks should be positive!"
         @assert V <: Tuple{Vararg{Variable}} || V <: Tuple{Variable} "Configuration.var must be a tuple of Variable to maximize efficiency. Now get $(typeof(V))"
         Nv = length(var) # number of variables
 
@@ -160,9 +156,11 @@ mutable struct Configuration{V,P,O}
         @assert typeof(neighbor) == Vector{Vector{Int}} "Configuration.neighbor should be with a type of Vector{Vector{Int}} to avoid mistakes. Now get $(typeof(neighbor))"
         @assert Nd == length(neighbor) "$Nd elements are expected for neighbor=$neighbor"
         @assert Nd == length(reweight) "reweight vector size is wrong! Note that the last element in reweight vector is for the normalization diagram."
+        @assert all(x -> x > 0, reweight) "All reweight factors should be positive."
+        reweight /= sum(reweight) # normalize the reweight factors
 
         curr = 1 # set the current diagram to be the first one
-        norm = Nd
+        norm = Nd # set the normalization diagram to be the last one
         # a small initial absweight makes the initial configuaration quickly updated,
         # so that no error is caused even if the intial absweight is wrong, 
         absweight = 1.0e-10
@@ -176,7 +174,7 @@ mutable struct Configuration{V,P,O}
         propose = zeros(Float64, (2, Nd, max(Nd, Nv))) .+ 1.0e-8 # add a small initial value to avoid Inf when inverted
         accept = zeros(Float64, (2, Nd, max(Nd, Nv)))
 
-        return new{V,P,O}(seed, MersenneTwister(seed), para, totalStep, var,  # static parameters
+        return new{V,P,O}(seed, MersenneTwister(seed), para, var,  # static parameters
             collect(neighbor), collect(dof), obs, collect(reweight), visited, # integrand properties
             0, curr, norm, normalization, absweight, propose, accept  # current MC state
         )
@@ -192,6 +190,7 @@ function reset!(config, reweight=nothing)
     if isnothing(reweight) == false
         fill!(reweight, 1.0)
     end
+    config.neval = 0
     config.curr = 1
     config.normalization = 1.0e-10
     fill!(config.visited, 1.0e-8)
