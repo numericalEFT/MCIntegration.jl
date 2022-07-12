@@ -48,7 +48,7 @@ sample(config::Configuration, integrand::Function, measure::Function; Nblock=16,
 
 - `reweight = config.totalStep/10`: the MC steps before reweighting the integrands. Set to -1 if reweighting is not wanted.
 """
-function sample(config::Configuration, integrand::Function, measure::Function;
+function sample(config::Configuration, integrand::Function, measure::Function=simple_measure;
     neval=1e4 * length(config.dof), # number of evaluations
     niter=10, # number of iterations
     block=16, # number of blocks
@@ -174,7 +174,11 @@ function montecarlo(config::Configuration, integrand::Function, measure::Functio
             if config.curr == config.norm # the last diagram is for normalization
                 config.normalization += 1.0 / config.reweight[config.norm]
             else
-                measure(config)
+                if measure == simple_measure
+                    simple_measure(config, integrand)
+                else
+                    measure(config)
+                end
             end
         end
         if i % 1000 == 0
@@ -193,6 +197,12 @@ function montecarlo(config::Configuration, integrand::Function, measure::Functio
     end
 
     return config
+end
+
+function simple_measure(config, integrand)
+    factor = 1.0 / config.reweight[config.curr]
+    weight = integrand(config)
+    config.observable[config.curr] += weight / abs(weight) * factor
 end
 
 function doReweight(config)
