@@ -181,15 +181,15 @@ mutable struct Configuration{V,P,O}
     end
 end
 
-function reset!(config, reweight=nothing)
+function clearStatistics!(config)
     if typeof(config.observable) <: AbstractArray
         fill!(config.observable, zero(eltype(config.observable))) # reinialize observable
     else
         config.observable = zero(config.observable)
     end
-    if isnothing(reweight) == false
-        fill!(reweight, 1.0)
-    end
+    # if isnothing(reweight) == false
+    #     fill!(reweight, 1.0)
+    # end
     config.neval = 0
     config.curr = 1
     config.normalization = 1.0e-10

@@ -49,7 +49,11 @@ sample(config::Configuration, integrand::Function, measure::Function; Nblock=16,
 - `reweight = config.totalStep/10`: the MC steps before reweighting the integrands. Set to -1 if reweighting is not wanted.
 """
 function sample(config::Configuration, integrand::Function, measure::Function;
-    Nblock=16, print=0, printio=stdout, save=0, saveio=nothing, timer=[], reweight=config.totalStep / 10)
+    neval=1e4 * length(config.dof), # number of evaluations
+    niter=10, # number of iterations
+    block=16, # number of blocks
+    reweight=neval / 10, # when to start the reweight
+    print=0, printio=stdout, save=0, saveio=nothing, timer=[])
 
     # println(reweight)
 
@@ -67,24 +71,27 @@ function sample(config::Configuration, integrand::Function, measure::Function;
     # MPI.Barrier(comm)
 
     #########  construct configurations for each block ################
-    if Nblock > Nworker
-        Nblock = (Nblock ÷ Nworker) * Nworker # make Nblock % size ==0, error estimation assumes this relation
+    if block > Nworker
+        block = (block ÷ Nworker) * Nworker # make Nblock % size ==0, error estimation assumes this relation
     else
-        Nblock = Nworker  # each worker should handle at least one block
+        block = Nworker  # each worker should handle at least one block
     end
-    @assert Nblock % Nworker == 0
+    @assert block % Nworker == 0
+    # nevalperblock = neval ÷ block # number of evaluations per block
+    nevalperblock = neval # number of evaluations per block
 
     obsSum, obsSquaredSum = zero(config.observable), zero(config.observable)
     summary = nothing
     startTime = time()
 
-    for i = 1:Nblock
+    for i = 1:block
         # MPI thread rank will run the block with the indexes: rank, rank+Nworker, rank+2Nworker, ...
         (i % Nworker != rank) && continue
 
-        reset!(config, config.reweight) # reset configuration, keep the previous reweight factors
+        # reset!(config, config.reweight) # reset configuration, keep the previous reweight factors
+        clearStatistics!(config) # reset configuration, keep the previous reweight factors
 
-        config = montecarlo(config, integrand, measure, print, save, timer, reweight)
+        config = montecarlo(config, integrand, measure, nevalperblock, print, save, timer, reweight)
 
         summary = addStat(config, summary)  # collect MC information
 
@@ -119,17 +126,17 @@ function sample(config::Configuration, integrand::Function, measure::Function;
     if MPI.Comm_rank(comm) == root
         ################################ IO ######################################
         if (print >= 0)
-            printSummary(summary, config.neighbor, config.var)
+            printSummary(summary, config.neighbor, config.var, neval)
         end
         println(red("All simulation ended. Cost $(time() - startTime) seconds."))
         ##################### Extract Statistics  ################################
-        mean = obsSum ./ Nblock
+        mean = obsSum ./ block
         if eltype(obsSquaredSum) <: Complex
-            r_std = @. sqrt((real.(obsSquaredSum) / Nblock - real(mean)^2) / (Nblock - 1))
-            i_std = @. sqrt((imag.(obsSquaredSum) / Nblock - imag(mean)^2) / (Nblock - 1))
+            r_std = @. sqrt((real.(obsSquaredSum) / block - real(mean)^2) / (block - 1))
+            i_std = @. sqrt((imag.(obsSquaredSum) / block - imag(mean)^2) / (block - 1))
             std = r_std + i_std * 1im
         else
-            std = @. sqrt((obsSquaredSum / Nblock - mean^2) / (Nblock - 1))
+            std = @. sqrt((obsSquaredSum / block - mean^2) / (block - 1))
         end
         # MPI.Finalize()
         return mean, std
@@ -139,7 +146,7 @@ function sample(config::Configuration, integrand::Function, measure::Function;
     end
 end
 
-function montecarlo(config::Configuration, integrand::Function, measure::Function, print, save, timer, reweight)
+function montecarlo(config::Configuration, integrand::Function, measure::Function, neval, print, save, timer, reweight)
     ##############  initialization  ################################
     # don't forget to initialize the diagram weight
     config.absWeight = abs(integrand(config))
@@ -155,12 +162,12 @@ function montecarlo(config::Configuration, integrand::Function, measure::Functio
     end
     startTime = time()
 
-    for i = 1:config.totalStep
-        config.step += 1
+    for i = 1:neval
+        config.neval += 1
         config.visited[config.curr] += 1
         _update = rand(config.rng, updates) # randomly select an update
         _update(config, integrand)
-        if i % 10 == 0 && i >= config.totalStep / 100
+        if i % 10 == 0 && i >= neval / 100
             if config.curr == config.norm # the last diagram is for normalization
                 config.normalization += 1.0 / config.reweight[config.norm]
             else
@@ -205,9 +212,9 @@ function doReweight(config)
     config.reweight = @. ((1 - config.reweight) / log(1 / config.reweight))^α
 end
 
-function printSummary(summary, neighbor, var)
+function printSummary(summary, neighbor, var, total_neval)
 
-    steps, totalSteps, visited, reweight, propose, accept = summary.step, summary.totalStep, summary.visited, summary.reweight, summary.propose, summary.accept
+    neval, visited, reweight, propose, accept = summary.neval, summary.visited, summary.reweight, summary.propose, summary.accept
     Nd = length(visited)
 
     barbar = "===============================  Report   ==========================================="
@@ -215,7 +222,7 @@ function printSummary(summary, neighbor, var)
 
     println(barbar)
     println(green(Dates.now()))
-    println("\nTotalStep:", totalSteps)
+    println("\nTotal neval = $(total_neval)")
     println(bar)
 
     totalproposed = 0.0
@@ -224,8 +231,8 @@ function printSummary(summary, neighbor, var)
         @printf(
             "Norm -> %2d:           %11.6f%% %11.6f%% %12.6f\n",
             n,
-            propose[1, Nd, n] / steps * 100.0,
-            accept[1, Nd, n] / steps * 100.0,
+            propose[1, Nd, n] / neval * 100.0,
+            accept[1, Nd, n] / neval * 100.0,
             accept[1, Nd, n] / propose[1, Nd, n]
         )
         totalproposed += propose[1, Nd, n]
@@ -235,15 +242,15 @@ function printSummary(summary, neighbor, var)
             if n == Nd  # normalization diagram
                 @printf("  %d ->Norm:           %11.6f%% %11.6f%% %12.6f\n",
                     idx,
-                    propose[1, idx, n] / steps * 100.0,
-                    accept[1, idx, n] / steps * 100.0,
+                    propose[1, idx, n] / neval * 100.0,
+                    accept[1, idx, n] / neval * 100.0,
                     accept[1, idx, n] / propose[1, idx, n]
                 )
             else
                 @printf("  %d -> %2d:            %11.6f%% %11.6f%% %12.6f\n",
                     idx, n,
-                    propose[1, idx, n] / steps * 100.0,
-                    accept[1, idx, n] / steps * 100.0,
+                    propose[1, idx, n] / neval * 100.0,
+                    accept[1, idx, n] / neval * 100.0,
                     accept[1, idx, n] / propose[1, idx, n]
                 )
             end
@@ -260,8 +267,8 @@ function printSummary(summary, neighbor, var)
             @printf(
                 "  %2d / %-10s:   %11.6f%% %11.6f%% %12.6f\n",
                 idx, typestr,
-                propose[2, idx, vi] / steps * 100.0,
-                accept[2, idx, vi] / steps * 100.0,
+                propose[2, idx, vi] / neval * 100.0,
+                accept[2, idx, vi] / neval * 100.0,
                 accept[2, idx, vi] / propose[2, idx, vi]
             )
             totalproposed += propose[2, idx, vi]
@@ -274,8 +281,8 @@ function printSummary(summary, neighbor, var)
         @printf("  Order%2d:     %12i %12.6f\n", idx, visited[idx], reweight[idx])
     end
     println(bar)
-    println(yellow("Total Proposed: $(totalproposed / steps * 100.0)%\n"))
-    println(green(progressBar(steps, totalSteps)))
+    println(yellow("Total Proposed: $(totalproposed / neval * 100.0)%\n"))
+    println(green(progressBar(neval, total_neval)))
     println()
 
 end
