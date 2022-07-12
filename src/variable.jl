@@ -111,9 +111,15 @@ mutable struct Configuration{V,P,O}
    By default, we assume the N integrands are in the increase order, meaning the neighbor will be set to [(N+1, 1), (1, 2), (2, 4), ..., (N-1, N)], where the first N entries are for diagram 1, 2, ..., N and the last entry is for the normalization diagram. Only the first diagram is connected to the normalization diagram.
    Only highly correlated integrands are not highly correlated should be defined as neighbors. Otherwise, most of the updates between the neighboring integrands will be rejected and wasted.
 """
-    function Configuration(totalStep, var::V, dof, obs::O; para::P=nothing, reweight=nothing, seed=nothing, neighbor::Union{Vector{Vector{Int}},Vector{Tuple{Int,Int}},Nothing}=nothing) where {V,P,O}
+    function Configuration(totalStep, var::V, dof, obs::O;
+        # nblock::Int=16,
+        para::P=nothing,
+        reweight::Vector{Float64}=ones(length(dof) + 1),
+        seed::Int=rand(Random.RandomDevice(), 1:1000000),
+        neighbor::Union{Vector{Vector{Int}},Vector{Tuple{Int,Int}},Nothing}=nothing
+    ) where {V,P,O}
         @assert totalStep > 0 "Total step should be positive!"
-        # @assert O <: AbstractArray "observable is expected to be an array. Noe get $(typeof(obs))."
+        # @assert nblock > 0 "Number of blocks should be positive!"
         @assert V <: Tuple{Vararg{Variable}} || V <: Tuple{Variable} "Configuration.var must be a tuple of Variable to maximize efficiency. Now get $(typeof(V))"
         Nv = length(var) # number of variables
 
@@ -153,19 +159,7 @@ mutable struct Configuration{V,P,O}
         end
         @assert typeof(neighbor) == Vector{Vector{Int}} "Configuration.neighbor should be with a type of Vector{Vector{Int}} to avoid mistakes. Now get $(typeof(neighbor))"
         @assert Nd == length(neighbor) "$Nd elements are expected for neighbor=$neighbor"
-
-        ############# initialize reweight factors ########################
-        if isnothing(reweight)
-            reweight = [1.0 for d = 1:Nd] # the last element is for the normalization diagram
-        else
-            push!(reweight, 1.0)
-        end
         @assert Nd == length(reweight) "reweight vector size is wrong! Note that the last element in reweight vector is for the normalization diagram."
-
-        if isnothing(seed)
-            seed = rand(Random.RandomDevice(), 1:1000000)
-        end
-        rng = MersenneTwister(seed)
 
         curr = 1 # set the current diagram to be the first one
         norm = Nd
@@ -182,7 +176,7 @@ mutable struct Configuration{V,P,O}
         propose = zeros(Float64, (2, Nd, max(Nd, Nv))) .+ 1.0e-8 # add a small initial value to avoid Inf when inverted
         accept = zeros(Float64, (2, Nd, max(Nd, Nv)))
 
-        return new{V,P,O}(seed, rng, para, totalStep, var,  # static parameters
+        return new{V,P,O}(seed, MersenneTwister(seed), para, totalStep, var,  # static parameters
             collect(neighbor), collect(dof), obs, collect(reweight), visited, # integrand properties
             0, curr, norm, normalization, absweight, propose, accept  # current MC state
         )
