@@ -84,6 +84,9 @@ function sample(config::Configuration, integrand::Function, measure::Function;
     summary = nothing
     startTime = time()
 
+    # configVec = Vector{Configuration}[]
+
+    # for iter in 1:niter
     for i = 1:block
         # MPI thread rank will run the block with the indexes: rank, rank+Nworker, rank+2Nworker, ...
         (i % Nworker != rank) && continue
@@ -117,11 +120,11 @@ function sample(config::Configuration, integrand::Function, measure::Function;
             end
         end
     end
-
     #################### collect statistics  ####################################
     MPIreduce(obsSum)
     MPIreduce(obsSquaredSum)
     summary = reduceStat(summary, root, comm) # root node gets the summed MC information
+    # end
 
     if MPI.Comm_rank(comm) == root
         ################################ IO ######################################
