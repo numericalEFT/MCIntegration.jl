@@ -148,12 +148,13 @@ function sample(config::Configuration, integrand::Function, measure::Function=si
         end
     end
     ################################ IO ######################################
-    if (print >= 0)
-        printSummary(summedConfig, neval)
+    if MPI.Comm_rank(comm) == root
+        if (print >= 0)
+            printSummary(results[end][3], neval)
+        end
+        println(red("All simulation ended. Cost $(time() - startTime) seconds."))
+        return results[end][1], results[end][2]
     end
-    println(red("All simulation ended. Cost $(time() - startTime) seconds."))
-    return results[end][1], results[end][2]
-    # return results
 end
 
 function montecarlo(config::Configuration, integrand::Function, measure::Function, neval, print, save, timer, reweight)
@@ -190,7 +191,7 @@ function montecarlo(config::Configuration, integrand::Function, measure::Functio
         end
         if i % 1000 == 0
             for t in timer
-                check(t, config, config.neighbor, config.var)
+                check(t, config, neval)
             end
             if i >= reweight && i % reweight == 0
                 doReweight(config)
