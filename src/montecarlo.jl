@@ -50,7 +50,7 @@ sample(config::Configuration, integrand::Function, measure::Function; Nblock=16,
 """
 function sample(config::Configuration, integrand::Function, measure::Function=simple_measure;
     neval=1e4 * length(config.dof), # number of evaluations
-    niter=2, # number of iterations
+    niter=10, # number of iterations
     block=16, # number of blocks
     reweight=neval / 10, # when to start the reweight
     print=0, printio=stdout, save=0, saveio=nothing, timer=[])
@@ -83,11 +83,15 @@ function sample(config::Configuration, integrand::Function, measure::Function=si
     summary = nothing
     results = []
     startTime = time()
+    obsSum, obsSquaredSum = zero(config.observable), zero(config.observable)
 
     # configVec = Vector{Configuration}[]
 
     for iter in 1:niter
-        obsSum, obsSquaredSum = zero(config.observable), zero(config.observable)
+
+        obsSum *= 0
+        obsSquaredSum *= 0
+
         for i = 1:block
             # MPI thread rank will run the block with the indexes: rank, rank+Nworker, rank+2Nworker, ...
             (i % Nworker != rank) && continue
@@ -124,9 +128,6 @@ function sample(config::Configuration, integrand::Function, measure::Function=si
         #################### collect statistics  ####################################
         MPIreduce(obsSum)
         MPIreduce(obsSquaredSum)
-        # summary = reduceStat(summary, root, comm) # root node gets the summed MC information
-        # end
-        # summedConfig = MPI.Reduce(config, pool, root, comm)
         summedConfig = reduceConfig(config, root, comm)
 
         if MPI.Comm_rank(comm) == root
@@ -143,7 +144,6 @@ function sample(config::Configuration, integrand::Function, measure::Function=si
             # return mean, std
             push!(results, (mean, std, summedConfig))
             # else # if not the root, return nothing
-            # MPI.Finalize()
             # return nothing, nothing
         end
     end
