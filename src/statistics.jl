@@ -36,6 +36,40 @@ function reduceStat(summary, root, comm)
     end
 end
 
+function pool(c1::Configuration, c2::Configuration)
+    c = deepcopy(c1)
+    c.neval += c2.neval
+    c.visited += c2.visited
+    c.propose += c2.propose
+    c.accept += c2.accept
+    c.observable += c2.observable
+    c.normalization += c2.normalization
+    return c
+end
+
+function reduceConfig(c::Configuration, root, comm)
+    if MPI.Comm_rank(comm) == root
+        # reweight ./= MPI.Comm_size(comm)
+        # return SummaryStat(neval, visited, reweight, propose, accept)
+        rc = deepcopy(c)
+        rc.neval = MPI.Reduce(c.neval, MPI.SUM, root, comm)
+        rc.visited = MPI.Reduce(c.visited, MPI.SUM, root, comm)
+        rc.propose = MPI.Reduce(c.propose, MPI.SUM, root, comm)
+        rc.accept = MPI.Reduce(c.accept, MPI.SUM, root, comm)
+        rc.observable = MPI.Reduce(c.observable, MPI.SUM, root, comm)
+        rc.normalization = MPI.Reduce(c.normalization, MPI.SUM, root, comm)
+        return rc
+    else
+        MPI.Reduce(c.neval, MPI.SUM, root, comm)
+        MPI.Reduce(c.visited, MPI.SUM, root, comm)
+        MPI.Reduce(c.propose, MPI.SUM, root, comm)
+        MPI.Reduce(c.accept, MPI.SUM, root, comm)
+        MPI.Reduce(c.observable, MPI.SUM, root, comm)
+        MPI.Reduce(c.normalization, MPI.SUM, root, comm)
+        return c
+    end
+end
+
 function MPIreduce(data)
     comm = MPI.COMM_WORLD
     Nworker = MPI.Comm_size(comm)  # number of MPI workers

@@ -50,7 +50,7 @@ sample(config::Configuration, integrand::Function, measure::Function; Nblock=16,
 """
 function sample(config::Configuration, integrand::Function, measure::Function=simple_measure;
     neval=1e4 * length(config.dof), # number of evaluations
-    niter=10, # number of iterations
+    niter=2, # number of iterations
     block=16, # number of blocks
     reweight=neval / 10, # when to start the reweight
     print=0, printio=stdout, save=0, saveio=nothing, timer=[])
@@ -80,73 +80,80 @@ function sample(config::Configuration, integrand::Function, measure::Function=si
     # nevalperblock = neval ÷ block # number of evaluations per block
     nevalperblock = neval # number of evaluations per block
 
-    obsSum, obsSquaredSum = zero(config.observable), zero(config.observable)
     summary = nothing
+    results = []
     startTime = time()
 
     # configVec = Vector{Configuration}[]
 
-    # for iter in 1:niter
-    for i = 1:block
-        # MPI thread rank will run the block with the indexes: rank, rank+Nworker, rank+2Nworker, ...
-        (i % Nworker != rank) && continue
+    for iter in 1:niter
+        obsSum, obsSquaredSum = zero(config.observable), zero(config.observable)
+        for i = 1:block
+            # MPI thread rank will run the block with the indexes: rank, rank+Nworker, rank+2Nworker, ...
+            (i % Nworker != rank) && continue
 
-        # reset!(config, config.reweight) # reset configuration, keep the previous reweight factors
-        clearStatistics!(config) # reset configuration, keep the previous reweight factors
+            # reset!(config, config.reweight) # reset configuration, keep the previous reweight factors
+            clearStatistics!(config) # reset configuration, keep the previous reweight factors
 
-        config = montecarlo(config, integrand, measure, nevalperblock, print, save, timer, reweight)
+            config = montecarlo(config, integrand, measure, nevalperblock, print, save, timer, reweight)
 
-        summary = addStat(config, summary)  # collect MC information
+            # summary = addStat(config, summary)  # collect MC information
 
-        if (config.normalization > 0.0) == false #in case config.normalization is not a number
-            error("normalization of block $i is $(config.normalization), which is not positively defined!")
+            if (config.normalization > 0.0) == false #in case config.normalization is not a number
+                error("normalization of block $i is $(config.normalization), which is not positively defined!")
+            end
+
+            if typeof(obsSum) <: AbstractArray
+                obsSum .+= config.observable ./ config.normalization
+                if eltype(obsSquaredSum) <: Complex  #ComplexF16, ComplexF32 or ComplexF64 array
+                    obsSquaredSum .+= (real.(config.observable) ./ config.normalization) .^ 2
+                    obsSquaredSum .+= (imag.(config.observable) ./ config.normalization) .^ 2 * 1im
+                else
+                    obsSquaredSum .+= (config.observable ./ config.normalization) .^ 2
+                end
+            else
+                obsSum += config.observable / config.normalization
+                if typeof(obsSquaredSum) <: Complex
+                    obsSquaredSum += (real(config.observable) / config.normalization)^2
+                    obsSquaredSum += (imag(config.observable) / config.normalization)^2 * 1im
+                else
+                    obsSquaredSum += (config.observable / config.normalization)^2
+                end
+            end
         end
+        #################### collect statistics  ####################################
+        MPIreduce(obsSum)
+        MPIreduce(obsSquaredSum)
+        # summary = reduceStat(summary, root, comm) # root node gets the summed MC information
+        # end
+        # summedConfig = MPI.Reduce(config, pool, root, comm)
+        summedConfig = reduceConfig(config, root, comm)
 
-        if typeof(obsSum) <: AbstractArray
-            obsSum .+= config.observable ./ config.normalization
-            if eltype(obsSquaredSum) <: Complex  #ComplexF16, ComplexF32 or ComplexF64 array
-                obsSquaredSum .+= (real.(config.observable) ./ config.normalization) .^ 2
-                obsSquaredSum .+= (imag.(config.observable) ./ config.normalization) .^ 2 * 1im
+        if MPI.Comm_rank(comm) == root
+            ##################### Extract Statistics  ################################
+            mean = obsSum ./ block
+            if eltype(obsSquaredSum) <: Complex
+                r_std = @. sqrt((real.(obsSquaredSum) / block - real(mean)^2) / (block - 1))
+                i_std = @. sqrt((imag.(obsSquaredSum) / block - imag(mean)^2) / (block - 1))
+                std = r_std + i_std * 1im
             else
-                obsSquaredSum .+= (config.observable ./ config.normalization) .^ 2
+                std = @. sqrt((obsSquaredSum / block - mean^2) / (block - 1))
             end
-        else
-            obsSum += config.observable / config.normalization
-            if typeof(obsSquaredSum) <: Complex
-                obsSquaredSum += (real(config.observable) / config.normalization)^2
-                obsSquaredSum += (imag(config.observable) / config.normalization)^2 * 1im
-            else
-                obsSquaredSum += (config.observable / config.normalization)^2
-            end
+            # MPI.Finalize()
+            # return mean, std
+            push!(results, (mean, std, summedConfig))
+            # else # if not the root, return nothing
+            # MPI.Finalize()
+            # return nothing, nothing
         end
     end
-    #################### collect statistics  ####################################
-    MPIreduce(obsSum)
-    MPIreduce(obsSquaredSum)
-    summary = reduceStat(summary, root, comm) # root node gets the summed MC information
-    # end
-
-    if MPI.Comm_rank(comm) == root
-        ################################ IO ######################################
-        if (print >= 0)
-            printSummary(summary, config.neighbor, config.var, neval)
-        end
-        println(red("All simulation ended. Cost $(time() - startTime) seconds."))
-        ##################### Extract Statistics  ################################
-        mean = obsSum ./ block
-        if eltype(obsSquaredSum) <: Complex
-            r_std = @. sqrt((real.(obsSquaredSum) / block - real(mean)^2) / (block - 1))
-            i_std = @. sqrt((imag.(obsSquaredSum) / block - imag(mean)^2) / (block - 1))
-            std = r_std + i_std * 1im
-        else
-            std = @. sqrt((obsSquaredSum / block - mean^2) / (block - 1))
-        end
-        # MPI.Finalize()
-        return mean, std
-    else # if not the root, return nothing
-        # MPI.Finalize()
-        return nothing, nothing
+    ################################ IO ######################################
+    if (print >= 0)
+        printSummary(summedConfig, neval)
     end
+    println(red("All simulation ended. Cost $(time() - startTime) seconds."))
+    return results[end][1], results[end][2]
+    # return results
 end
 
 function montecarlo(config::Configuration, integrand::Function, measure::Function, neval, print, save, timer, reweight)
@@ -225,9 +232,10 @@ function doReweight(config)
     config.reweight = @. ((1 - config.reweight) / log(1 / config.reweight))^α
 end
 
-function printSummary(summary, neighbor, var, total_neval)
+function printSummary(config::Configuration, total_neval=nothing)
+    neval, visited, reweight, propose, accept = config.neval, config.visited, config.reweight, config.propose, config.accept
+    var, neighbor = config.var, config.neighbor
 
-    neval, visited, reweight, propose, accept = summary.neval, summary.visited, summary.reweight, summary.propose, summary.accept
     Nd = length(visited)
 
     barbar = "===============================  Report   ==========================================="
@@ -235,7 +243,7 @@ function printSummary(summary, neighbor, var, total_neval)
 
     println(barbar)
     println(green(Dates.now()))
-    println("\nTotal neval = $(total_neval)")
+    println("\nneval = $(config.neval)")
     println(bar)
 
     totalproposed = 0.0
