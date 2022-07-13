@@ -40,3 +40,18 @@ function MPIreduce(data)
         return result[1]
     end
 end
+
+function average(history, max=length(history))
+    data = [history[i][1] for i in 1:max]
+    weight = [1.0 ./ history[i][2] .^ 2 for i in 1:max]
+    weightsum = sum(weight)
+    mea = sum(data[i] .* weight[i] ./ weightsum for i in 1:max)
+    err = 1.0 ./ sqrt.(weightsum)
+    if max > 1
+        chi2 = sum(weight[i] .* (data[i] - mea) .^ 2 for i in 1:max) / (max - 1)
+    else
+        chi2 = zero(mea)
+    end
+    println("mean : ", mea, " +- ", err, " with chi2 = ", chi2)
+    return mea, err, chi2
+end

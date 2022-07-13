@@ -59,7 +59,7 @@ function sample(config::Configuration, integrand::Function, measure::Function=si
 
     ############ initialized timer ####################################
     if print > 0
-        push!(timer, StopWatch(print, printSummary))
+        push!(timer, StopWatch(print, summary))
     end
 
     ########### initialized MPI #######################################
@@ -80,7 +80,6 @@ function sample(config::Configuration, integrand::Function, measure::Function=si
     # nevalperblock = neval ÷ block # number of evaluations per block
     nevalperblock = neval # number of evaluations per block
 
-    summary = nothing
     results = []
     startTime = time()
     obsSum, obsSquaredSum = zero(config.observable), zero(config.observable)
@@ -145,12 +144,14 @@ function sample(config::Configuration, integrand::Function, measure::Function=si
             push!(results, (mean, std, summedConfig))
             # else # if not the root, return nothing
             # return nothing, nothing
+            average(results)
+            # println(average(results))
         end
     end
     ################################ IO ######################################
     if MPI.Comm_rank(comm) == root
         if (print >= 0)
-            printSummary(results[end][3], neval)
+            summary(results[end][3], neval)
         end
         println(red("All simulation ended. Cost $(time() - startTime) seconds."))
         return results[end][1], results[end][2]
@@ -210,7 +211,13 @@ end
 function simple_measure(config, integrand)
     factor = 1.0 / config.reweight[config.curr]
     weight = integrand(config)
-    config.observable[config.curr] += weight / abs(weight) * factor
+    if config.observable isa AbstractVector
+        config.observable[config.curr] += weight / abs(weight) * factor
+    elseif config.observable isa AbstractFloat
+        config.observable += weight / abs(weight) * factor
+    else
+        error("simple_measure can only be used with AbstractVector or AbstractFloat observables")
+    end
 end
 
 function doReweight(config)
@@ -233,7 +240,7 @@ function doReweight(config)
     config.reweight = @. ((1 - config.reweight) / log(1 / config.reweight))^α
 end
 
-function printSummary(config::Configuration, total_neval=nothing)
+function summary(config::Configuration, total_neval=nothing)
     neval, visited, reweight, propose, accept = config.neval, config.visited, config.reweight, config.propose, config.accept
     var, neighbor = config.var, config.neighbor
 
