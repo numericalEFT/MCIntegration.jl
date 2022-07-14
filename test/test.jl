@@ -1,7 +1,7 @@
 using MCIntegration
 using JLD2
-# var = MCIntegration.Continuous(0.0, 1.0)
-var = MCIntegration.Tau(1.0)
+var = MCIntegration.Continuous(0.0, 1.0)
+# var = MCIntegration.Tau(1.0)
 config = MCIntegration.Configuration((var,), [[1,], [1,]])
 
 function integrand(config)

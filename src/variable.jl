@@ -73,7 +73,8 @@ mutable struct Continuous{G} <: Variable
         N = length(grid) - 1
         width = [grid[i+1] - grid[i] for i in 1:N]
         histogram = ones(N)
-        distribution = histogram / sum(histogram)
+        histogram ./= sum(histogram)
+        distribution = histogram ./ width
         accumulation = [sum(histogram[1:i]) for i in 1:N]
         return new{G}(t, lower, upper - lower, offset, grid, width, histogram, accumulation, distribution)
     end

@@ -635,9 +635,11 @@ Propose to generate new (uniform) variable randomly in [T.lower, T.lower+T.range
 @inline function create!(T::Continuous, idx::Int, config)
     (idx >= length(T.data) - 1) && error("$idx overflow!")
     # T[idx] = rand(config.rng) * T.range + T.lower
-    idx = locate(T.accumulation, rand(config.rng))
-    T[idx] = T.grid[idx] + rand(config.rng) * (T.grid[idx+1] - T.grid[idx])
-    return 1.0 / T.distribution[idx]
+    gidx = locate(T.accumulation, rand(config.rng))
+    # println(idx)
+    T[idx] = T.grid[gidx] + rand(config.rng) * (T.grid[gidx+1] - T.grid[gidx])
+    # println(T[idx])
+    return 1.0 / T.distribution[gidx]
 end
 @inline createRollback!(T::Continuous, idx::Int, config) = nothing
 
@@ -668,7 +670,7 @@ Propose to shift an existing variable to a new one, both in [T.lower, T.lower+T.
 @inline function shift!(T::Continuous, idx::Int, config)
     (idx >= length(T.data) - 1) && error("$idx overflow!")
     T[end] = T[idx]
-    # rng = config.rng
+    rng = config.rng
     # x = rand(rng)
     # if x < 1.0 / 2
     #     T[idx] = T[idx] + 2 * T.λ * (rand(rng) - 0.5)
@@ -682,11 +684,12 @@ Propose to shift an existing variable to a new one, both in [T.lower, T.lower+T.
     #     T[idx] -= T.range
     # end
 
+    # T[idx] = rand(rng) * T.range + T.lower
     # return 1.0
     currIdx = locate(T.accumulation, T[idx])
-    idx = locate(T.accumulation, rand(config.rng))
-    T[idx] = T.grid[idx] + rand(config.rng) * (T.grid[idx+1] - T.grid[idx])
-    return T.distribution[currIdx] / T.distribution[idx]
+    gidx = locate(T.accumulation, rand(config.rng))
+    T[idx] = T.grid[gidx] + rand(config.rng) * (T.grid[gidx+1] - T.grid[gidx])
+    return T.distribution[currIdx] / T.distribution[gidx]
 end
 
 @inline function shiftRollback!(T::Continuous, idx::Int, config)
