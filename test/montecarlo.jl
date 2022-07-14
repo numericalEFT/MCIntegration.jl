@@ -71,7 +71,7 @@ function Sphere3(totalstep; offset=0)
         config.observable[config.curr] += weight / abs(weight) * factor
     end
 
-    T = MCIntegration.Continuous([0.0, 1.0], 1.0 / 2.0, offset=offset)
+    T = MCIntegration.Continuous(0.0, 1.0; offset=offset)
     dof = [[2,], [3,]] # number of T variable for the normalization and the integrand
     # config = MCIntegration.Configuration(totalstep, (T,), dof, [0.0, 0.0], neighbor=[[3, 2], [3, 1], [1, 2]])
     config = MCIntegration.Configuration((T,), dof, [0.0, 0.0], neighbor=[(1, 3), (1, 2)])

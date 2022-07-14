@@ -67,7 +67,7 @@ mutable struct Continuous{G} <: Variable
     histogram::Vector{Float64}
     accumulation::Vector{Float64}
     distribution::Vector{Float64}
-    function Continuous(lower::Float64, upper::Float64, size=MaxOrder; offset=0, grid::G=collect(LinRange(lower, upper, 5))) where {G}
+    function Continuous(lower::Float64, upper::Float64, size=MaxOrder; offset=0, grid::G=collect(LinRange(lower, upper, 129))) where {G}
         @assert offset + 1 < size
         @assert upper > lower + 2 * eps(1.0)
         t = LinRange(lower + eps(1.0), upper - eps(1.0), size) #avoid duplication
@@ -76,8 +76,8 @@ mutable struct Continuous{G} <: Variable
 
         N = length(grid) - 1
         width = [grid[i+1] - grid[i] for i in 1:N]
-        # histogram = ones(N)
-        histogram = [1.0, 5.0, 1.0, 5.0]
+        histogram = ones(N)
+        # histogram = [1.0, 5.0, 1.0, 5.0]
         histogram ./= sum(histogram)
         distribution = histogram ./ width
         accumulation = [sum(histogram[1:i]) for i in 1:N]

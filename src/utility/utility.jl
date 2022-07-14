@@ -30,9 +30,20 @@ function progressBar(step, total)
     return str
 end
 
-function locate(accumulation, p)
+"""
+    function locate(accumulation, p)
+    
+    Return index of p in accumulation so that accumulation[idx]<=p<accumulation[idx+1]. 
+    If p is not in accumulation (namely accumulation[1] > p or accumulation[end] <= p), return -1.
+    Bisection algorithmn is used so that the time complexity is O(log(n)) with n=length(accumulation).
+"""
+function locate(accumulation::AbstractVector, p::Number)
     n = length(accumulation)
-    @assert accumulation[1] <= p && p <= accumulation[n] "$p is not in the range of accumulation = $accumulation"
+
+    if accumulation[1] > p || accumulation[end] <= p
+        error("$p is not in $accumulation")
+        return -1
+    end
 
     jl, ju = 1, n + 1
     while (ju - jl > 1)
