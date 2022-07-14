@@ -192,29 +192,65 @@ function clearStatistics!(config)
     fill!(config.visited, 1.0e-8)
     fill!(config.propose, 1.0e-8)
     fill!(config.accept, 1.0e-10)
+    for var in config.var
+        clearStatistics!(var)
+    end
 end
 
-function reduceConfig(c::Configuration, root, comm)
-    if MPI.Comm_rank(comm) == root
-        # reweight ./= MPI.Comm_size(comm)
-        # return SummaryStat(neval, visited, reweight, propose, accept)
-        rc = deepcopy(c)
-        rc.neval = MPI.Reduce(c.neval, MPI.SUM, root, comm)
-        rc.visited = MPI.Reduce(c.visited, MPI.SUM, root, comm)
-        rc.propose = MPI.Reduce(c.propose, MPI.SUM, root, comm)
-        rc.accept = MPI.Reduce(c.accept, MPI.SUM, root, comm)
-        rc.observable = MPI.Reduce(c.observable, MPI.SUM, root, comm)
-        rc.normalization = MPI.Reduce(c.normalization, MPI.SUM, root, comm)
-        return rc
-    else
-        MPI.Reduce(c.neval, MPI.SUM, root, comm)
-        MPI.Reduce(c.visited, MPI.SUM, root, comm)
-        MPI.Reduce(c.propose, MPI.SUM, root, comm)
-        MPI.Reduce(c.accept, MPI.SUM, root, comm)
-        MPI.Reduce(c.observable, MPI.SUM, root, comm)
-        MPI.Reduce(c.normalization, MPI.SUM, root, comm)
-        return c
+function addConfig!(c::Configuration, ic::Configuration)
+    c.visited += ic.visited
+    c.accept += ic.accept
+    c.propose += ic.propose
+    c.neval += ic.neval
+    c.normalization += ic.normalization
+    c.observable += ic.observable
+    for (vi, var) in enumerate(c.var)
+        addStatistics!(var, ic.var[vi])
     end
+end
+
+function MPIreduceConfig!(c::Configuration, root, comm)
+
+    ########## variable that could be a number ##############
+    neval = MPI.Reduce(c.neval, MPI.SUM, root, comm)
+    normalization = MPI.Reduce(c.normalization, MPI.SUM, root, comm)
+    observable = MPI.Reduce(c.observable, MPI.SUM, root, comm)
+    if MPI.Comm_rank(comm) == root
+        c.neval = neval
+        c.normalization = normalization
+        c.observable = observable
+    end
+    for vi in 1:length(c.var)
+        histogram = MPI.Reduce(c.var[vi].histogram, MPI.SUM, root, comm)
+        if MPI.Comm_rank(comm) == root
+            c.var[vi].histogram = histogram
+        end
+    end
+
+    ########## variable that are vectors ##############
+    MPI.Reduce!(c.visited, MPI.SUM, root, comm)
+    MPI.Reduce!(c.propose, MPI.SUM, root, comm)
+    MPI.Reduce!(c.accept, MPI.SUM, root, comm)
+    # if MPI.Comm_rank(comm) == root
+    #     # reweight ./= MPI.Comm_size(comm)
+    #     # return SummaryStat(neval, visited, reweight, propose, accept)
+    #     rc = deepcopy(c)
+    #     rc.neval = MPI.Reduce(c.neval, MPI.SUM, root, comm)
+    #     rc.visited = MPI.Reduce(c.visited, MPI.SUM, root, comm)
+    #     rc.propose = MPI.Reduce(c.propose, MPI.SUM, root, comm)
+    #     rc.accept = MPI.Reduce(c.accept, MPI.SUM, root, comm)
+    #     rc.observable = MPI.Reduce(c.observable, MPI.SUM, root, comm)
+    #     rc.normalization = MPI.Reduce(c.normalization, MPI.SUM, root, comm)
+    #     return rc
+    # else
+    #     MPI.Reduce(c.neval, MPI.SUM, root, comm)
+    #     MPI.Reduce(c.visited, MPI.SUM, root, comm)
+    #     MPI.Reduce(c.propose, MPI.SUM, root, comm)
+    #     MPI.Reduce(c.accept, MPI.SUM, root, comm)
+    #     MPI.Reduce(c.observable, MPI.SUM, root, comm)
+    #     MPI.Reduce(c.normalization, MPI.SUM, root, comm)
+    #     return c
+    # end
 end
 
 function summary(config::Configuration, total_neval=nothing)

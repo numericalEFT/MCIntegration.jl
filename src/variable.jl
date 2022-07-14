@@ -11,13 +11,14 @@ mutable struct FermiK{D} <: Variable
     δk::Float64
     maxK::Float64
     offset::Int
+    histogram::Vector{Float64}
     function FermiK(dim, kF, δk, maxK, size=MaxOrder; offset=0)
         @assert offset + 1 < size
         k = zeros(dim, size) .+ kF / sqrt(dim)
         # k0 = MVector{dim,Float64}([kF for i = 1:dim])
         # k0 = @SVector [kF for i = 1:dim]
         # k = [k0 for i = 1:size]
-        return new{dim}(k, kF, δk, maxK, offset)
+        return new{dim}(k, kF, δk, maxK, offset, [0.0,])
     end
 end
 
@@ -32,16 +33,18 @@ mutable struct RadialFermiK <: Variable
     kF::Float64
     δk::Float64
     offset::Int
+    histogram::Vector{Float64}
     function RadialFermiK(kF=1.0, δk=0.01, size=MaxOrder; offset=0)
         @assert offset + 1 < size
         k = [kF * (i - 0.5) / size for i = 1:size] #avoid duplication
-        return new(k, kF, δk, offset)
+        return new(k, kF, δk, offset, [0.0,])
     end
 end
 
 mutable struct BoseK{D} <: Variable
     data::Vector{SVector{D,Float64}}
     maxK::Float64
+    histogram::Vector{Float64}
 end
 
 mutable struct Tau <: Variable
@@ -49,10 +52,11 @@ mutable struct Tau <: Variable
     λ::Float64
     β::Float64
     offset::Int
+    histogram::Vector{Float64}
     function Tau(β=1.0, λ=0.5, size=MaxOrder; offset=0)
         @assert offset + 1 < size
         t = [β * (i - 0.5) / size for i = 1:size] #avoid duplication
-        return new(t, λ, β, offset)
+        return new(t, λ, β, offset, [0.0,])
     end
 end
 
@@ -92,7 +96,8 @@ end
 function accumulate!(T::Continuous, idx::Int)
     T.histogram[T.gidx[idx]] += 1
 end
-clearStatistics!(T::Continuous) = fill!(T.histogram, 1.0)
+# clearStatistics!(T::Continuous) = fill!(T.histogram, 1.0)
+# addStatistics!(target::Continuous, income::Continuous) = (target.histogram .+= income.histogram)
 function update!(T::Continuous)
     distribution = T.histogram / sum(T.histogram)
     distribution = smooth(distribution, 6.0)
@@ -103,16 +108,15 @@ function update!(T::Continuous)
     @assert (T.accumulation[1] ≈ 0.0) && (T.accumulation[end] ≈ 1.0) "$(T.accumulation)"
 end
 
-
-
 mutable struct Angle <: Variable
     data::Vector{Float64}
     λ::Float64
     offset::Int
+    histogram::Vector{Float64}
     function Angle(λ=0.5, size=MaxOrder; offset=0)
         @assert offset + 1 < size
         theta = [π * (i - 0.5) / size for i = 1:size] #avoid dulication
-        return new(theta, λ, offset)
+        return new(theta, λ, offset, [0.0,])
     end
 end
 
@@ -122,10 +126,11 @@ mutable struct TauPair <: Variable
     λ::Float64
     β::Float64
     offset::Int
+    histogram::Vector{Float64}
     function TauPair(β=1.0, λ=0.5, size=MaxOrder; offset=0)
         @assert offset + 1 < size
         t = [@MVector [β * (i - 0.4) / size, β * (i - 0.6) / size] for i = 1:size] #avoid duplication
-        return new(t, λ, β, offset)
+        return new(t, λ, β, offset, [0.0,])
     end
 end
 
@@ -186,8 +191,11 @@ end
 # end
 
 accumulate(var::Variable, idx) = nothing
-clearStatistics!(Var::Variable) = nothing
+# clearStatistics!(Var::Variable) = ing
 update!(Var::Variable) = nothing
+# addStatistics!(target::Variable, income::Variable) = nothing
+clearStatistics!(T::Variable) = fill!(T.histogram, 1.0)
+addStatistics!(target::Variable, income::Variable) = (target.histogram .+= income.histogram)
 
 Base.getindex(Var::Variable, i::Int) = Var.data[i]
 function Base.setindex!(Var::Variable, v, i::Int)

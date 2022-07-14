@@ -96,17 +96,19 @@ function sample(config::Configuration, integrand::Function, measure::Function=si
 
         obsSum *= 0
         obsSquaredSum *= 0
+        summedConfig = deepcopy(config)
 
         for i = 1:block
             # MPI thread rank will run the block with the indexes: rank, rank+Nworker, rank+2Nworker, ...
             (i % Nworker != rank) && continue
 
             # reset!(config, config.reweight) # reset configuration, keep the previous reweight factors
-            clearStatistics!(config) # reset configuration, keep the previous reweight factors
+            clearStatistics!(config) # reset statistics
 
             config = montecarlo(config, integrand, measure, nevalperblock, print, save, timer)
 
             # summary = addStat(config, summary)  # collect MC information
+            addConfig!(summedConfig, config) # collect MC information
 
             if (config.normalization > 0.0) == false #in case config.normalization is not a number
                 error("normalization of block $i is $(config.normalization), which is not positively defined!")
@@ -133,7 +135,7 @@ function sample(config::Configuration, integrand::Function, measure::Function=si
         #################### collect statistics  ####################################
         MPIreduce(obsSum)
         MPIreduce(obsSquaredSum)
-        summedConfig = reduceConfig(config, root, comm)
+        MPIreduceConfig!(summedConfig, root, comm)
 
         if MPI.Comm_rank(comm) == root
             ##################### Extract Statistics  ################################
@@ -155,9 +157,11 @@ function sample(config::Configuration, integrand::Function, measure::Function=si
 
             ################### self-learning ##########################################
             doReweight!(summedConfig, beta)
+            for var in summedConfig.var
+                update!(var)
+            end
             config.reweight = summedConfig.reweight
-            # else
-            #     config.reweight .*= 0.0
+            config.var = summedConfig.var
         end
 
         ######################## syncronize between works ##############################
