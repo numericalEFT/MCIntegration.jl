@@ -1,25 +1,54 @@
-
-function reduceConfig(c::Configuration, root, comm)
-    if MPI.Comm_rank(comm) == root
-        # reweight ./= MPI.Comm_size(comm)
-        # return SummaryStat(neval, visited, reweight, propose, accept)
-        rc = deepcopy(c)
-        rc.neval = MPI.Reduce(c.neval, MPI.SUM, root, comm)
-        rc.visited = MPI.Reduce(c.visited, MPI.SUM, root, comm)
-        rc.propose = MPI.Reduce(c.propose, MPI.SUM, root, comm)
-        rc.accept = MPI.Reduce(c.accept, MPI.SUM, root, comm)
-        rc.observable = MPI.Reduce(c.observable, MPI.SUM, root, comm)
-        rc.normalization = MPI.Reduce(c.normalization, MPI.SUM, root, comm)
-        return rc
-    else
-        MPI.Reduce(c.neval, MPI.SUM, root, comm)
-        MPI.Reduce(c.visited, MPI.SUM, root, comm)
-        MPI.Reduce(c.propose, MPI.SUM, root, comm)
-        MPI.Reduce(c.accept, MPI.SUM, root, comm)
-        MPI.Reduce(c.observable, MPI.SUM, root, comm)
-        MPI.Reduce(c.normalization, MPI.SUM, root, comm)
-        return c
+struct Result{O,C}
+    mean::O
+    stdev::O
+    chi2::O
+    neval::Int
+    dof::Int
+    config::C
+    iterations::Any
+    function Result(history::AbstractVector)
+        @assert length(history) > 0
+        O = typeof(history[end][1])
+        config = history[end][3]
+        dof = length(history) - 1
+        neval = sum(h[3].neval for h in history)
+        mean, stdev, chi2 = average(history, dof)
+        return new{O,typeof(config)}(mean, stdev, chi2, neval, dof, config, history)
     end
+end
+
+function tostring(mval, merr; pm="±")
+    return @sprintf("%16.8g %s %.8g", mval, pm, merr)
+    # val = if iszero(merr) || !isfinite(merr)
+    #     mval
+    # else
+    #     err_digits = -Base.hidigit(merr, 10) + error_digits
+    #     digits = if isfinite(mval)
+    #         max(-Base.hidigit(mval, 10) + 2, err_digits)
+    #     else
+    #         err_digits
+    #     end
+    #     round(mval, digits=digits)
+    # end
+    # return "$val $pm $(round(merr, sigdigits=error_digits))"
+end
+
+function summary(result::Result, pick=obs -> real(first(obs)))
+    summary(result.config)
+
+    barbar = "==================================     Results     ================================================"
+    bar = "---------------------------------------------------------------------------------------------------"
+    println(barbar)
+    println(yellow(@sprintf("%6s %36s %36s %16s", "iter", "integral", "wgt average", "chi2/dof")))
+    println(bar)
+    for iter in 1:result.dof+1
+        m0, e0 = pick(result.iterations[iter][1]), pick(result.iterations[iter][2])
+        m, e, chi2 = average(result.iterations, iter; pick=pick)
+        println(@sprintf("%6s %-36s %-36s %16.4f", iter, tostring(m0, e0), tostring(m, e), iter == 1 ? 0.0 : chi2 / (iter - 1)))
+    end
+    println(bar)
+    m, e = pick(result.mean), pick(result.stdev)
+    println("result = $m ± $e")
 end
 
 function MPIreduce(data)
@@ -41,17 +70,32 @@ function MPIreduce(data)
     end
 end
 
-function average(history, max=length(history))
-    data = [history[i][1] for i in 1:max]
-    weight = [1.0 ./ history[i][2] .^ 2 for i in 1:max]
-    weightsum = sum(weight)
-    mea = sum(data[i] .* weight[i] ./ weightsum for i in 1:max)
-    err = 1.0 ./ sqrt.(weightsum)
-    if max > 1
-        chi2 = sum(weight[i] .* (data[i] - mea) .^ 2 for i in 1:max) / (max - 1)
-    else
-        chi2 = zero(mea)
+function average(history, max=length(history); pick=obs -> obs)
+
+    function _statistic(data, weight)
+        @assert length(data) == length(weight)
+        weightsum = sum(weight)
+        mea = sum(data[i] .* weight[i] ./ weightsum for i in 1:max)
+        err = 1.0 ./ sqrt.(weightsum)
+        if max > 1
+            chi2 = sum(weight[i] .* (data[i] - mea) .^ 2 for i in 1:max)
+        else
+            chi2 = zero(mea)
+        end
+        return mea, err, chi2
     end
-    println("mean : ", mea, " +- ", err, " with chi2 = ", chi2)
-    return mea, err, chi2
+
+    if eltype(history[end][1]) <: Complex
+        dataR = [real.(history[i][1]) for i in 1:max]
+        dataI = [imag.(history[i][1]) for i in 1:max]
+        weightR = [1.0 ./ real.(history[i][2]) .^ 2 for i in 1:max]
+        weightI = [1.0 ./ imag.(history[i][2]) .^ 2 for i in 1:max]
+        mR, eR, chi2R = _statistic(dataR, weightR)
+        mI, eI, chi2I = _statistic(dataI, weightI)
+        return mR + mI * 1im, eR + eI * 1im, chi2R + chi2I * 1im
+    else
+        data = [pick(history[i][1]) for i in 1:max]
+        weight = [1.0 ./ pick(history[i][2]) .^ 2 for i in 1:max]
+        return _statistic(data, weight)
+    end
 end

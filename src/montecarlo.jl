@@ -9,6 +9,7 @@ using Graphs
 using .MCUtility
 const RNG = Random.GLOBAL_RNG
 
+include("configuration.jl")
 include("variable.jl")
 include("sampler.jl")
 include("updates.jl")
@@ -162,11 +163,13 @@ function sample(config::Configuration, integrand::Function, measure::Function=si
     end
     ################################ IO ######################################
     if MPI.Comm_rank(comm) == root
+        result = Result(results)
+        summary(result)
         # if (print >= 0)
-        summary(results[end][3], neval)
+        # summary(results[end][3], neval)
         # end
         println(red("All simulation ended. Cost $(time() - startTime) seconds."))
-        return results[end][1], results[end][2]
+        return result.mean, result.stdev
     end
 end
 
@@ -251,80 +254,4 @@ function doReweight!(config, beta)
     # Check Eq. (19) of https://arxiv.org/pdf/2009.05112.pdf for more detail
     # config.reweight = @. ((1 - config.reweight) / log(1 / config.reweight))^beta
     # config.reweight ./= sum(config.reweight)
-end
-
-function summary(config::Configuration, total_neval=nothing)
-    neval, visited, reweight, propose, accept = config.neval, config.visited, config.reweight, config.propose, config.accept
-    var, neighbor = config.var, config.neighbor
-
-    Nd = length(visited)
-
-    barbar = "===============================  Report   ==========================================="
-    bar = "-------------------------------------------------------------------------------------"
-
-    println(barbar)
-    println(green(Dates.now()))
-    println("\nneval = $(config.neval)")
-    println(bar)
-
-    totalproposed = 0.0
-    println(yellow(@sprintf("%-20s %12s %12s %12s", "ChangeIntegrand", "Proposed", "Accepted", "Ratio  ")))
-    for n in neighbor[Nd]
-        @printf(
-            "Norm -> %2d:           %11.6f%% %11.6f%% %12.6f\n",
-            n,
-            propose[1, Nd, n] / neval * 100.0,
-            accept[1, Nd, n] / neval * 100.0,
-            accept[1, Nd, n] / propose[1, Nd, n]
-        )
-        totalproposed += propose[1, Nd, n]
-    end
-    for idx = 1:Nd-1
-        for n in neighbor[idx]
-            if n == Nd  # normalization diagram
-                @printf("  %d ->Norm:           %11.6f%% %11.6f%% %12.6f\n",
-                    idx,
-                    propose[1, idx, n] / neval * 100.0,
-                    accept[1, idx, n] / neval * 100.0,
-                    accept[1, idx, n] / propose[1, idx, n]
-                )
-            else
-                @printf("  %d -> %2d:            %11.6f%% %11.6f%% %12.6f\n",
-                    idx, n,
-                    propose[1, idx, n] / neval * 100.0,
-                    accept[1, idx, n] / neval * 100.0,
-                    accept[1, idx, n] / propose[1, idx, n]
-                )
-            end
-            totalproposed += propose[1, idx, n]
-        end
-    end
-    println(bar)
-
-    println(yellow(@sprintf("%-20s %12s %12s %12s", "ChangeVariable", "Proposed", "Accepted", "Ratio  ")))
-    for idx = 1:Nd-1 # normalization diagram don't have variable to change
-        for (vi, var) in enumerate(var)
-            typestr = "$(typeof(var))"
-            typestr = split(typestr, ".")[end]
-            @printf(
-                "  %2d / %-10s:   %11.6f%% %11.6f%% %12.6f\n",
-                idx, typestr,
-                propose[2, idx, vi] / neval * 100.0,
-                accept[2, idx, vi] / neval * 100.0,
-                accept[2, idx, vi] / propose[2, idx, vi]
-            )
-            totalproposed += propose[2, idx, vi]
-        end
-    end
-    println(bar)
-    println(yellow("Diagrams            Visited      ReWeight\n"))
-    @printf("  Norm   :     %12i %12.6f\n", visited[end], reweight[end])
-    for idx = 1:Nd-1
-        @printf("  Order%2d:     %12i %12.6f\n", idx, visited[idx], reweight[idx])
-    end
-    println(bar)
-    println(yellow("Total Proposed: $(totalproposed / neval * 100.0)%\n"))
-    println(green(progressBar(neval, total_neval)))
-    println()
-
 end
