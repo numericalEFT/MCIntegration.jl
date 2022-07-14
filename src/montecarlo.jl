@@ -51,7 +51,7 @@ sample(config::Configuration, integrand::Function, measure::Function; Nblock=16,
 """
 function sample(config::Configuration, integrand::Function, measure::Function=simple_measure;
     neval=1e4 * length(config.dof), # number of evaluations
-    niter=20, # number of iterations
+    niter=10, # number of iterations
     block=16, # number of blocks
     alpha=0.5, # learning rate
     beta=1.0, # learning rate
@@ -159,16 +159,16 @@ function sample(config::Configuration, integrand::Function, measure::Function=si
         end
 
         MPI.Bcast!(summedConfig.reweight, root, comm)
-        println(MPI.Comm_rank(comm), " reweight: ", summedConfig.reweight)
+        # println(MPI.Comm_rank(comm), " reweight: ", summedConfig.reweight)
     end
     ################################ IO ######################################
     if MPI.Comm_rank(comm) == root
         result = Result(results)
-        summary(result)
         # if (print >= 0)
         # summary(results[end][3], neval)
         # end
         if print >= 0
+            summary(result)
             println(red("Cost $(time() - startTime) seconds."))
         end
         return result
@@ -216,7 +216,6 @@ function montecarlo(config::Configuration, integrand::Function, measure::Functio
     end
 
     if (print >= 0)
-        # printStatus(config)
         println(green("Seed $(config.seed) End Simulation. Cost $(time() - startTime) seconds."))
     end
 
@@ -244,10 +243,6 @@ function doReweight!(config, beta)
         else
             config.reweight[vi] *= (avgstep / v)^beta
         end
-        # if config.reweight[vi] < 1e-10
-        #     config.reweight[vi] = 1e-10
-        # end
-        # end
     end
     # renoormalize all reweight to be (0.0, 1.0)
     config.reweight ./= sum(config.reweight)

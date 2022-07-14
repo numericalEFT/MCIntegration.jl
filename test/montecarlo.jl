@@ -17,10 +17,9 @@ function Sphere1(totalstep)
     T = MCIntegration.Tau(1.0, 1.0 / 2.0)
     dof = [[2,],] # number of T variable for the normalization and the integrand
     config = MCIntegration.Configuration((T,), dof, 0.0)
-    avg, err = MCIntegration.sample(config, integrand, measure; neval=totalstep, block=64, print=-1)
+    result = MCIntegration.sample(config, integrand, measure; neval=totalstep, block=64, print=-1)
     # avg, err = MonteCarlo.sample(totalstep, (T,), dof, [0.0, ], integrand, measure; Nblock=64, print=-1)
-
-    return avg, err
+    return result.mean, result.stdev
 end
 
 function Sphere2(totalstep)
@@ -42,10 +41,9 @@ function Sphere2(totalstep)
     T = MCIntegration.TauPair(1.0, 1.0 / 2.0)
     dof = [[1,],] # number of T variable for the normalization and the integrand
     config = MCIntegration.Configuration((T,), dof, 0.0)
-    avg, err = MCIntegration.sample(config, integrand, measure; neval=totalstep, block=64, print=-1)
+    result = MCIntegration.sample(config, integrand, measure; neval=totalstep, block=64, print=-1)
     # avg, err = MonteCarlo.sample(totalstep, (T,), dof, [0.0, ], integrand, measure; Nblock=64, print=-1)
-
-    return avg, err
+    return result.mean, result.stdev
 end
 
 function Sphere3(totalstep; offset=0)
@@ -77,10 +75,9 @@ function Sphere3(totalstep; offset=0)
     dof = [[2,], [3,]] # number of T variable for the normalization and the integrand
     # config = MCIntegration.Configuration(totalstep, (T,), dof, [0.0, 0.0], neighbor=[[3, 2], [3, 1], [1, 2]])
     config = MCIntegration.Configuration((T,), dof, [0.0, 0.0], neighbor=[(1, 3), (1, 2)])
-    avg, err = MCIntegration.sample(config, integrand, measure; neval=totalstep, block=64, print=-1)
+    result = MCIntegration.sample(config, integrand, measure; neval=totalstep, block=64, print=-1)
     # avg, err = MonteCarlo.sample(totalstep, (T,), dof, [0.0, ], integrand, measure; Nblock=64, print=-1)
-
-    return avg, err
+    return result.mean, result.stdev
 end
 
 function Exponential1(totalstep)
@@ -98,10 +95,9 @@ function Exponential1(totalstep)
     K = MCIntegration.RadialFermiK(1.0, 0.01)
     dof = [[1,],] # number of T variable for the normalization and the integrand
     config = MCIntegration.Configuration((K,), dof, 0.0)
-    avg, err = MCIntegration.sample(config, integrand, measure; neval=totalstep, block=64, print=-1)
+    result = MCIntegration.sample(config, integrand, measure; neval=totalstep, block=64, print=-1)
     # avg, err = MonteCarlo.sample(totalstep, (T,), dof, [0.0, ], integrand, measure; Nblock=64, print=-1)
-
-    return avg, err
+    return result.mean, result.stdev
 end
 const LorentzN = 1000
 
@@ -120,10 +116,9 @@ function Lorentz1(totalstep)
     K = MCIntegration.RadialFermiK(1.0, 0.001)
     dof = [[1,],] # number of T variable for the normalization and the integrand
     config = MCIntegration.Configuration((K,), dof, 0.0)
-    avg, err = MCIntegration.sample(config, integrand, measure; neval=totalstep, block=64, print=-1)
+    result = MCIntegration.sample(config, integrand, measure; neval=totalstep, block=64, print=-1)
     # avg, err = MonteCarlo.sample(totalstep, (T,), dof, [0.0, ], integrand, measure; Nblock=64, print=-1)
-
-    return avg, err
+    return result.mean, result.stdev
 end
 
 
@@ -147,10 +142,9 @@ function Exponential2(totalstep)
     K = MCIntegration.RadialFermiK(1.0, 0.01)
     dof = [[1,], [2,]] # number of T variable for the normalization and the integrand
     config = MCIntegration.Configuration((K,), dof, [0.0, 0.0])
-    avg, err = MCIntegration.sample(config, integrand, measure; neval=totalstep, block=64, print=-1)
+    result = MCIntegration.sample(config, integrand, measure; neval=totalstep, block=64, print=-1)
     # avg, err = MonteCarlo.sample(totalstep, (T,), dof, [0.0, ], integrand, measure; Nblock=64, print=-1)
-
-    return avg, err
+    return result.mean, result.stdev
 end
 
 
@@ -175,14 +169,13 @@ function Lorentz2(totalstep)
     K = MCIntegration.RadialFermiK(1.0, 0.01)
     dof = [[1,], [2,]] # number of T variable for the normalization and the integrand
     config = MCIntegration.Configuration((K,), dof, [0.0, 0.0])
-    avg, err = MCIntegration.sample(config, integrand, measure; neval=totalstep, block=64, print=-1)
+    result = MCIntegration.sample(config, integrand, measure; neval=totalstep, block=64, print=-1)
     # avg, err = MonteCarlo.sample(totalstep, (T,), dof, [0.0, ], integrand, measure; Nblock=64, print=-1)
-
-    return avg, err
+    return result.mean, result.stdev
 end
 
 @testset "MonteCarlo Sampler" begin
-    totalStep = 1000_00
+    totalStep = 1000_0
 
     avg, err = Sphere1(totalStep)
     println("MC integration 1: $avg ± $err (exact: $(π / 4.0))")

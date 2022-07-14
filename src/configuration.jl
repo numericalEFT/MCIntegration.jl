@@ -281,7 +281,7 @@ function summary(config::Configuration, total_neval=nothing)
         end
     end
     println(bar)
-    println(yellow("Diagrams            Visited      ReWeight\n"))
+    println(yellow("Integrand            Visited      ReWeight"))
     @printf("  Norm   :     %12i %12.6f\n", visited[end], reweight[end])
     for idx = 1:Nd-1
         @printf("  Order%2d:     %12i %12.6f\n", idx, visited[idx], reweight[idx])
