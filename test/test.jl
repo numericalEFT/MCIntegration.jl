@@ -13,6 +13,8 @@ function integrand(config)
 end
 
 results = MCIntegration.sample(config, integrand; neval=1e4, block=64, niter=10, print=-1)
-println(MCIntegration.summary(results))
+if isnothing(results) == false
+    println(MCIntegration.summary(results))
+end
 # jldsave("test.jld", result=results)
 

@@ -156,10 +156,13 @@ function sample(config::Configuration, integrand::Function, measure::Function=si
             ################### self-learning ##########################################
             doReweight!(summedConfig, beta)
             config.reweight = summedConfig.reweight
+            # else
+            #     config.reweight .*= 0.0
         end
 
-        MPI.Bcast!(summedConfig.reweight, root, comm)
-        # println(MPI.Comm_rank(comm), " reweight: ", summedConfig.reweight)
+        # println(MPI.Comm_rank(comm), " reweight: ", config.reweight)
+        MPI.Bcast!(config.reweight, root, comm)
+        # println(MPI.Comm_rank(comm), " reweight: ", config.reweight)
     end
     ################################ IO ######################################
     if MPI.Comm_rank(comm) == root
