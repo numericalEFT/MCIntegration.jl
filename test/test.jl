@@ -16,6 +16,7 @@ end
 results = MCIntegration.sample(config, integrand; neval=1e4, block=64, niter=10, print=-1)
 if isnothing(results) == false
     println(MCIntegration.summary(results, [obs -> obs[1], obs -> obs[2]]))
+    # println(MCIntegration.summary(results, [obs -> obs[1],]))
 end
 # jldsave("test.jld", result=results)
 

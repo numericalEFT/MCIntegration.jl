@@ -8,7 +8,7 @@ export StopWatch, check
 include("color.jl")
 export black, red, green, yellow, blue, magenta, cyan, white
 
-export progressBar
+export progressBar, locate
 """
     progressBar(step, total)
 
@@ -28,6 +28,15 @@ function progressBar(step, total)
     end
     str *= "] $step/$total=$percent%"
     return str
+end
+
+function locate(accumulation, p)
+    for i = 1:length(accumulation)
+        if accumulation[i] > p
+            return i
+        end
+    end
+    error("p=$p is out of the upper bound $(accumulation[end])")
 end
 
 end

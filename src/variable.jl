@@ -66,16 +66,23 @@ mutable struct Continuous{G} <: Variable
     histogram::Vector{Float64}
     accumulation::Vector{Float64}
     distribution::Vector{Float64}
-    function Continuous(lower::Float64, upper::Float64, size=MaxOrder; offset=0, grid::G=LinRange(lower, upper, 5)) where {G}
+    # gidx::Vector{Int}
+    function Continuous(lower::Float64, upper::Float64, size=MaxOrder; offset=0, grid::G=collect(LinRange(lower, upper, 5))) where {G}
         @assert offset + 1 < size
         @assert upper > lower + 2 * eps(1.0)
         t = LinRange(lower + eps(1.0), upper - eps(1.0), size) #avoid duplication
+
         N = length(grid) - 1
         width = [grid[i+1] - grid[i] for i in 1:N]
-        histogram = ones(N)
+        # histogram = ones(N)
+        histogram = [1.0, 5.0, 1.0, 5.0]
         histogram ./= sum(histogram)
         distribution = histogram ./ width
+        println("grid: ", grid)
+        println("dist: ", distribution)
         accumulation = [sum(histogram[1:i]) for i in 1:N]
+        println("acc: ", accumulation)
+
         return new{G}(t, lower, upper - lower, offset, grid, width, histogram, accumulation, distribution)
     end
 end

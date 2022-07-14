@@ -34,11 +34,13 @@ function tostring(mval, merr; pm="±")
     # return "$val $pm $(round(merr, sigdigits=error_digits))"
 end
 
-function summary(result::Result, pick::Union{Function,Vector{Function}}=obs -> real(first(obs)))
+function summary(result::Result, pick::Union{Function,AbstractVector}=obs -> real(first(obs)))
     summary(result.config)
 
     if pick isa Function
         pick = [pick,]
+    else
+        @assert eltype(pick) <: Function "pick must be either a function or a vector of functions!"
     end
     for (i, p) in enumerate(pick)
         barbar = "==================================     Results#$i    =============================================="

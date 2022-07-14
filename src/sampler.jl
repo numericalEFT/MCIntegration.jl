@@ -614,15 +614,6 @@ end
     K[idx1], K[idx2] = K[idx2], K[idx1]
 end
 
-function locate(accumulation, p)
-    for i = 1:length(accumulation)
-        if accumulation[i] > p
-            return i
-        end
-    end
-    error("p=$p is out of the upper bound $(accumulation[end])")
-end
-
 """
     create!(T::Continuous, idx::Int, rng=GLOBAL_RNG)
 
@@ -634,11 +625,8 @@ Propose to generate new (uniform) variable randomly in [T.lower, T.lower+T.range
 """
 @inline function create!(T::Continuous, idx::Int, config)
     (idx >= length(T.data) - 1) && error("$idx overflow!")
-    # T[idx] = rand(config.rng) * T.range + T.lower
     gidx = locate(T.accumulation, rand(config.rng))
-    # println(idx)
     T[idx] = T.grid[gidx] + rand(config.rng) * (T.grid[gidx+1] - T.grid[gidx])
-    # println(T[idx])
     return 1.0 / T.distribution[gidx]
 end
 @inline createRollback!(T::Continuous, idx::Int, config) = nothing
@@ -654,7 +642,8 @@ Propose to remove old variable in [T.lower, T.lower+T.range), return proposal pr
 """
 @inline function remove!(T::Continuous, idx::Int, config)
     (idx >= length(T.data) - 1) && error("$idx overflow!")
-    return T.distribution[idx]
+    currIdx = locate(T.grid, T[idx]) - 1
+    return T.distribution[currIdx]
 end
 @inline removeRollback!(T::Continuous, idx::Int, config) = nothing
 
@@ -670,23 +659,7 @@ Propose to shift an existing variable to a new one, both in [T.lower, T.lower+T.
 @inline function shift!(T::Continuous, idx::Int, config)
     (idx >= length(T.data) - 1) && error("$idx overflow!")
     T[end] = T[idx]
-    rng = config.rng
-    # x = rand(rng)
-    # if x < 1.0 / 2
-    #     T[idx] = T[idx] + 2 * T.λ * (rand(rng) - 0.5)
-    # else
-    #     T[idx] = rand(rng) * T.range + T.lower
-    # end
-
-    # if T[idx] < T.lower
-    #     T[idx] += T.range
-    # elseif T[idx] > T.lower + T.range
-    #     T[idx] -= T.range
-    # end
-
-    # T[idx] = rand(rng) * T.range + T.lower
-    # return 1.0
-    currIdx = locate(T.accumulation, T[idx])
+    currIdx = locate(T.grid, T[idx]) - 1
     gidx = locate(T.accumulation, rand(config.rng))
     T[idx] = T.grid[gidx] + rand(config.rng) * (T.grid[gidx+1] - T.grid[gidx])
     return T.distribution[currIdx] / T.distribution[gidx]
