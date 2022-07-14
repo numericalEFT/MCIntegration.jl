@@ -18,6 +18,7 @@ struct Result{O,C}
 end
 
 function tostring(mval, merr; pm="±")
+    # println(mval, ", ", merr)
     return @sprintf("%16.8g %s %.8g", mval, pm, merr)
     # val = if iszero(merr) || !isfinite(merr)
     #     mval
@@ -43,7 +44,8 @@ function summary(result::Result, pick=obs -> real(first(obs)))
     println(bar)
     for iter in 1:result.dof+1
         m0, e0 = pick(result.iterations[iter][1]), pick(result.iterations[iter][2])
-        m, e, chi2 = average(result.iterations, iter; pick=pick)
+        m, e, chi2 = average(result.iterations, iter)
+        m, e, chi2 = pick(m), pick(e), pick(chi2)
         println(@sprintf("%6s %-36s %-36s %16.4f", iter, tostring(m0, e0), tostring(m, e), iter == 1 ? 0.0 : chi2 / (iter - 1)))
     end
     println(bar)
@@ -70,7 +72,7 @@ function MPIreduce(data)
     end
 end
 
-function average(history, max=length(history); pick=obs -> obs)
+function average(history, max=length(history))
 
     function _statistic(data, weight)
         @assert length(data) == length(weight)
@@ -94,8 +96,8 @@ function average(history, max=length(history); pick=obs -> obs)
         mI, eI, chi2I = _statistic(dataI, weightI)
         return mR + mI * 1im, eR + eI * 1im, chi2R + chi2I * 1im
     else
-        data = [pick(history[i][1]) for i in 1:max]
-        weight = [1.0 ./ pick(history[i][2]) .^ 2 for i in 1:max]
+        data = [history[i][1] for i in 1:max]
+        weight = [1.0 ./ history[i][2] .^ 2 for i in 1:max]
         return _statistic(data, weight)
     end
 end
