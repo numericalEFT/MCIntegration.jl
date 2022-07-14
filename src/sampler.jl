@@ -627,6 +627,7 @@ Propose to generate new (uniform) variable randomly in [T.lower, T.lower+T.range
     (idx >= length(T.data) - 1) && error("$idx overflow!")
     gidx = locate(T.accumulation, rand(config.rng))
     T[idx] = T.grid[gidx] + rand(config.rng) * (T.grid[gidx+1] - T.grid[gidx])
+    T.gidx[idx] = gidx
     return 1.0 / T.distribution[gidx]
 end
 @inline createRollback!(T::Continuous, idx::Int, config) = nothing
@@ -642,7 +643,8 @@ Propose to remove old variable in [T.lower, T.lower+T.range), return proposal pr
 """
 @inline function remove!(T::Continuous, idx::Int, config)
     (idx >= length(T.data) - 1) && error("$idx overflow!")
-    currIdx = locate(T.grid, T[idx]) - 1
+    # currIdx = locate(T.grid, T[idx]) - 1
+    currIdx = T.gidx[idx]
     return T.distribution[currIdx]
 end
 @inline removeRollback!(T::Continuous, idx::Int, config) = nothing
@@ -659,27 +661,33 @@ Propose to shift an existing variable to a new one, both in [T.lower, T.lower+T.
 @inline function shift!(T::Continuous, idx::Int, config)
     (idx >= length(T.data) - 1) && error("$idx overflow!")
     T[end] = T[idx]
-    currIdx = locate(T.grid, T[idx]) - 1
+    T.gidx[end] = T.gidx[idx]
+    currIdx = T.gidx[idx]
+    # currIdx = locate(T.grid, T[idx]) - 1
     gidx = locate(T.accumulation, rand(config.rng))
     T[idx] = T.grid[gidx] + rand(config.rng) * (T.grid[gidx+1] - T.grid[gidx])
+    T.gidx[idx] = gidx
     return T.distribution[currIdx] / T.distribution[gidx]
 end
 
 @inline function shiftRollback!(T::Continuous, idx::Int, config)
     (idx >= length(T.data) - 1) && error("$idx overflow!")
     T[idx] = T[end]
+    T.gidx[idx] = T.gidx[end]
 end
 
 
 @inline function swap!(T::Continuous, idx1::Int, idx2::Int, config)
     ((idx1 >= length(T.data) - 1) || (idx2 >= length(T.data) - 1)) && error("$idx1 or $idx2 overflow!")
     T[idx1], T[idx2] = T[idx2], T[idx1]
+    T.gidx[idx1], T.gidx[idx2] = T.gidx[idx2], T.gidx[idx1]
     return 1.0
 end
 
 @inline function swapRollback!(T::Continuous, idx1::Int, idx2::Int, config)
     ((idx1 >= length(T.data) - 1) || (idx2 >= length(T.data) - 1)) && error("$idx1 or $idx2 overflow!")
     T[idx1], T[idx2] = T[idx2], T[idx1]
+    T.gidx[idx1], T.gidx[idx2] = T.gidx[idx2], T.gidx[idx1]
 end
 
 # @inline function sample(model::Uniform{Int,D}, data, idx) where {D}
