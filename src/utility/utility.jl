@@ -8,7 +8,7 @@ export StopWatch, check
 include("color.jl")
 export black, red, green, yellow, blue, magenta, cyan, white
 
-export progressBar, locate
+export progressBar, locate, smooth
 """
     progressBar(step, total)
 
@@ -62,6 +62,19 @@ function locate(accumulation::AbstractVector, p::Number)
     end
     # return jl + 1
     # error("p=$p is out of the upper bound $(accumulation[end])")
+end
+
+function smooth(dist::AbstractVector, factor=6)
+    if length(dist) <= 1
+        return dist
+    end
+    new = deepcopy(dist)
+    new[1] = (dist[1] * (factor + 1) + dist[2]) / (factor + 2)
+    new[end] = (dist[end] * (factor + 1) + dist[end-1]) / (factor + 2)
+    for i = 2:length(dist)-1
+        new[i] = (dist[i-1] + dist[i] * factor + dist[i+1]) / (factor + 2)
+    end
+    return new
 end
 
 end

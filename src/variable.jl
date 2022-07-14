@@ -78,15 +78,32 @@ mutable struct Continuous{G} <: Variable
         width = [grid[i+1] - grid[i] for i in 1:N]
         histogram = ones(N)
         # histogram = [1.0, 5.0, 1.0, 5.0]
-        histogram ./= sum(histogram)
-        distribution = histogram ./ width
-        accumulation = [sum(histogram[1:i]) for i in 1:N]
-        accumulation = [0.0, accumulation...] # start with 0.0 and end with 1.0
-        @assert (accumulation[1] ≈ 0.0) && (accumulation[end] ≈ 1.0)
+        # distribution = histogram ./ width / sum(histogram)
+        # accumulation = [sum(histogram[1:i]) / sum(histogram) for i in 1:N]
+        # accumulation = [0.0, accumulation...] # start with 0.0 and end with 1.0
+        # @assert (accumulation[1] ≈ 0.0) && (accumulation[end] ≈ 1.0)
 
-        return new{G}(t, gidx, lower, upper - lower, offset, grid, width, histogram, accumulation, distribution)
+        var = new{G}(t, gidx, lower, upper - lower, offset, grid, width, histogram, [], [])
+        update!(var)
+        return var
     end
 end
+
+function accumulate!(T::Continuous, idx::Int)
+    T.histogram[T.gidx[idx]] += 1
+end
+clearStatistics!(T::Continuous) = fill!(T.histogram, 1.0)
+function update!(T::Continuous)
+    distribution = T.histogram / sum(T.histogram)
+    distribution = smooth(distribution, 6.0)
+    distribution ./= sum(distribution)
+    accumulation = [sum(distribution[1:i]) for i in 1:length(distribution)]
+    T.accumulation = [0.0, accumulation...] # start with 0.0 and end with 1.0
+    T.distribution = distribution ./ T.width
+    @assert (T.accumulation[1] ≈ 0.0) && (T.accumulation[end] ≈ 1.0) "$(T.accumulation)"
+end
+
+
 
 mutable struct Angle <: Variable
     data::Vector{Float64}
@@ -167,6 +184,10 @@ end
 #         return new{dim}(t, lower, upper .- lower, offset)
 #     end
 # end
+
+accumulate(var::Variable, idx) = nothing
+clearStatistics!(Var::Variable) = nothing
+update!(Var::Variable) = nothing
 
 Base.getindex(Var::Variable, i::Int) = Var.data[i]
 function Base.setindex!(Var::Variable, v, i::Int)
