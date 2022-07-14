@@ -1,4 +1,5 @@
 using MCIntegration
+using JLD2
 var = MCIntegration.Continuous([0.0, 1.0], 1.0 / 2.0)
 config = MCIntegration.Configuration((var,), [[1,], [1,]])
 
@@ -12,5 +13,6 @@ function integrand(config)
 end
 
 results = MCIntegration.sample(config, integrand; neval=1e4, block=64, niter=10, print=-1)
-println(results)
+println(MCIntegration.summary(results))
+# jldsave("test.jld", result=results)
 

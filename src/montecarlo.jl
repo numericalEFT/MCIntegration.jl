@@ -168,8 +168,11 @@ function sample(config::Configuration, integrand::Function, measure::Function=si
         # if (print >= 0)
         # summary(results[end][3], neval)
         # end
-        println(red("All simulation ended. Cost $(time() - startTime) seconds."))
-        return result.mean, result.stdev
+        if print >= 0
+            println(red("Cost $(time() - startTime) seconds."))
+        end
+        return result
+        # return result.mean, result.stdev
     end
 end
 
