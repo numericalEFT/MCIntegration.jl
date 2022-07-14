@@ -31,12 +31,26 @@ function progressBar(step, total)
 end
 
 function locate(accumulation, p)
-    for i = 1:length(accumulation)
-        if accumulation[i] > p
-            return i
+    n = length(accumulation)
+    @assert accumulation[1] <= p && p <= accumulation[n] "$p is not in the range of accumulation = $accumulation"
+
+    jl, ju = 1, n + 1
+    while (ju - jl > 1)
+        jm = (jl + ju) ÷ 2
+        if p < accumulation[jm]
+            ju = jm
+        else
+            jl = jm
         end
     end
-    error("p=$p is out of the upper bound $(accumulation[end])")
+    for i = 1:length(accumulation)
+        if accumulation[i] > p
+            @assert jl + 1 == i "$jl vs $i"
+            return jl
+        end
+    end
+    # return jl + 1
+    # error("p=$p is out of the upper bound $(accumulation[end])")
 end
 
 end

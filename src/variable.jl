@@ -71,7 +71,8 @@ mutable struct Continuous{G} <: Variable
         @assert offset + 1 < size
         @assert upper > lower + 2 * eps(1.0)
         t = LinRange(lower + eps(1.0), upper - eps(1.0), size) #avoid duplication
-        gidx = [locate(grid, t[i]) - 1 for i = 1:size]
+        gidx = [locate(grid, t[i]) for i = 1:size]
+        # println(gidx)
 
         N = length(grid) - 1
         width = [grid[i+1] - grid[i] for i in 1:N]
@@ -79,10 +80,9 @@ mutable struct Continuous{G} <: Variable
         histogram = [1.0, 5.0, 1.0, 5.0]
         histogram ./= sum(histogram)
         distribution = histogram ./ width
-        # println("grid: ", grid)
-        # println("dist: ", distribution)
         accumulation = [sum(histogram[1:i]) for i in 1:N]
-        # println("acc: ", accumulation)
+        accumulation = [0.0, accumulation...] # start with 0.0 and end with 1.0
+        @assert (accumulation[1] ≈ 0.0) && (accumulation[end] ≈ 1.0)
 
         return new{G}(t, gidx, lower, upper - lower, offset, grid, width, histogram, accumulation, distribution)
     end
