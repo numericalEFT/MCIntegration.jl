@@ -34,23 +34,29 @@ function tostring(mval, merr; pm="±")
     # return "$val $pm $(round(merr, sigdigits=error_digits))"
 end
 
-function summary(result::Result, pick=obs -> real(first(obs)))
+function summary(result::Result, pick::Union{Function,Vector{Function}}=obs -> real(first(obs)))
     summary(result.config)
 
-    barbar = "==================================     Results     ================================================"
-    bar = "---------------------------------------------------------------------------------------------------"
-    println(barbar)
-    println(yellow(@sprintf("%6s %36s %36s %16s", "iter", "integral", "wgt average", "chi2/dof")))
-    println(bar)
-    for iter in 1:result.dof+1
-        m0, e0 = pick(result.iterations[iter][1]), pick(result.iterations[iter][2])
-        m, e, chi2 = average(result.iterations, iter)
-        m, e, chi2 = pick(m), pick(e), pick(chi2)
-        println(@sprintf("%6s %-36s %-36s %16.4f", iter, tostring(m0, e0), tostring(m, e), iter == 1 ? 0.0 : chi2 / (iter - 1)))
+    if pick isa Function
+        pick = [pick,]
     end
-    println(bar)
-    m, e = pick(result.mean), pick(result.stdev)
-    println("result = $m ± $e")
+    for (i, p) in enumerate(pick)
+        barbar = "==================================     Results#$i    =============================================="
+        bar = "---------------------------------------------------------------------------------------------------"
+        println(barbar)
+        println(yellow(@sprintf("%6s %-36s %-36s %16s", "iter", "         integral", "        wgt average", "chi2/dof")))
+        println(bar)
+        for iter in 1:result.dof+1
+            m0, e0 = p(result.iterations[iter][1]), p(result.iterations[iter][2])
+            m, e, chi2 = average(result.iterations, iter)
+            m, e, chi2 = p(m), p(e), p(chi2)
+            println(@sprintf("%6s %-36s %-36s %16.4f", iter, tostring(m0, e0), tostring(m, e), iter == 1 ? 0.0 : chi2 / (iter - 1)))
+        end
+        println(bar)
+        m, e = p(result.mean), p(result.stdev)
+        println(green("result#$i = $m ± $e"))
+        println()
+    end
 end
 
 function MPIreduce(data)

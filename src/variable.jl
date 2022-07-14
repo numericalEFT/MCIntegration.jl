@@ -56,24 +56,26 @@ mutable struct Tau <: Variable
     end
 end
 
-mutable struct Continuous <: Variable
+mutable struct Continuous{G} <: Variable
     data::Vector{Float64}
-    λ::Float64
     lower::Float64
     range::Float64
     offset::Int
-    function Continuous(bound, λ=nothing, size=MaxOrder; offset=0)
-        lower, upper = bound
+    grid::G
+    width::Vector{Float64}
+    histogram::Vector{Float64}
+    accumulation::Vector{Float64}
+    distribution::Vector{Float64}
+    function Continuous(lower::Float64, upper::Float64, size=MaxOrder; offset=0, grid::G=LinRange(lower, upper, 5)) where {G}
         @assert offset + 1 < size
-        @assert upper > lower
-        @assert isnothing(λ) || (0 < λ < (upper - lower))
-        t = [lower + (upper - lower) * (i - 0.5) / size for i = 1:size] #avoid duplication
-
-        if isnothing(λ)
-            λ = (upper - lower) / 2.0
-        end
-
-        return new(t, λ, lower, upper - lower, offset)
+        @assert upper > lower + 2 * eps(1.0)
+        t = LinRange(lower + eps(1.0), upper - eps(1.0), size) #avoid duplication
+        N = length(grid) - 1
+        width = [grid[i+1] - grid[i] for i in 1:N]
+        histogram = ones(N)
+        distribution = histogram / sum(histogram)
+        accumulation = [sum(histogram[1:i]) for i in 1:N]
+        return new{G}(t, lower, upper - lower, offset, grid, width, histogram, accumulation, distribution)
     end
 end
 
@@ -107,11 +109,18 @@ mutable struct Discrete <: Variable
     upper::Int
     size::Int
     offset::Int
-    function Discrete(lower, upper, size=MaxOrder; offset=0)
+    accumulation::Vector{Float64}
+    histogram::Vector{Float64}
+    function Discrete(bound::Union{Tuple{Int,Int},Vector{Int}}, size=MaxOrder; offset=0)
+        return Discrete([bound[0], bound[1]], size; offset=offset)
+    end
+    function Discrete(lower::Int, upper::Int, size=MaxOrder; offset=0)
         d = [i for i = 1:size] #avoid dulication
         @assert offset + 1 < size
         @assert upper > lower
-        return new(d, lower, upper, upper - lower + 1, offset)
+        histogram = ones(upper - lower + 1) / (upper - lower + 1)
+        accumulation = [sum(histogram[1:i]) for i = 1:upper-lower+1]
+        return new(d, lower, upper, upper - lower + 1, offset, accumulation, histogram)
     end
 end
 

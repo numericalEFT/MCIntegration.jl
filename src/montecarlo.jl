@@ -160,9 +160,11 @@ function sample(config::Configuration, integrand::Function, measure::Function=si
             #     config.reweight .*= 0.0
         end
 
+        ######################## syncronize between works ##############################
         # println(MPI.Comm_rank(comm), " reweight: ", config.reweight)
-        MPI.Bcast!(config.reweight, root, comm)
+        MPI.Bcast!(config.reweight, root, comm) # broadcast reweight factors to all workers
         # println(MPI.Comm_rank(comm), " reweight: ", config.reweight)
+        ################################################################################
     end
     ################################ IO ######################################
     if MPI.Comm_rank(comm) == root
