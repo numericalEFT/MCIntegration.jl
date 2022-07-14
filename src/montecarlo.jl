@@ -50,12 +50,17 @@ sample(config::Configuration, integrand::Function, measure::Function; Nblock=16,
 """
 function sample(config::Configuration, integrand::Function, measure::Function=simple_measure;
     neval=1e4 * length(config.dof), # number of evaluations
-    niter=10, # number of iterations
+    niter=20, # number of iterations
     block=16, # number of blocks
-    reweight=neval / 10, # when to start the reweight
+    alpha=0.5, # learning rate
+    beta=1.0, # learning rate
     print=0, printio=stdout, save=0, saveio=nothing, timer=[])
 
     # println(reweight)
+
+    if beta > 1.0
+        @warn(red("beta should be less than 1.0"))
+    end
 
     ############ initialized timer ####################################
     if print > 0
@@ -98,7 +103,7 @@ function sample(config::Configuration, integrand::Function, measure::Function=si
             # reset!(config, config.reweight) # reset configuration, keep the previous reweight factors
             clearStatistics!(config) # reset configuration, keep the previous reweight factors
 
-            config = montecarlo(config, integrand, measure, nevalperblock, print, save, timer, reweight)
+            config = montecarlo(config, integrand, measure, nevalperblock, print, save, timer)
 
             # summary = addStat(config, summary)  # collect MC information
 
@@ -146,19 +151,26 @@ function sample(config::Configuration, integrand::Function, measure::Function=si
             # return nothing, nothing
             average(results)
             # println(average(results))
+
+            ################### self-learning ##########################################
+            doReweight!(summedConfig, beta)
+            config.reweight = summedConfig.reweight
         end
+
+        MPI.Bcast!(summedConfig.reweight, root, comm)
+        println(MPI.Comm_rank(comm), " reweight: ", summedConfig.reweight)
     end
     ################################ IO ######################################
     if MPI.Comm_rank(comm) == root
-        if (print >= 0)
-            summary(results[end][3], neval)
-        end
+        # if (print >= 0)
+        summary(results[end][3], neval)
+        # end
         println(red("All simulation ended. Cost $(time() - startTime) seconds."))
         return results[end][1], results[end][2]
     end
 end
 
-function montecarlo(config::Configuration, integrand::Function, measure::Function, neval, print, save, timer, reweight)
+function montecarlo(config::Configuration, integrand::Function, measure::Function, neval, print, save, timer)
     ##############  initialization  ################################
     # don't forget to initialize the diagram weight
     config.absWeight = abs(integrand(config))
@@ -194,9 +206,6 @@ function montecarlo(config::Configuration, integrand::Function, measure::Functio
             for t in timer
                 check(t, config, neval)
             end
-            if i >= reweight && i % reweight == 0
-                doReweight(config)
-            end
         end
     end
 
@@ -220,24 +229,28 @@ function simple_measure(config, integrand)
     end
 end
 
-function doReweight(config)
-    avgstep = sum(config.visited) / length(config.visited)
+function doReweight!(config, beta)
+    avgstep = sum(config.visited)
     for (vi, v) in enumerate(config.visited)
-        if v > 1000
-            config.reweight[vi] *= avgstep / v
-            if config.reweight[vi] < 1e-10
-                config.reweight[vi] = 1e-10
-            end
+        # if v > 1000
+        if v <= 1
+            config.reweight[vi] *= (avgstep)^beta
+        else
+            config.reweight[vi] *= (avgstep / v)^beta
         end
+        # if config.reweight[vi] < 1e-10
+        #     config.reweight[vi] = 1e-10
+        # end
+        # end
     end
     # renoormalize all reweight to be (0.0, 1.0)
-    config.reweight .= config.reweight ./ sum(config.reweight)
-    # dample reweight factor to avoid rapid, destabilizing changes
-    # reweight factor close to 1.0 will not be changed much
-    # reweight factor close to zero will be amplified significantly
+    config.reweight ./= sum(config.reweight)
+    # avoid overreacting to atypically large reweighting factor
+    # reweighting factor close to 1.0 will not be changed much
+    # reweighting factor close to zero will be amplified significantly
     # Check Eq. (19) of https://arxiv.org/pdf/2009.05112.pdf for more detail
-    α = 2.0
-    config.reweight = @. ((1 - config.reweight) / log(1 / config.reweight))^α
+    # config.reweight = @. ((1 - config.reweight) / log(1 / config.reweight))^beta
+    # config.reweight ./= sum(config.reweight)
 end
 
 function summary(config::Configuration, total_neval=nothing)
