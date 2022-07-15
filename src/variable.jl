@@ -71,7 +71,8 @@ mutable struct Continuous{G} <: Variable
     histogram::Vector{Float64}
     accumulation::Vector{Float64}
     distribution::Vector{Float64}
-    function Continuous(lower::Float64, upper::Float64, size=MaxOrder; offset=0, grid::G=collect(LinRange(lower, upper, 129))) where {G}
+    alpha::Float64
+    function Continuous(lower::Float64, upper::Float64, size=MaxOrder; offset=0, grid::G=collect(LinRange(lower, upper, 129)), alpha=2.0) where {G}
         @assert offset + 1 < size
         @assert upper > lower + 2 * eps(1.0)
         t = LinRange(lower + eps(1.0), upper - eps(1.0), size) #avoid duplication
@@ -87,7 +88,7 @@ mutable struct Continuous{G} <: Variable
         # accumulation = [0.0, accumulation...] # start with 0.0 and end with 1.0
         # @assert (accumulation[1] ≈ 0.0) && (accumulation[end] ≈ 1.0)
 
-        var = new{G}(t, gidx, lower, upper - lower, offset, grid, width, histogram, [], [])
+        var = new{G}(t, gidx, lower, upper - lower, offset, grid, width, histogram, [], [], alpha)
         update!(var)
         return var
     end
@@ -99,8 +100,9 @@ end
 # clearStatistics!(T::Continuous) = fill!(T.histogram, 1.0)
 # addStatistics!(target::Continuous, income::Continuous) = (target.histogram .+= income.histogram)
 function update!(T::Continuous)
-    distribution = T.histogram / sum(T.histogram)
-    distribution = smooth(distribution, 6.0)
+    # distribution = T.histogram / sum(T.histogram)
+    distribution = smooth(T.histogram, 6.0)
+    distribution = rescale(distribution, T.alpha)
     distribution ./= sum(distribution)
     accumulation = [sum(distribution[1:i]) for i in 1:length(distribution)]
     T.accumulation = [0.0, accumulation...] # start with 0.0 and end with 1.0

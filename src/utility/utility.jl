@@ -8,7 +8,7 @@ export StopWatch, check
 include("color.jl")
 export black, red, green, yellow, blue, magenta, cyan, white
 
-export progressBar, locate, smooth
+export progressBar, locate, smooth, rescale
 """
     progressBar(step, total)
 
@@ -75,6 +75,13 @@ function smooth(dist::AbstractVector, factor=6)
         new[i] = (dist[i-1] + dist[i] * factor + dist[i+1]) / (factor + 2)
     end
     return new
+end
+
+function rescale(dist::AbstractVector, alpha=1.0)
+    dist ./= sum(dist)
+    @assert all(x -> (0 < x < 1), dist)
+    dist = @. ((1 - dist) / log(1 / dist))^alpha
+    return dist ./= sum(dist)
 end
 
 end
