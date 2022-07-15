@@ -96,6 +96,7 @@ function sample(config::Configuration, integrand::Function, measure::Function=si
 
         obsSum *= 0
         obsSquaredSum *= 0
+        # summed configuration of all blocks, but changes in each iteration
         summedConfig = deepcopy(config)
 
         for i = 1:block
@@ -107,8 +108,7 @@ function sample(config::Configuration, integrand::Function, measure::Function=si
 
             config = montecarlo(config, integrand, measure, nevalperblock, print, save, timer)
 
-            # summary = addStat(config, summary)  # collect MC information
-            addConfig!(summedConfig, config) # collect MC information
+            addConfig!(summedConfig, config) # collect statistics from the config of each block to summedConfig
 
             if (config.normalization > 0.0) == false #in case config.normalization is not a number
                 error("normalization of block $i is $(config.normalization), which is not positively defined!")
@@ -135,6 +135,7 @@ function sample(config::Configuration, integrand::Function, measure::Function=si
         #################### collect statistics  ####################################
         MPIreduce(obsSum)
         MPIreduce(obsSquaredSum)
+        # collect all statistics to summedConfig of the root worker
         MPIreduceConfig!(summedConfig, root, comm)
 
         if MPI.Comm_rank(comm) == root
@@ -148,26 +149,36 @@ function sample(config::Configuration, integrand::Function, measure::Function=si
                 std = @. sqrt((obsSquaredSum / block - mean^2) / (block - 1))
             end
             # MPI.Finalize()
-            # return mean, std
             push!(results, (mean, std, summedConfig))
-            # else # if not the root, return nothing
-            # return nothing, nothing
-            average(results)
-            # println(average(results))
+            # average(results)
 
             ################### self-learning ##########################################
             doReweight!(summedConfig, beta)
             for var in summedConfig.var
                 train!(var)
             end
-            config.reweight = summedConfig.reweight
-            config.var = summedConfig.var
         end
 
         ######################## syncronize between works ##############################
         # println(MPI.Comm_rank(comm), " reweight: ", config.reweight)
-        MPI.Bcast!(config.reweight, root, comm) # broadcast reweight factors to all workers
-        # println(MPI.Comm_rank(comm), " reweight: ", config.reweight)
+
+        # broadcast the reweight and var.histogram of the summedConfig of the root worker to two targets:
+        # 1. config of the root worker
+        # 2. config of the other workers
+        config.reweight = MPI.bcast(summedConfig.reweight, root, comm) # broadcast reweight factors to all workers
+        for vi in 1:length(config.var)
+            config.var[vi].histogram = MPI.bcast(summedConfig.var[vi].histogram, root, comm)
+            train!(config.var[vi])
+        end
+        # if MPI.Comm_rank(comm) == 1
+        #     println("1 reweight: ", config.reweight, " vs ", summedConfig.reweight)
+        #     println("1 var: ", config.var[1].histogram, " vs ", summedConfig.var[1].histogram)
+        # end
+        # if MPI.Comm_rank(comm) == 0
+        #     sleep(1)
+        #     println("0 reweight: ", config.reweight, " vs ", summedConfig.reweight)
+        #     println("0 var: ", config.var[1].histogram, " vs ", summedConfig.var[1].histogram)
+        # end
         ################################################################################
     end
     ################################ IO ######################################
