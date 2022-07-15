@@ -66,7 +66,8 @@ mutable struct Continuous{G} <: Variable
     accumulation::Vector{Float64}
     distribution::Vector{Float64}
     alpha::Float64
-    function Continuous(lower::Float64, upper::Float64, size=MaxOrder; offset=0, grid::G=collect(LinRange(lower, upper, 129)), alpha=2.0) where {G}
+    adapt::Bool
+    function Continuous(lower::Float64, upper::Float64, size=MaxOrder; offset=0, grid::G=collect(LinRange(lower, upper, 129)), alpha=2.0, adapt=true) where {G}
         @assert offset + 1 < size
         @assert upper > lower + 2 * eps(1.0)
         t = LinRange(lower + (upper - lower) / size, upper - (upper - lower) / size, size) #avoid duplication
@@ -76,13 +77,8 @@ mutable struct Continuous{G} <: Variable
         N = length(grid) - 1
         width = [grid[i+1] - grid[i] for i in 1:N]
         histogram = ones(N)
-        # histogram = [1.0, 5.0, 1.0, 5.0]
-        # distribution = histogram ./ width / sum(histogram)
-        # accumulation = [sum(histogram[1:i]) / sum(histogram) for i in 1:N]
-        # accumulation = [0.0, accumulation...] # start with 0.0 and end with 1.0
-        # @assert (accumulation[1] ≈ 0.0) && (accumulation[end] ≈ 1.0)
 
-        var = new{G}(t, gidx, lower, upper - lower, offset, grid, width, histogram, [], [], alpha)
+        var = new{G}(t, gidx, lower, upper - lower, offset, grid, width, histogram, [], [], alpha, adapt)
 
         train!(var)
 
@@ -91,7 +87,9 @@ mutable struct Continuous{G} <: Variable
 end
 
 function accumulate!(T::Continuous, idx::Int)
-    T.histogram[T.gidx[idx]] += 1
+    if T.adapt
+        T.histogram[T.gidx[idx]] += 1
+    end
 end
 function train!(T::Continuous)
     distribution = smooth(T.histogram, 6.0)
@@ -126,24 +124,26 @@ mutable struct Discrete <: Variable
     accumulation::Vector{Float64}
     distribution::Vector{Float64}
     alpha::Float64
-    function Discrete(bound::Union{Tuple{Int,Int},Vector{Int}}, size=MaxOrder; offset=0, alpha=2.0)
-        return Discrete([bound[0], bound[1]], size; offset=offset)
+    adapt::Bool
+    function Discrete(bound::Union{Tuple{Int,Int},Vector{Int}}, size=MaxOrder; offset=0, alpha=2.0, adapt=true)
+        return Discrete([bound[0], bound[1]], size; offset=offset, alpha=alpha, adapt=adapt)
     end
-    function Discrete(lower::Int, upper::Int, size=MaxOrder; offset=0, alpha=2.0)
+    function Discrete(lower::Int, upper::Int, size=MaxOrder; offset=0, alpha=2.0, adapt=true)
         d = collect(Iterators.take(Iterators.cycle(lower:upper), size)) #avoid dulication
         @assert offset + 1 < size
         @assert upper >= lower
         histogram = ones(upper - lower + 1)
-        newVar = new(d, lower, upper, upper - lower + 1, offset, histogram, [], [], alpha)
+        newVar = new(d, lower, upper, upper - lower + 1, offset, histogram, [], [], alpha, adapt)
         train!(newVar)
         return newVar
     end
 end
 
 function accumulate!(T::Discrete, idx::Int)
-    gidx = T[idx] - T.lower + 1
-    T.histogram[gidx] += 1
-    # T.histogram[gidx] += 0
+    if T.adapt
+        gidx = T[idx] - T.lower + 1
+        T.histogram[gidx] += 1
+    end
 end
 function train!(T::Discrete)
     # return
