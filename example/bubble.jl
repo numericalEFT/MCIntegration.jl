@@ -58,8 +58,8 @@ function run(steps)
     para = Para()
     @unpack extQ, Qsize = para
 
-    T = MCIntegration.Tau(β, β / 2.0)
-    # T = MCIntegration.Continuous(0.0, β; alpha=3.0)
+    # T = MCIntegration.Tau(β, β / 2.0)
+    T = MCIntegration.Continuous(0.0, β; alpha=3.0)
     K = MCIntegration.FermiK(3, kF, 0.2 * kF, 10.0 * kF)
     Ext = MCIntegration.Discrete(1, length(extQ)) # external variable is specified
 
@@ -68,7 +68,6 @@ function run(steps)
 
     config = MCIntegration.Configuration((T, K, Ext), dof, obs; para=para)
     result = MCIntegration.sample(config, integrand, measure; neval=steps, print=-1, block=16)
-    # @profview MonteCarlo.sample(config, integrand, measure; print=0, Nblock=1)
     # sleep(100)
 
     if isnothing(result) == false
@@ -83,6 +82,8 @@ function run(steps)
         println(MCIntegration.summary(result))
         println(result.config.var[3].histogram)
         println(sum(result.config.var[3].histogram))
+        println(result.config.var[3].accumulation)
+        println(result.config.var[3].distribution)
     end
 end
 

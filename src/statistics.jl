@@ -12,7 +12,8 @@ struct Result{O,C}
         config = history[end][3]
         dof = length(history) - 1
         neval = sum(h[3].neval for h in history)
-        mean, stdev, chi2 = average(history, dof)
+        mean, stdev, chi2 = average(history, dof + 1)
+        # println(mean, ", ", stdev, ", ", chi2)
         return new{O,typeof(config)}(mean, stdev, chi2, neval, dof, config, history)
     end
 end
@@ -81,9 +82,14 @@ function MPIreduce(data)
 end
 
 function average(history, max=length(history))
+    @assert max > 0
+    if max == 1
+        return history[1][1], history[1][2], zero(history[1][1])
+    end
 
     function _statistic(data, weight)
         @assert length(data) == length(weight)
+        # println(data, " and ", weight)
         weightsum = sum(weight)
         mea = sum(data[i] .* weight[i] ./ weightsum for i in 1:max)
         err = 1.0 ./ sqrt.(weightsum)

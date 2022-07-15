@@ -78,8 +78,11 @@ function smooth(dist::AbstractVector, factor=6)
 end
 
 function rescale(dist::AbstractVector, alpha=1.0)
+    if length(dist) == 1
+        return dist
+    end
     dist ./= sum(dist)
-    @assert all(x -> (0 < x < 1), dist)
+    @assert all(x -> (0 < x < 1), dist) "$dist"
     dist = @. ((1 - dist) / log(1 / dist))^alpha
     return dist ./= sum(dist)
 end

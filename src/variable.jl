@@ -41,12 +41,6 @@ mutable struct RadialFermiK <: Variable
     end
 end
 
-mutable struct BoseK{D} <: Variable
-    data::Vector{SVector{D,Float64}}
-    maxK::Float64
-    histogram::Vector{Float64}
-end
-
 mutable struct Tau <: Variable
     data::Vector{Float64}
     λ::Float64
@@ -109,19 +103,6 @@ function train!(T::Continuous)
     @assert (T.accumulation[1] ≈ 0.0) && (T.accumulation[end] ≈ 1.0) "$(T.accumulation)"
 end
 
-mutable struct Angle <: Variable
-    data::Vector{Float64}
-    λ::Float64
-    offset::Int
-    histogram::Vector{Float64}
-    function Angle(λ=0.5, size=MaxOrder; offset=0)
-        @assert offset + 1 < size
-        theta = [π * (i - 0.5) / size for i = 1:size] #avoid dulication
-        return new(theta, λ, offset, [0.0,])
-    end
-end
-
-
 mutable struct TauPair <: Variable
     data::Vector{MVector{2,Float64}}
     λ::Float64
@@ -143,22 +124,26 @@ mutable struct Discrete <: Variable
     offset::Int
     histogram::Vector{Float64}
     accumulation::Vector{Float64}
+    distribution::Vector{Float64}
     alpha::Float64
     function Discrete(bound::Union{Tuple{Int,Int},Vector{Int}}, size=MaxOrder; offset=0, alpha=2.0)
         return Discrete([bound[0], bound[1]], size; offset=offset)
     end
     function Discrete(lower::Int, upper::Int, size=MaxOrder; offset=0, alpha=2.0)
-        d = [i for i = 1:size] #avoid dulication
+        d = collect(Iterators.take(Iterators.cycle(lower:upper), size)) #avoid dulication
         @assert offset + 1 < size
-        @assert upper > lower
+        @assert upper >= lower
         histogram = ones(upper - lower + 1)
-        return new(d, lower, upper, upper - lower + 1, offset, histogram, [], alpha)
+        newVar = new(d, lower, upper, upper - lower + 1, offset, histogram, [], [], alpha)
+        train!(newVar)
+        return newVar
     end
 end
 
 function accumulate!(T::Discrete, idx::Int)
     gidx = T[idx] - T.lower + 1
     T.histogram[gidx] += 1
+    # T.histogram[gidx] += 0
 end
 function train!(T::Discrete)
     # return
@@ -168,7 +153,7 @@ function train!(T::Discrete)
     distribution ./= sum(distribution)
     accumulation = [sum(distribution[1:i]) for i in 1:length(distribution)]
     T.accumulation = [0.0, accumulation...] # start with 0.0 and end with 1.0
-    # T.distribution = distribution
+    T.distribution = distribution
     @assert (T.accumulation[1] ≈ 0.0) && (T.accumulation[end] ≈ 1.0) "$(T.accumulation)"
 end
 

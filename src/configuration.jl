@@ -112,6 +112,7 @@ mutable struct Configuration{V,P,O}
         seed::Int=rand(Random.RandomDevice(), 1:1000000),
         neighbor::Union{Vector{Vector{Int}},Vector{Tuple{Int,Int}},Nothing}=nothing
     ) where {V,P,O}
+        # println(var)
         @assert V <: Tuple{Vararg{Variable}} || V <: Tuple{Variable} "Configuration.var must be a tuple of Variable to maximize efficiency. Now get $(typeof(V))"
         Nv = length(var) # number of variables
 
