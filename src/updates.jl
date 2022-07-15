@@ -40,14 +40,14 @@ function changeIntegrand(config, integrand)
         config.accept[1, curr, new] += 1.0
         config.absWeight = newAbsWeight
         ########## accumulate config.var histogram #############
-        for vi = 1:length(config.var)
-            offset = config.var[vi].offset
-            if (currdof[vi] < newdof[vi]) # more degrees of freedom
-                for pos = currdof[vi]+1:newdof[vi]
-                    accumulate!(config.var[vi], pos + offset)
-                end
-            end
-        end
+        # for vi = 1:length(config.var)
+        #     offset = config.var[vi].offset
+        #     if (currdof[vi] < newdof[vi]) # more degrees of freedom
+        #         for pos = currdof[vi]+1:newdof[vi]
+        #             accumulate!(config.var[vi], pos + offset)
+        #         end
+        #     end
+        # end
     else # reject the change
         config.curr = curr # reset the current diagram index
         config.absWeight = currAbsWeight
@@ -99,7 +99,7 @@ function changeVariable(config, integrand)
         # curr == 2 && println("accept, $curr")
         config.accept[2, curr, vi] += 1.0
         config.absWeight = newAbsWeight
-        accumulate!(var, idx)
+        # accumulate!(var, idx)
     else
         # var[idx] = oldvar
         config.absWeight = currAbsWeight

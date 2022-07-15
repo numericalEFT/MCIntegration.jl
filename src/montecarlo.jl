@@ -209,6 +209,18 @@ function montecarlo(config::Configuration, integrand::Function, measure::Functio
         _update = rand(config.rng, updates) # randomly select an update
         _update(config, integrand)
         if i % 10 == 0 && i >= neval / 100
+
+            ######## accumulate variable #################
+            if config.curr != config.norm
+                for (vi, var) in enumerate(config.var)
+                    offset = var.offset
+                    for pos = 1:config.dof[config.curr][vi]
+                        accumulate!(var, pos + offset)
+                    end
+                end
+            end
+            ###############################################
+
             if config.curr == config.norm # the last diagram is for normalization
                 config.normalization += 1.0 / config.reweight[config.norm]
             else

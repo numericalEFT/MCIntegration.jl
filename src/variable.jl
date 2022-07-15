@@ -75,7 +75,7 @@ mutable struct Continuous{G} <: Variable
     function Continuous(lower::Float64, upper::Float64, size=MaxOrder; offset=0, grid::G=collect(LinRange(lower, upper, 129)), alpha=2.0) where {G}
         @assert offset + 1 < size
         @assert upper > lower + 2 * eps(1.0)
-        t = LinRange(lower + eps(1.0), upper - eps(1.0), size) #avoid duplication
+        t = LinRange(lower + (upper - lower) / size, upper - (upper - lower) / size, size) #avoid duplication
         gidx = [locate(grid, t[i]) for i = 1:size]
         # println(gidx)
 
@@ -102,11 +102,13 @@ end
 function train!(T::Continuous)
     # distribution = T.histogram / sum(T.histogram)
     distribution = smooth(T.histogram, 6.0)
+    # println("before: ", distribution / sum(distribution))
     distribution = rescale(distribution, T.alpha)
     distribution ./= sum(distribution)
     accumulation = [sum(distribution[1:i]) for i in 1:length(distribution)]
     T.accumulation = [0.0, accumulation...] # start with 0.0 and end with 1.0
     T.distribution = distribution ./ T.width
+    # println("after: ", T.distribution)
     @assert (T.accumulation[1] ≈ 0.0) && (T.accumulation[end] ≈ 1.0) "$(T.accumulation)"
 end
 
@@ -196,7 +198,7 @@ accumulate!(var::Variable, idx) = nothing
 # clearStatistics!(Var::Variable) = ing
 train!(Var::Variable) = nothing
 # addStatistics!(target::Variable, income::Variable) = nothing
-clearStatistics!(T::Variable) = fill!(T.histogram, 1.0)
+clearStatistics!(T::Variable) = fill!(T.histogram, 1.0e-10)
 addStatistics!(target::Variable, income::Variable) = (target.histogram .+= income.histogram)
 
 Base.getindex(Var::Variable, i::Int) = Var.data[i]
