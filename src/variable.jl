@@ -89,7 +89,9 @@ mutable struct Continuous{G} <: Variable
         # @assert (accumulation[1] ≈ 0.0) && (accumulation[end] ≈ 1.0)
 
         var = new{G}(t, gidx, lower, upper - lower, offset, grid, width, histogram, [], [], alpha)
+
         train!(var)
+
         return var
     end
 end
@@ -97,18 +99,13 @@ end
 function accumulate!(T::Continuous, idx::Int)
     T.histogram[T.gidx[idx]] += 1
 end
-# clearStatistics!(T::Continuous) = fill!(T.histogram, 1.0)
-# addStatistics!(target::Continuous, income::Continuous) = (target.histogram .+= income.histogram)
 function train!(T::Continuous)
-    # distribution = T.histogram / sum(T.histogram)
     distribution = smooth(T.histogram, 6.0)
-    # println("before: ", distribution / sum(distribution))
     distribution = rescale(distribution, T.alpha)
     distribution ./= sum(distribution)
     accumulation = [sum(distribution[1:i]) for i in 1:length(distribution)]
     T.accumulation = [0.0, accumulation...] # start with 0.0 and end with 1.0
     T.distribution = distribution ./ T.width
-    # println("after: ", T.distribution)
     @assert (T.accumulation[1] ≈ 0.0) && (T.accumulation[end] ≈ 1.0) "$(T.accumulation)"
 end
 
@@ -144,19 +141,35 @@ mutable struct Discrete <: Variable
     upper::Int
     size::Int
     offset::Int
-    accumulation::Vector{Float64}
     histogram::Vector{Float64}
-    function Discrete(bound::Union{Tuple{Int,Int},Vector{Int}}, size=MaxOrder; offset=0)
+    accumulation::Vector{Float64}
+    alpha::Float64
+    function Discrete(bound::Union{Tuple{Int,Int},Vector{Int}}, size=MaxOrder; offset=0, alpha=2.0)
         return Discrete([bound[0], bound[1]], size; offset=offset)
     end
-    function Discrete(lower::Int, upper::Int, size=MaxOrder; offset=0)
+    function Discrete(lower::Int, upper::Int, size=MaxOrder; offset=0, alpha=2.0)
         d = [i for i = 1:size] #avoid dulication
         @assert offset + 1 < size
         @assert upper > lower
-        histogram = ones(upper - lower + 1) / (upper - lower + 1)
-        accumulation = [sum(histogram[1:i]) for i = 1:upper-lower+1]
-        return new(d, lower, upper, upper - lower + 1, offset, accumulation, histogram)
+        histogram = ones(upper - lower + 1)
+        return new(d, lower, upper, upper - lower + 1, offset, histogram, [], alpha)
     end
+end
+
+function accumulate!(T::Discrete, idx::Int)
+    gidx = T[idx] - T.lower + 1
+    T.histogram[gidx] += 1
+end
+function train!(T::Discrete)
+    # return
+    # distribution = smooth(T.histogram, 6.0)
+    distribution = deepcopy(T.histogram)
+    distribution = rescale(distribution, T.alpha)
+    distribution ./= sum(distribution)
+    accumulation = [sum(distribution[1:i]) for i in 1:length(distribution)]
+    T.accumulation = [0.0, accumulation...] # start with 0.0 and end with 1.0
+    # T.distribution = distribution
+    @assert (T.accumulation[1] ≈ 0.0) && (T.accumulation[end] ≈ 1.0) "$(T.accumulation)"
 end
 
 # mutable struct ContinuousND{D} <: Variable

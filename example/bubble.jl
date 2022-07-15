@@ -81,8 +81,8 @@ function run(steps)
             @printf("%10.6f  %10.6f ± %10.6f  %10.6f\n", q / basic.kF, avg[idx], std[idx], p)
         end
         println(MCIntegration.summary(result))
-        # println(result.config.var[1].histogram)
-        # println(sum(result.config.var[1].histogram))
+        println(result.config.var[3].histogram)
+        println(sum(result.config.var[3].histogram))
     end
 end
 
