@@ -176,14 +176,18 @@ end
 function TestDiscrete(totalstep)
     function integrand(config)
         x = config.var[1][1]
-        return 1.0
+        return x
     end
 
-    X = MCIntegration.Discrete(2, 5)
+    X = MCIntegration.Discrete(1, 3, adapt=true)
     dof = [[1,],] # number of X variable of tthe integrand
     config = MCIntegration.Configuration((X,), dof)
 
     result = MCIntegration.sample(config, integrand; neval=totalstep, niter=10, block=64, print=-1)
+    # println(MCIntegration.summary(result))
+    # println(result.config.var[1].histogram)
+    # println(result.config.var[1].distribution)
+    # println(result.config.var[1].accumulation)
     return result.mean, result.stdev
 end
 
@@ -233,7 +237,7 @@ end
     @test abs(avg[2] - ((LorentzN / 2 * π + LorentzN * atan(LorentzN)))) < 5.0 * err[2]
 
     avg, err = TestDiscrete(totalStep)
-    println("MC integration 8: $avg ± $err (exact: 2.0)")
-    @test abs(avg - 4.0) < 5.0 * err # 3.0 is the number of possible values of X
+    println("MC integration 8: $avg ± $err (exact: 6.0)")
+    @test abs(avg - 6.0) < 5.0 * err # the sum of possible values of X
 
 end

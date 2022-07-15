@@ -11,10 +11,10 @@ Propose to generate new index (uniformly) randomly in [1, size]
 """
 @inline function create!(d::Discrete, idx::Int, config)
     (idx >= length(d.data) - 1) && error("$idx overflow!")
-    d[idx] = rand(config.rng, d.lower:d.upper)
+    # d[idx] = rand(config.rng, d.lower:d.upper)
 
     gidx = locate(d.accumulation, rand(config.rng))
-    # d[idx] = d.lower + gidx - 1
+    d[idx] = d.lower + gidx - 1
     # @assert d[idx] >= d.lower && d[idx] <= d.upper "$gidx"
     return 1.0 / d.distribution[gidx]
 end
@@ -53,13 +53,13 @@ Propose to shift the old index in [1, size] to a new index
 """
 @inline function shift!(d::Discrete, idx::Int, config)
     (idx >= length(d.data) - 1) && error("$idx overflow!")
-    d[end] = d[idx] # save the current variable
-    d[idx] = rand(config.rng, d.lower:d.upper)
+    # d[end] = d[idx] # save the current variable
+    # d[idx] = rand(config.rng, d.lower:d.upper)
 
-    # d[end] = d[idx]
+    d[end] = d[idx]
     currIdx = d[idx] - d.lower + 1
     gidx = locate(d.accumulation, rand(config.rng))
-    # d[idx] = d.lower + gidx - 1
+    d[idx] = d.lower + gidx - 1
     # @assert d[idx] >= d.lower && d[idx] <= d.upper "$gidx"
     return d.distribution[currIdx] / d.distribution[gidx]
 end

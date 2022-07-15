@@ -62,7 +62,7 @@ function run(steps)
     # T = MCIntegration.Tau(β, β / 2.0)
     T = MCIntegration.Continuous(0.0, β; alpha=3.0, adapt=true)
     K = MCIntegration.FermiK(3, kF, 0.2 * kF, 10.0 * kF)
-    Ext = MCIntegration.Discrete(1, length(extQ); adapt=false) # external variable is specified
+    Ext = MCIntegration.Discrete(1, length(extQ); adapt=true) # external variable is specified
 
     dof = [[1, 1, 1],] # degrees of freedom of the normalization diagram and the bubble
     obs = zeros(Float64, Qsize) # observable for the normalization diagram and the bubble
