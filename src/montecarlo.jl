@@ -158,7 +158,7 @@ function sample(config::Configuration, integrand::Function, measure::Function=si
             ################### self-learning ##########################################
             doReweight!(summedConfig, beta)
             for var in summedConfig.var
-                update!(var)
+                train!(var)
             end
             config.reweight = summedConfig.reweight
             config.var = summedConfig.var

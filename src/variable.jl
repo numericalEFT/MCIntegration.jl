@@ -89,7 +89,7 @@ mutable struct Continuous{G} <: Variable
         # @assert (accumulation[1] ≈ 0.0) && (accumulation[end] ≈ 1.0)
 
         var = new{G}(t, gidx, lower, upper - lower, offset, grid, width, histogram, [], [], alpha)
-        update!(var)
+        train!(var)
         return var
     end
 end
@@ -99,7 +99,7 @@ function accumulate!(T::Continuous, idx::Int)
 end
 # clearStatistics!(T::Continuous) = fill!(T.histogram, 1.0)
 # addStatistics!(target::Continuous, income::Continuous) = (target.histogram .+= income.histogram)
-function update!(T::Continuous)
+function train!(T::Continuous)
     # distribution = T.histogram / sum(T.histogram)
     distribution = smooth(T.histogram, 6.0)
     distribution = rescale(distribution, T.alpha)
@@ -192,9 +192,9 @@ end
 #     end
 # end
 
-accumulate(var::Variable, idx) = nothing
+accumulate!(var::Variable, idx) = nothing
 # clearStatistics!(Var::Variable) = ing
-update!(Var::Variable) = nothing
+train!(Var::Variable) = nothing
 # addStatistics!(target::Variable, income::Variable) = nothing
 clearStatistics!(T::Variable) = fill!(T.histogram, 1.0)
 addStatistics!(target::Variable, income::Variable) = (target.histogram .+= income.histogram)
