@@ -5,9 +5,11 @@ Monte Carlo Calculator for Diagrams
 using Random, MPI
 using LinearAlgebra
 using StaticArrays, Printf, Dates
+using Graphs
 using .MCUtility
 const RNG = Random.GLOBAL_RNG
 
+include("configuration.jl")
 include("variable.jl")
 include("sampler.jl")
 include("updates.jl")
@@ -47,14 +49,23 @@ sample(config::Configuration, integrand::Function, measure::Function; Nblock=16,
 
 - `reweight = config.totalStep/10`: the MC steps before reweighting the integrands. Set to -1 if reweighting is not wanted.
 """
-function sample(config::Configuration, integrand::Function, measure::Function;
-    Nblock=16, print=0, printio=stdout, save=0, saveio=nothing, timer=[], reweight=config.totalStep / 10)
+function sample(config::Configuration, integrand::Function, measure::Function=simple_measure;
+    neval=1e4 * length(config.dof), # number of evaluations
+    niter=10, # number of iterations
+    block=16, # number of blocks
+    alpha=0.5, # learning rate
+    beta=1.0, # learning rate
+    print=0, printio=stdout, save=0, saveio=nothing, timer=[])
 
     # println(reweight)
 
+    if beta > 1.0
+        @warn(red("beta should be less than 1.0"))
+    end
+
     ############ initialized timer ####################################
     if print > 0
-        push!(timer, StopWatch(print, printSummary))
+        push!(timer, StopWatch(print, summary))
     end
 
     ########### initialized MPI #######################################
@@ -66,83 +77,132 @@ function sample(config::Configuration, integrand::Function, measure::Function;
     # MPI.Barrier(comm)
 
     #########  construct configurations for each block ################
-    if Nblock > Nworker
-        Nblock = (Nblock ÷ Nworker) * Nworker # make Nblock % size ==0, error estimation assumes this relation
+    if block > Nworker
+        block = (block ÷ Nworker) * Nworker # make Nblock % size ==0, error estimation assumes this relation
     else
-        Nblock = Nworker  # each worker should handle at least one block
+        block = Nworker  # each worker should handle at least one block
     end
-    @assert Nblock % Nworker == 0
+    @assert block % Nworker == 0
+    # nevalperblock = neval ÷ block # number of evaluations per block
+    nevalperblock = neval # number of evaluations per block
 
-    obsSum, obsSquaredSum = zero(config.observable), zero(config.observable)
-    summary = nothing
+    results = []
     startTime = time()
+    obsSum, obsSquaredSum = zero(config.observable), zero(config.observable)
 
-    for i = 1:Nblock
-        # MPI thread rank will run the block with the indexes: rank, rank+Nworker, rank+2Nworker, ...
-        (i % Nworker != rank) && continue
+    # configVec = Vector{Configuration}[]
 
-        reset!(config, config.reweight) # reset configuration, keep the previous reweight factors
+    for iter in 1:niter
 
-        config = montecarlo(config, integrand, measure, print, save, timer, reweight)
+        obsSum *= 0
+        obsSquaredSum *= 0
+        # summed configuration of all blocks, but changes in each iteration
+        summedConfig = deepcopy(config)
 
-        summary = addStat(config, summary)  # collect MC information
+        for i = 1:block
+            # MPI thread rank will run the block with the indexes: rank, rank+Nworker, rank+2Nworker, ...
+            (i % Nworker != rank) && continue
 
-        if (config.normalization > 0.0) == false #in case config.normalization is not a number
-            error("normalization of block $i is $(config.normalization), which is not positively defined!")
+            # reset!(config, config.reweight) # reset configuration, keep the previous reweight factors
+            clearStatistics!(config) # reset statistics
+
+            config = montecarlo(config, integrand, measure, nevalperblock, print, save, timer)
+
+            addConfig!(summedConfig, config) # collect statistics from the config of each block to summedConfig
+
+            if (config.normalization > 0.0) == false #in case config.normalization is not a number
+                error("normalization of block $i is $(config.normalization), which is not positively defined!")
+            end
+
+            if typeof(obsSum) <: AbstractArray
+                obsSum .+= config.observable ./ config.normalization
+                if eltype(obsSquaredSum) <: Complex  #ComplexF16, ComplexF32 or ComplexF64 array
+                    obsSquaredSum .+= (real.(config.observable) ./ config.normalization) .^ 2
+                    obsSquaredSum .+= (imag.(config.observable) ./ config.normalization) .^ 2 * 1im
+                else
+                    obsSquaredSum .+= (config.observable ./ config.normalization) .^ 2
+                end
+            else
+                obsSum += config.observable / config.normalization
+                if typeof(obsSquaredSum) <: Complex
+                    obsSquaredSum += (real(config.observable) / config.normalization)^2
+                    obsSquaredSum += (imag(config.observable) / config.normalization)^2 * 1im
+                else
+                    obsSquaredSum += (config.observable / config.normalization)^2
+                end
+            end
+        end
+        #################### collect statistics  ####################################
+        MPIreduce(obsSum)
+        MPIreduce(obsSquaredSum)
+        # collect all statistics to summedConfig of the root worker
+        MPIreduceConfig!(summedConfig, root, comm)
+
+        if MPI.Comm_rank(comm) == root
+            ##################### Extract Statistics  ################################
+            mean = obsSum ./ block
+            if eltype(obsSquaredSum) <: Complex
+                r_std = @. sqrt((real.(obsSquaredSum) / block - real(mean)^2) / (block - 1))
+                i_std = @. sqrt((imag.(obsSquaredSum) / block - imag(mean)^2) / (block - 1))
+                std = r_std + i_std * 1im
+            else
+                std = @. sqrt((obsSquaredSum / block - mean^2) / (block - 1))
+            end
+            # MPI.Finalize()
+            push!(results, (mean, std, summedConfig))
+            # average(results)
+
+            ################### self-learning ##########################################
+            doReweight!(summedConfig, beta)
+            for var in summedConfig.var
+                train!(var)
+            end
         end
 
-        if typeof(obsSum) <: AbstractArray
-            obsSum .+= config.observable ./ config.normalization
-            if eltype(obsSquaredSum) <: Complex  #ComplexF16, ComplexF32 or ComplexF64 array
-                obsSquaredSum .+= (real.(config.observable) ./ config.normalization) .^ 2
-                obsSquaredSum .+= (imag.(config.observable) ./ config.normalization) .^ 2 * 1im
-            else
-                obsSquaredSum .+= (config.observable ./ config.normalization) .^ 2
-            end
-        else
-            obsSum += config.observable / config.normalization
-            if typeof(obsSquaredSum) <: Complex
-                obsSquaredSum += (real(config.observable) / config.normalization)^2
-                obsSquaredSum += (imag(config.observable) / config.normalization)^2 * 1im
-            else
-                obsSquaredSum += (config.observable / config.normalization)^2
-            end
+        ######################## syncronize between works ##############################
+        # println(MPI.Comm_rank(comm), " reweight: ", config.reweight)
+
+        # broadcast the reweight and var.histogram of the summedConfig of the root worker to two targets:
+        # 1. config of the root worker
+        # 2. config of the other workers
+        config.reweight = MPI.bcast(summedConfig.reweight, root, comm) # broadcast reweight factors to all workers
+        for vi in 1:length(config.var)
+            config.var[vi].histogram = MPI.bcast(summedConfig.var[vi].histogram, root, comm)
+            train!(config.var[vi])
         end
+        # if MPI.Comm_rank(comm) == 1
+        #     println("1 reweight: ", config.reweight, " vs ", summedConfig.reweight)
+        #     println("1 var: ", config.var[1].histogram, " vs ", summedConfig.var[1].histogram)
+        # end
+        # if MPI.Comm_rank(comm) == 0
+        #     sleep(1)
+        #     println("0 reweight: ", config.reweight, " vs ", summedConfig.reweight)
+        #     println("0 var: ", config.var[1].histogram, " vs ", summedConfig.var[1].histogram)
+        # end
+        ################################################################################
     end
-
-    #################### collect statistics  ####################################
-    MPIreduce(obsSum)
-    MPIreduce(obsSquaredSum)
-    summary = reduceStat(summary, root, comm) # root node gets the summed MC information
-
+    ################################ IO ######################################
     if MPI.Comm_rank(comm) == root
-        ################################ IO ######################################
-        if (print >= 0)
-            printSummary(summary, config.neighbor, config.var)
+        result = Result(results)
+        # if (print >= 0)
+        # summary(results[end][3], neval)
+        # end
+        if print >= 0
+            summary(result)
+            println(red("Cost $(time() - startTime) seconds."))
         end
-        println(red("All simulation ended. Cost $(time() - startTime) seconds."))
-        ##################### Extract Statistics  ################################
-        mean = obsSum ./ Nblock
-        if eltype(obsSquaredSum) <: Complex
-            r_std = @. sqrt((real.(obsSquaredSum) / Nblock - real(mean)^2) / (Nblock - 1))
-            i_std = @. sqrt((imag.(obsSquaredSum) / Nblock - imag(mean)^2) / (Nblock - 1))
-            std = r_std + i_std * 1im
-        else
-            std = @. sqrt((obsSquaredSum / Nblock - mean^2) / (Nblock - 1))
-        end
-        # MPI.Finalize()
-        return mean, std
-    else # if not the root, return nothing
-        # MPI.Finalize()
-        return nothing, nothing
+        return result
+        # return result.mean, result.stdev
     end
 end
 
-function montecarlo(config::Configuration, integrand::Function, measure::Function, print, save, timer, reweight)
+function montecarlo(config::Configuration, integrand::Function, measure::Function, neval, print, save, timer)
     ##############  initialization  ################################
     # don't forget to initialize the diagram weight
     config.absWeight = abs(integrand(config))
 
+
+    # updates = [changeIntegrand,] # TODO: sample changeVariable more often
     updates = [changeIntegrand, swapVariable, changeVariable] # TODO: sample changeVariable more often
     for i = 2:length(config.var)
         push!(updates, changeVariable)
@@ -154,127 +214,76 @@ function montecarlo(config::Configuration, integrand::Function, measure::Functio
     end
     startTime = time()
 
-    for i = 1:config.totalStep
-        config.step += 1
+    for i = 1:neval
+        config.neval += 1
         config.visited[config.curr] += 1
         _update = rand(config.rng, updates) # randomly select an update
         _update(config, integrand)
-        if i % 10 == 0 && i >= config.totalStep / 100
+        if i % 10 == 0 && i >= neval / 100
+
+            ######## accumulate variable #################
+            if config.curr != config.norm
+                for (vi, var) in enumerate(config.var)
+                    offset = var.offset
+                    for pos = 1:config.dof[config.curr][vi]
+                        accumulate!(var, pos + offset)
+                    end
+                end
+            end
+            ###############################################
+
             if config.curr == config.norm # the last diagram is for normalization
                 config.normalization += 1.0 / config.reweight[config.norm]
             else
-                measure(config)
+                if measure == simple_measure
+                    simple_measure(config, integrand)
+                else
+                    measure(config)
+                end
             end
         end
         if i % 1000 == 0
             for t in timer
-                check(t, config, config.neighbor, config.var)
-            end
-            if i >= reweight && i % reweight == 0
-                doReweight(config)
+                check(t, config, neval)
             end
         end
     end
 
     if (print >= 0)
-        # printStatus(config)
         println(green("Seed $(config.seed) End Simulation. Cost $(time() - startTime) seconds."))
     end
 
     return config
 end
 
-function doReweight(config)
-    avgstep = sum(config.visited) / length(config.visited)
+function simple_measure(config, integrand)
+    factor = 1.0 / config.reweight[config.curr]
+    weight = integrand(config)
+    if config.observable isa AbstractVector
+        config.observable[config.curr] += weight / abs(weight) * factor
+    elseif config.observable isa AbstractFloat
+        config.observable += weight / abs(weight) * factor
+    else
+        error("simple_measure can only be used with AbstractVector or AbstractFloat observables")
+    end
+end
+
+function doReweight!(config, beta)
+    avgstep = sum(config.visited)
     for (vi, v) in enumerate(config.visited)
-        if v > 1000
-            config.reweight[vi] *= avgstep / v
-            if config.reweight[vi] < 1e-10
-                config.reweight[vi] = 1e-10
-            end
+        # if v > 1000
+        if v <= 1
+            config.reweight[vi] *= (avgstep)^beta
+        else
+            config.reweight[vi] *= (avgstep / v)^beta
         end
     end
     # renoormalize all reweight to be (0.0, 1.0)
-    config.reweight .= config.reweight ./ sum(config.reweight)
-    # dample reweight factor to avoid rapid, destabilizing changes
-    # reweight factor close to 1.0 will not be changed much
-    # reweight factor close to zero will be amplified significantly
+    config.reweight ./= sum(config.reweight)
+    # avoid overreacting to atypically large reweighting factor
+    # reweighting factor close to 1.0 will not be changed much
+    # reweighting factor close to zero will be amplified significantly
     # Check Eq. (19) of https://arxiv.org/pdf/2009.05112.pdf for more detail
-    α = 2.0
-    config.reweight = @. ((1 - config.reweight) / log(1 / config.reweight))^α
-end
-
-function printSummary(summary, neighbor, var)
-
-    steps, totalSteps, visited, reweight, propose, accept = summary.step, summary.totalStep, summary.visited, summary.reweight, summary.propose, summary.accept
-    Nd = length(visited)
-
-    barbar = "===============================  Report   ==========================================="
-    bar = "-------------------------------------------------------------------------------------"
-
-    println(barbar)
-    println(green(Dates.now()))
-    println("\nTotalStep:", totalSteps)
-    println(bar)
-
-    totalproposed = 0.0
-    println(yellow(@sprintf("%-20s %12s %12s %12s", "ChangeIntegrand", "Proposed", "Accepted", "Ratio  ")))
-    for n in neighbor[Nd]
-        @printf(
-            "Norm -> %2d:           %11.6f%% %11.6f%% %12.6f\n",
-            n,
-            propose[1, Nd, n] / steps * 100.0,
-            accept[1, Nd, n] / steps * 100.0,
-            accept[1, Nd, n] / propose[1, Nd, n]
-        )
-        totalproposed += propose[1, Nd, n]
-    end
-    for idx = 1:Nd-1
-        for n in neighbor[idx]
-            if n == Nd  # normalization diagram
-                @printf("  %d ->Norm:           %11.6f%% %11.6f%% %12.6f\n",
-                    idx,
-                    propose[1, idx, n] / steps * 100.0,
-                    accept[1, idx, n] / steps * 100.0,
-                    accept[1, idx, n] / propose[1, idx, n]
-                )
-            else
-                @printf("  %d -> %2d:            %11.6f%% %11.6f%% %12.6f\n",
-                    idx, n,
-                    propose[1, idx, n] / steps * 100.0,
-                    accept[1, idx, n] / steps * 100.0,
-                    accept[1, idx, n] / propose[1, idx, n]
-                )
-            end
-            totalproposed += propose[1, idx, n]
-        end
-    end
-    println(bar)
-
-    println(yellow(@sprintf("%-20s %12s %12s %12s", "ChangeVariable", "Proposed", "Accepted", "Ratio  ")))
-    for idx = 1:Nd-1 # normalization diagram don't have variable to change
-        for (vi, var) in enumerate(var)
-            typestr = "$(typeof(var))"
-            typestr = split(typestr, ".")[end]
-            @printf(
-                "  %2d / %-10s:   %11.6f%% %11.6f%% %12.6f\n",
-                idx, typestr,
-                propose[2, idx, vi] / steps * 100.0,
-                accept[2, idx, vi] / steps * 100.0,
-                accept[2, idx, vi] / propose[2, idx, vi]
-            )
-            totalproposed += propose[2, idx, vi]
-        end
-    end
-    println(bar)
-    println(yellow("Diagrams            Visited      ReWeight\n"))
-    @printf("  Norm   :     %12i %12.6f\n", visited[end], reweight[end])
-    for idx = 1:Nd-1
-        @printf("  Order%2d:     %12i %12.6f\n", idx, visited[idx], reweight[idx])
-    end
-    println(bar)
-    println(yellow("Total Proposed: $(totalproposed / steps * 100.0)%\n"))
-    println(green(progressBar(steps, totalSteps)))
-    println()
-
+    # config.reweight = @. ((1 - config.reweight) / log(1 / config.reweight))^beta
+    # config.reweight ./= sum(config.reweight)
 end

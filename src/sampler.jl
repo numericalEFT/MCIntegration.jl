@@ -11,8 +11,12 @@ Propose to generate new index (uniformly) randomly in [1, size]
 """
 @inline function create!(d::Discrete, idx::Int, config)
     (idx >= length(d.data) - 1) && error("$idx overflow!")
-    d[idx] = rand(config.rng, d.lower:d.upper)
-    return Float64(d.upper - d.lower + 1) # lower:upper has upper-lower+1 elements!
+    # d[idx] = rand(config.rng, d.lower:d.upper)
+
+    gidx = locate(d.accumulation, rand(config.rng))
+    d[idx] = d.lower + gidx - 1
+    # @assert d[idx] >= d.lower && d[idx] <= d.upper "$gidx"
+    return 1.0 / d.distribution[gidx]
 end
 
 @inline createRollback!(d::Discrete, idx::Int, config) = nothing
@@ -29,7 +33,9 @@ Propose to remove the old index in [1, size]
 """
 @inline function remove!(d::Discrete, idx::Int, config)
     (idx >= length(d.data) - 1) && error("$idx overflow!")
-    return 1.0 / Float64(d.upper - d.lower + 1)
+    gidx = d[idx] - d.lower + 1
+    # println(d.distribution)
+    return d.distribution[gidx]
 end
 
 @inline removeRollback!(d::Discrete, idx::Int, config) = nothing
@@ -47,9 +53,15 @@ Propose to shift the old index in [1, size] to a new index
 """
 @inline function shift!(d::Discrete, idx::Int, config)
     (idx >= length(d.data) - 1) && error("$idx overflow!")
-    d[end] = d[idx] # save the current variable
-    d[idx] = rand(config.rng, d.lower:d.upper)
-    return 1.0
+    # d[end] = d[idx] # save the current variable
+    # d[idx] = rand(config.rng, d.lower:d.upper)
+
+    d[end] = d[idx]
+    currIdx = d[idx] - d.lower + 1
+    gidx = locate(d.accumulation, rand(config.rng))
+    d[idx] = d.lower + gidx - 1
+    # @assert d[idx] >= d.lower && d[idx] <= d.upper "$gidx"
+    return d.distribution[currIdx] / d.distribution[gidx]
 end
 
 @inline function shiftRollback!(d::Discrete, idx::Int, config)
@@ -417,76 +429,6 @@ end
     T[idx1], T[idx2] = T[idx2], T[idx1]
 end
 
-"""
-    create!(theta::Angle, idx::Int, rng=GLOBAL_RNG)
-
-Propose to generate new angle (uniformly) randomly in [0, 2π), return proposal probability
-
-# Arguments
-- `theta`:  angle variable
-- `idx`: theta.t[idx] will be updated
-"""
-@inline function create!(theta::Angle, idx::Int, config)
-    (idx >= length(theta.data) - 1) && error("$idx overflow!")
-    theta[idx] = rand(config.rng) * 2π
-    return 2π
-end
-@inline createRollback!(theta::Angle, idx::Int, config) = nothing
-
-
-"""
-    remove(theta::Angle, idx::Int, rng=GLOBAL_RNG)
-
-Propose to remove old theta in [0, 2π), return proposal probability
-
-# Arguments
-    - `theta`:  Tau variable
-- `idx`: theta.t[idx] will be updated
-"""
-@inline function remove!(theta::Angle, idx::Int, config)
-    (idx >= length(theta.data) - 1) && error("$idx overflow!")
-    return 1.0 / 2.0 / π
-end
-@inline removeRollback!(theta::Angle, idx::Int, config) = nothing
-
-"""
-    shift!(theta::Angle, idx::Int, rng=GLOBAL_RNG)
-
-Propose to shift the old theta to new theta, both in [0, 2π), return proposal probability
-
-# Arguments
-- `theta`:  angle variable
-- `idx`: theta.t[idx] will be updated
-"""
-@inline function shift!(theta::Angle, idx::Int, config)
-    (idx >= length(theta.data) - 1) && error("$idx overflow!")
-    theta[end] = theta[idx]
-    rng = config.rng
-    x = rand(rng)
-    if x < 1.0 / 3
-        theta[idx] = theta[idx] + 2 * theta.λ * (rand(rng) - 0.5)
-    elseif x < 2.0 / 3
-        theta[idx] = 2π - theta[idx]
-    else
-        theta[idx] = rand(rng) * 2π
-    end
-
-    if theta[idx] < 0.0
-        theta[idx] += 2π
-    elseif theta[idx] > 2π
-        theta[idx] -= 2π
-    end
-
-    return 1.0
-end
-
-@inline function shiftRollback!(theta::Angle, idx::Int, config)
-    (idx >= length(theta.data) - 1) && error("$idx overflow!")
-    theta[idx] = theta[end]
-end
-
-
-
 @inline function RFK_Weight(K::RadialFermiK, k)
     # norm = atan(K.kF/K.δk)/K.δk+π/2.0/K.δk
     # return 1.0/((k-K.kF)^2+K.δk^2)/norm
@@ -625,8 +567,10 @@ Propose to generate new (uniform) variable randomly in [T.lower, T.lower+T.range
 """
 @inline function create!(T::Continuous, idx::Int, config)
     (idx >= length(T.data) - 1) && error("$idx overflow!")
-    T[idx] = rand(config.rng) * T.range + T.lower
-    return T.range
+    gidx = locate(T.accumulation, rand(config.rng))
+    T[idx] = T.grid[gidx] + rand(config.rng) * (T.grid[gidx+1] - T.grid[gidx])
+    T.gidx[idx] = gidx
+    return 1.0 / T.distribution[gidx]
 end
 @inline createRollback!(T::Continuous, idx::Int, config) = nothing
 
@@ -641,7 +585,9 @@ Propose to remove old variable in [T.lower, T.lower+T.range), return proposal pr
 """
 @inline function remove!(T::Continuous, idx::Int, config)
     (idx >= length(T.data) - 1) && error("$idx overflow!")
-    return 1.0 / T.range
+    # currIdx = locate(T.grid, T[idx]) - 1
+    currIdx = T.gidx[idx]
+    return T.distribution[currIdx]
 end
 @inline removeRollback!(T::Continuous, idx::Int, config) = nothing
 
@@ -657,38 +603,32 @@ Propose to shift an existing variable to a new one, both in [T.lower, T.lower+T.
 @inline function shift!(T::Continuous, idx::Int, config)
     (idx >= length(T.data) - 1) && error("$idx overflow!")
     T[end] = T[idx]
-    rng = config.rng
-    x = rand(rng)
-    if x < 1.0 / 2
-        T[idx] = T[idx] + 2 * T.λ * (rand(rng) - 0.5)
-    else
-        T[idx] = rand(rng) * T.range + T.lower
-    end
-
-    if T[idx] < T.lower
-        T[idx] += T.range
-    elseif T[idx] > T.lower + T.range
-        T[idx] -= T.range
-    end
-
-    return 1.0
+    T.gidx[end] = T.gidx[idx]
+    currIdx = T.gidx[idx]
+    gidx = locate(T.accumulation, rand(config.rng))
+    T[idx] = T.grid[gidx] + rand(config.rng) * (T.grid[gidx+1] - T.grid[gidx])
+    T.gidx[idx] = gidx
+    return T.distribution[currIdx] / T.distribution[gidx]
 end
 
 @inline function shiftRollback!(T::Continuous, idx::Int, config)
     (idx >= length(T.data) - 1) && error("$idx overflow!")
     T[idx] = T[end]
+    T.gidx[idx] = T.gidx[end]
 end
 
 
 @inline function swap!(T::Continuous, idx1::Int, idx2::Int, config)
     ((idx1 >= length(T.data) - 1) || (idx2 >= length(T.data) - 1)) && error("$idx1 or $idx2 overflow!")
     T[idx1], T[idx2] = T[idx2], T[idx1]
+    T.gidx[idx1], T.gidx[idx2] = T.gidx[idx2], T.gidx[idx1]
     return 1.0
 end
 
 @inline function swapRollback!(T::Continuous, idx1::Int, idx2::Int, config)
     ((idx1 >= length(T.data) - 1) || (idx2 >= length(T.data) - 1)) && error("$idx1 or $idx2 overflow!")
     T[idx1], T[idx2] = T[idx2], T[idx1]
+    T.gidx[idx1], T.gidx[idx2] = T.gidx[idx2], T.gidx[idx1]
 end
 
 # @inline function sample(model::Uniform{Int,D}, data, idx) where {D}

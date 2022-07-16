@@ -7,7 +7,7 @@ using Lehmann
 using MCIntegration
 # using ProfileView
 
-const Steps = 1e6
+const Steps = 1e5
 
 # include("parameter.jl")
 beta = 25.0
@@ -20,8 +20,8 @@ const spin = basic.spin
 
 @with_kw struct Para
     n::Int = 0 # external Matsubara frequency
-    Qsize::Int = 16
-    extQ::Vector{SVector{3,Float64}} = [@SVector [q, 0.0, 0.0] for q in LinRange(0.0, 3.0 * kF, Qsize)]
+    Qsize::Int = 8
+    extQ::Vector{SVector{3,Float64}} = [@SVector [q, 0.0, 0.0] for q in LinRange(0.0 * kF, 2.0 * kF, Qsize)]
 end
 
 function integrand(config)
@@ -32,7 +32,8 @@ function integrand(config)
 
     T, K, Ext = config.var[1], config.var[2], config.var[3]
     k = K[1]
-    Tin, Tout = T[1], T[2]
+    # Tin, Tout = T[1], T[2]
+    Tin, Tout = 0.0, T[1]
     extidx = Ext[1]
     q = para.extQ[extidx] # external momentum
     kq = k + q
@@ -42,7 +43,7 @@ function integrand(config)
     ω2 = (dot(kq, kq) - kF^2) / (2me)
     g2 = Spectral.kernelFermiT(-τ, ω2, β)
     phase = 1.0 / (2π)^3
-    return g1 * g2 * spin * phase * cos(2π * para.n * τ / β) / β
+    return g1 * g2 * spin * phase * cos(2π * para.n * τ / β)
 end
 
 function measure(config)
@@ -58,26 +59,33 @@ function run(steps)
     para = Para()
     @unpack extQ, Qsize = para
 
-    T = MCIntegration.Tau(β, β / 2.0)
+    # T = MCIntegration.Tau(β, β / 2.0)
+    T = MCIntegration.Continuous(0.0, β; alpha=3.0, adapt=true)
     K = MCIntegration.FermiK(3, kF, 0.2 * kF, 10.0 * kF)
-    Ext = MCIntegration.Discrete(1, length(extQ)) # external variable is specified
+    Ext = MCIntegration.Discrete(1, length(extQ); adapt=true) # external variable is specified
 
-    dof = [[2, 1, 1],] # degrees of freedom of the normalization diagram and the bubble
+    dof = [[1, 1, 1],] # degrees of freedom of the normalization diagram and the bubble
     obs = zeros(Float64, Qsize) # observable for the normalization diagram and the bubble
 
-    config = MCIntegration.Configuration(steps, (T, K, Ext), dof, obs; para = para)
-    avg, std = MCIntegration.sample(config, integrand, measure; print = 0, Nblock = 16)
-    # @profview MonteCarlo.sample(config, integrand, measure; print=0, Nblock=1)
+    config = MCIntegration.Configuration((T, K, Ext), dof, obs; para=para)
+    result = MCIntegration.sample(config, integrand, measure; neval=steps, print=-1, block=16)
     # sleep(100)
 
-    if isnothing(avg) == false
+    if isnothing(result) == false
         @unpack n, extQ = Para()
+        avg, std = result.mean, result.stdev
 
         for (idx, q) in enumerate(extQ)
             q = q[1]
             p = Polarization.Polarization0_ZeroTemp(q, para.n, basic) * spin
             @printf("%10.6f  %10.6f ± %10.6f  %10.6f\n", q / basic.kF, avg[idx], std[idx], p)
         end
+        println(MCIntegration.summary(result))
+        # i = 1
+        # println(result.config.var[i].histogram)
+        # println(sum(result.config.var[i].histogram))
+        # println(result.config.var[i].accumulation)
+        # println(result.config.var[i].distribution)
     end
 end
 
