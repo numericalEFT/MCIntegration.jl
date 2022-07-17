@@ -84,30 +84,30 @@ mutable struct Configuration{V,P,O}
 
     Create a Configuration struct
 
- # Arguments
+     # Arguments
 
- ## Static parameters
+     ## Static parameters
 
- - `var`: TUPLE of variables, each variable should be derived from the abstract type Variable, see variable.jl for details). Use a tuple rather than a vector improves the performance.
+     - `var`: TUPLE of variables, each variable should be derived from the abstract type Variable, see variable.jl for details). Use a tuple rather than a vector improves the performance.
 
- - `dof::Vector{Vector{Int}}`: degrees of freedom of each integrand, e.g., [[0, 1], [2, 3]] means the first integrand has zero var#1 and one var#2; while the second integrand has two var#1 and 3 var#2. 
+     - `dof::Vector{Vector{Int}}`: degrees of freedom of each integrand, e.g., [[0, 1], [2, 3]] means the first integrand has zero var#1 and one var#2; while the second integrand has two var#1 and 3 var#2. 
 
- - `obs`: observables that is required to calculate the integrands, will be used in the `measure` function call.
-    It is either an array of any type with the common operations like +-*/^ defined. 
-    By default, it will be set to 0.0 if there is only one integrand (e.g., length(dof)==1); otherwise, it will be set to zeros(length(dof)).
+     - `obs`: observables that is required to calculate the integrands, will be used in the `measure` function call.
+        It is either an array of any type with the common operations like +-*/^ defined. 
+        By default, it will be set to 0.0 if there is only one integrand (e.g., length(dof)==1); otherwise, it will be set to zeros(length(dof)).
 
- - `para`: user-defined parameter, set to nothing if not needed
+     - `para`: user-defined parameter, set to nothing if not needed
 
- - `reweight`: reweight factors for each integrands. If not set, then all factors will be initialized with one.
+     - `reweight`: reweight factors for each integrands. If not set, then all factors will be initialized with one.
 
- - `seed`: seed to initialize random numebr generator, also serves as the unique pid of the configuration. If it is nothing, then use RandomDevice() to generate a random seed in [1, 1000_1000]
+     - `seed`: seed to initialize random numebr generator, also serves as the unique pid of the configuration. If it is nothing, then use RandomDevice() to generate a random seed in [1, 1000_1000]
 
-- `neighbor::Vector{Tuple{Int, Int}}` : vector of tuples that defines the neighboring integrands. Two neighboring integrands are directly connected in the Markov chain. 
-    e.g., [(1, 2), (2, 3)] means the integrand 1 and 2 are neighbor, and 2 and 3 are neighbor.  
-   The neighbor vector defines a undirected graph showing how the integrands are connected. Please make sure all integrands are connected.
-   By default, we assume the N integrands are in the increase order, meaning the neighbor will be set to [(N+1, 1), (1, 2), (2, 4), ..., (N-1, N)], where the first N entries are for diagram 1, 2, ..., N and the last entry is for the normalization diagram. Only the first diagram is connected to the normalization diagram.
-   Only highly correlated integrands are not highly correlated should be defined as neighbors. Otherwise, most of the updates between the neighboring integrands will be rejected and wasted.
-"""
+    - `neighbor::Vector{Tuple{Int, Int}}` : vector of tuples that defines the neighboring integrands. Two neighboring integrands are directly connected in the Markov chain. 
+        e.g., [(1, 2), (2, 3)] means the integrand 1 and 2 are neighbor, and 2 and 3 are neighbor.  
+       The neighbor vector defines a undirected graph showing how the integrands are connected. Please make sure all integrands are connected.
+       By default, we assume the N integrands are in the increase order, meaning the neighbor will be set to [(N+1, 1), (1, 2), (2, 4), ..., (N-1, N)], where the first N entries are for diagram 1, 2, ..., N and the last entry is for the normalization diagram. Only the first diagram is connected to the normalization diagram.
+       Only highly correlated integrands are not highly correlated should be defined as neighbors. Otherwise, most of the updates between the neighboring integrands will be rejected and wasted.
+    """
     function Configuration(var::V, dof, obs::O=length(dof) == 1 ? 0.0 : zeros(length(dof));
         para::P=nothing,
         reweight::Vector{Float64}=ones(length(dof) + 1),
