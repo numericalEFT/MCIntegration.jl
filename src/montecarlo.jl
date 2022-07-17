@@ -64,7 +64,7 @@ function sample(config::Configuration, integrand::Function, measure::Function=si
 
     # println(reweight)
 
-    if beta > 1.0
+    if alpha > 1.0
         @warn(red("beta should be less than 1.0"))
     end
 
@@ -214,7 +214,7 @@ function montecarlo(config::Configuration, integrand::Function, measure::Functio
     end
 
     ########### MC simulation ##################################
-    if (print >= 0)
+    if (print > 0)
         println(green("Seed $(config.seed) Start Simulation ..."))
     end
     startTime = time()
@@ -254,7 +254,7 @@ function montecarlo(config::Configuration, integrand::Function, measure::Functio
         end
     end
 
-    if (print >= 0)
+    if (print > 0)
         println(green("Seed $(config.seed) End Simulation. Cost $(time() - startTime) seconds."))
     end
 
