@@ -180,14 +180,11 @@ function TestDiscrete(totalstep)
     end
 
     X = MCIntegration.Discrete(1, 3, adapt=true)
-    dof = [[1,],] # number of X variable of tthe integrand
+    dof = [[1,],] # number of X variable of the integrand
     config = MCIntegration.Configuration((X,), dof)
 
     result = MCIntegration.sample(config, integrand; neval=totalstep, niter=10, block=64, print=-1)
     # println(MCIntegration.summary(result))
-    # println(result.config.var[1].histogram)
-    # println(result.config.var[1].distribution)
-    # println(result.config.var[1].accumulation)
     return result.mean, result.stdev
 end
 

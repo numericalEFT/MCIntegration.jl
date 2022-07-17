@@ -15,8 +15,6 @@ mutable struct Configuration
 
  - `para`: user-defined parameter, set to nothing if not needed
 
- - `totalStep`: the total number of updates for this configuration
-
  - `var`: TUPLE of variables, each variable should be derived from the abstract type Variable, see variable.jl for details). Use a tuple rather than a vector improves the performance.
 
  ## integrand properties
@@ -77,7 +75,12 @@ mutable struct Configuration{V,P,O}
     accept::Array{Float64,3} # updates index, integrand index, integrand index 
 
     """
-    Configuration(totalStep, var::V, dof, obs::O; para::P=nothing, state=nothing, reweight=nothing, seed=nothing, neighbor=Vector{Vector{Int}}([])) where {V,P,O}
+    function Configuration(var::V, dof, obs::O=length(dof) == 1 ? 0.0 : zeros(length(dof));
+        para::P=nothing,
+        reweight::Vector{Float64}=ones(length(dof) + 1),
+        seed::Int=rand(Random.RandomDevice(), 1:1000000),
+        neighbor::Union{Vector{Vector{Int}},Vector{Tuple{Int,Int}},Nothing}=nothing
+    ) where {V,P,O}
 
     Create a Configuration struct
 
@@ -85,14 +88,13 @@ mutable struct Configuration{V,P,O}
 
  ## Static parameters
 
- - `totalStep`: the total number MC steps of each block (one block, one configuration)
-
  - `var`: TUPLE of variables, each variable should be derived from the abstract type Variable, see variable.jl for details). Use a tuple rather than a vector improves the performance.
 
  - `dof::Vector{Vector{Int}}`: degrees of freedom of each integrand, e.g., [[0, 1], [2, 3]] means the first integrand has zero var#1 and one var#2; while the second integrand has two var#1 and 3 var#2. 
 
- - `obs`: observables that is required to calculate the integrands, will be used in the `measure` function call
+ - `obs`: observables that is required to calculate the integrands, will be used in the `measure` function call.
     It is either an array of any type with the common operations like +-*/^ defined. 
+    By default, it will be set to 0.0 if there is only one integrand (e.g., length(dof)==1); otherwise, it will be set to zeros(length(dof)).
 
  - `para`: user-defined parameter, set to nothing if not needed
 
