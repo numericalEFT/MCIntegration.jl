@@ -55,13 +55,13 @@ end
 
 # Variables
 
-This package defines some common types of variables. Internally, each variable type holds a vector of variables (which is the field named `data`). The actual number of variables in this vector is called the degrees of freedom (dof). Note that different integral may share the same variable types, but have different degrees of freedom. In the above code example, the integral for the circle area and the sphere volume both involve the variable type `Tau`. The former has dof=2, while the latter has dof=3. 
+This package defines some common types of variables. Internally, each variable type holds a vector of variables (which is the field named `data`). The actual number of variables in this vector is called the degrees of freedom (dof). Note that different integral may share the same variable types, but have different degrees of freedom. In the above code example, the integral for the circle area and the sphere volume both involve the variable type `Continuous`. The former has dof=2, while the latter has dof=3. 
 
-Here we briefly list some of the common variables types
+Here we list some of the common variables types
 
-- Continous([start, end], length scale): continuous real-valued variables with specified range and a length scale. The length scale controls the change of the variable in one MC update. A reasonable estimate of the length scale improves the MC efficiency.
+- Continous(start, end): continuous real-valued variables on the domain [start, end). MC will learn the distribution and perform an imporant sampling accordingly.
 
-- Discrete(lower, upper): integer variables in the closed set [lower, upper]. MC will uniformly sample all integers within this range.
+- Discrete(lower, upper): integer variables in the closed set [lower, upper]. MC will learn the distribution and perform an imporant sampling accordingly.
 
 More supported variables types can be found in the [source code](src/variable.jl).
 
