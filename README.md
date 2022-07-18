@@ -1,13 +1,13 @@
 # MCIntegration
 
-Universal Monte Carlo calculator for high-dimensional integral
+Universal Monte Carlo calculator for high-dimensional integral with different types of variables.
 
 [![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://numericalEFT.github.io/MCIntegration.jl/stable)
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://numericalEFT.github.io/MCIntegration.jl/dev)
 [![Build Status](https://github.com/numericalEFT/MCIntegration.jl/workflows/CI/badge.svg)](https://github.com/numericalEFT/MCIntegration.jl/actions)
 [![Coverage](https://codecov.io/gh/numericalEFT/MCIntegration.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/numericalEFT/MCIntegration.jl)
 
-MCIntegration is Monte Carlo calculator for generic high-dimensional integral. The internal algorithm and some simple benchmarks can be found in the [document](docs/src/man/important_sampling.md).
+MCIntegration provides a Monte Carlo algorithm to calculate high-dimensional integrals that depend on two or more different types of variables (such as momentum vectors, frequencies, and so on). MCIntegration.jl allows the user to choose different important sampling algorithms to efficiently sample different types of variables, which is a huge advantage compared to the commonly used Vegas algorithm:
 
 # Quick start
 
@@ -76,6 +76,9 @@ where `#CPU` is the number of workers. Internally, the MC sampler will send the 
 Note that you need to install the package [MPI.jl](https://github.com/JuliaParallel/MPI.jl) to use the MPI mode. See this [link](https://juliaparallel.github.io/MPI.jl/stable/configuration/) for the instruction on the configuration.
 
 The user essentially doesn't need to write additional code to support the parallelization. The only tricky part is the output: only the function `MCIntegratoin.sample` of the root node returns meaningful estimates, while other workers simply returns `nothing`. 
+
+# Algorithm
+The internal algorithm and some simple benchmarks can be found in the [document](docs/src/man/important_sampling.md).
 
 # Q&A
 
