@@ -1,5 +1,5 @@
 """
-mutable struct Configuration
+    mutable struct Configuration
 
     Struct that contains everything needed for MC.
 
@@ -32,6 +32,8 @@ mutable struct Configuration
 
  - `reweight`: reweight factors for each integrands. The reweight factor of the normalization diagram is assumed to be 1. Note that you don't need to explicitly add the normalization diagram. 
 
+-  `reweight_goal`: The expected distribution of visited times for each integrand after reweighting . If not set, then all factors will be initialized with one.
+
  - `visited`: how many times this integrand is visited by the Markov chain.
 
  ## current MC state
@@ -62,7 +64,7 @@ mutable struct Configuration{V,P,O}
     dof::Vector{Vector{Int}} # degrees of freedom
     observable::O  # observables for each integrand
     reweight::Vector{Float64}
-    reweight_additional::Vector{Float64}
+    reweight_goal::Vector{Float64}
     visited::Vector{Float64}
 
     ############# current state ######################
@@ -83,36 +85,38 @@ mutable struct Configuration{V,P,O}
         neighbor::Union{Vector{Vector{Int}},Vector{Tuple{Int,Int}},Nothing}=nothing
     ) where {V,P,O}
 
-    Create a Configuration struct
+Create a Configuration struct
 
-     # Arguments
+    # Arguments
 
-     ## Static parameters
+    ## Static parameters
 
-     - `var`: TUPLE of variables, each variable should be derived from the abstract type Variable, see variable.jl for details). Use a tuple rather than a vector improves the performance.
+    - `var`: TUPLE of variables, each variable should be derived from the abstract type Variable, see variable.jl for details). Use a tuple rather than a vector improves the performance.
 
-     - `dof::Vector{Vector{Int}}`: degrees of freedom of each integrand, e.g., [[0, 1], [2, 3]] means the first integrand has zero var#1 and one var#2; while the second integrand has two var#1 and 3 var#2. 
+    - `dof::Vector{Vector{Int}}`: degrees of freedom of each integrand, e.g., [[0, 1], [2, 3]] means the first integrand has zero var#1 and one var#2; while the second integrand has two var#1 and 3 var#2. 
 
-     - `obs`: observables that is required to calculate the integrands, will be used in the `measure` function call.
-        It is either an array of any type with the common operations like +-*/^ defined. 
-        By default, it will be set to 0.0 if there is only one integrand (e.g., length(dof)==1); otherwise, it will be set to zeros(length(dof)).
+    - `obs`: observables that is required to calculate the integrands, will be used in the `measure` function call.
+    It is either an array of any type with the common operations like +-*/^ defined. 
+    By default, it will be set to 0.0 if there is only one integrand (e.g., length(dof)==1); otherwise, it will be set to zeros(length(dof)).
 
-     - `para`: user-defined parameter, set to nothing if not needed
+    - `para`: user-defined parameter, set to nothing if not needed
 
-     - `reweight`: reweight factors for each integrands. If not set, then all factors will be initialized with one.
+    - `reweight`: reweight factors for each integrands. If not set, then all factors will be initialized with one.
 
-     - `seed`: seed to initialize random numebr generator, also serves as the unique pid of the configuration. If it is nothing, then use RandomDevice() to generate a random seed in [1, 1000_1000]
+    - `reweight_goal`: The expected distribution of visited times for each integrand after reweighting . If not set, then all factors will be initialized with one.
 
-    - `neighbor::Vector{Tuple{Int, Int}}` : vector of tuples that defines the neighboring integrands. Two neighboring integrands are directly connected in the Markov chain. 
-        e.g., [(1, 2), (2, 3)] means the integrand 1 and 2 are neighbor, and 2 and 3 are neighbor.  
-       The neighbor vector defines a undirected graph showing how the integrands are connected. Please make sure all integrands are connected.
-       By default, we assume the N integrands are in the increase order, meaning the neighbor will be set to [(N+1, 1), (1, 2), (2, 4), ..., (N-1, N)], where the first N entries are for diagram 1, 2, ..., N and the last entry is for the normalization diagram. Only the first diagram is connected to the normalization diagram.
-       Only highly correlated integrands are not highly correlated should be defined as neighbors. Otherwise, most of the updates between the neighboring integrands will be rejected and wasted.
+    - `seed`: seed to initialize random numebr generator, also serves as the unique pid of the configuration. If it is nothing, then use RandomDevice() to generate a random seed in [1, 1000_1000]
+
+- `neighbor::Vector{Tuple{Int, Int}}` : vector of tuples that defines the neighboring integrands. Two neighboring integrands are directly connected in the Markov chain. 
+    e.g., [(1, 2), (2, 3)] means the integrand 1 and 2 are neighbor, and 2 and 3 are neighbor.  
+    The neighbor vector defines a undirected graph showing how the integrands are connected. Please make sure all integrands are connected.
+    By default, we assume the N integrands are in the increase order, meaning the neighbor will be set to [(N+1, 1), (1, 2), (2, 4), ..., (N-1, N)], where the first N entries are for diagram 1, 2, ..., N and the last entry is for the normalization diagram. Only the first diagram is connected to the normalization diagram.
+    Only highly correlated integrands are not highly correlated should be defined as neighbors. Otherwise, most of the updates between the neighboring integrands will be rejected and wasted.
     """
     function Configuration(var::V, dof, obs::O=length(dof) == 1 ? 0.0 : zeros(length(dof));
         para::P=nothing,
         reweight::Vector{Float64}=ones(length(dof) + 1),
-        reweight_additional::Vector{Float64}=ones(length(dof) + 1),
+        reweight_goal::Vector{Float64}=ones(length(dof) + 1),
         seed::Int=rand(Random.RandomDevice(), 1:1000000),
         neighbor::Union{Vector{Vector{Int}},Vector{Tuple{Int,Int}},Nothing}=nothing
     ) where {V,P,O}
@@ -157,10 +161,10 @@ mutable struct Configuration{V,P,O}
         @assert typeof(neighbor) == Vector{Vector{Int}} "Configuration.neighbor should be with a type of Vector{Vector{Int}} to avoid mistakes. Now get $(typeof(neighbor))"
         @assert Nd == length(neighbor) "$Nd elements are expected for neighbor=$neighbor"
         @assert Nd == length(reweight) "reweight vector size is wrong! Note that the last element in reweight vector is for the normalization diagram."
-        @assert Nd == length(reweight_additional) "reweight_additional vector size is wrong! Note that the last element in reweight vector is for the normalization diagram."
+        @assert Nd == length(reweight_goal) "reweight_goal vector size is wrong! Note that the last element in reweight vector is for the normalization diagram."
         @assert all(x -> x > 0, reweight) "All reweight factors should be positive."
-        @assert all(x -> x > 0, reweight_additional) "All reweight_additional factors should be positive."
-        reweight .*= reweight_additional
+        @assert all(x -> x > 0, reweight_goal) "All reweight_goal factors should be positive."
+        reweight .*= reweight_goal
         reweight /= sum(reweight) # normalize the reweight factors
 
         curr = 1 # set the current diagram to be the first one
@@ -179,7 +183,7 @@ mutable struct Configuration{V,P,O}
         accept = zeros(Float64, (2, Nd, max(Nd, Nv)))
 
         return new{V,P,O}(seed, MersenneTwister(seed), para, var,  # static parameters
-            collect(neighbor), collect(dof), obs, collect(reweight), collect(reweight_additional),
+            collect(neighbor), collect(dof), obs, collect(reweight), collect(reweight_goal),
             visited, # integrand properties
             0, curr, norm, normalization, absweight, propose, accept  # current MC state
         )

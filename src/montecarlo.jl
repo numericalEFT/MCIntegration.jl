@@ -17,7 +17,7 @@ include("statistics.jl")
 
 """
 
-sample(config::Configuration, integrand::Function, measure::Function; Nblock=16, print=0, printio=stdout, save=0, saveio=nothing, timer=[])
+    sample(config::Configuration, integrand::Function, measure::Function; Nblock=16, print=0, printio=stdout, save=0, saveio=nothing, timer=[])
 
  sample the integrands, collect statistics, and return the expected values and errors.
 

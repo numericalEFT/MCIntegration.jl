@@ -1,5 +1,5 @@
 """
-struct Result{O,C}
+    struct Result{O,C}
 
     the returned result of the MC integration.
 
@@ -51,7 +51,7 @@ function tostring(mval, merr; pm="±")
 end
 
 """
-function summary(result::Result, pick::Union{Function,AbstractVector}=obs -> real(first(obs)))
+    function summary(result::Result, pick::Union{Function,AbstractVector}=obs -> real(first(obs)))
 
     print the summary of the result. 
     It will first print the configuration from the last iteration, then print the weighted average and standard deviation of the picked observable from each iteration.
@@ -106,7 +106,7 @@ end
 
 """
 
-function average(history, max=length(history))
+    function average(history, max=length(history))
 
 average the history[1:max]. Return the mean, standard deviation and chi2 of the history.
 
