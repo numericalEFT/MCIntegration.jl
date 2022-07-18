@@ -88,8 +88,8 @@ function sample(config::Configuration, integrand::Function, measure::Function=si
         block = Nworker  # each worker should handle at least one block
     end
     @assert block % Nworker == 0
-    # nevalperblock = neval ÷ block # number of evaluations per block
-    nevalperblock = neval # number of evaluations per block
+    nevalperblock = neval ÷ block # number of evaluations per block
+    # nevalperblock = neval # number of evaluations per block
 
     results = []
     startTime = time()
