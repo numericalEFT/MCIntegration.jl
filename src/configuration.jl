@@ -62,6 +62,7 @@ mutable struct Configuration{V,P,O}
     dof::Vector{Vector{Int}} # degrees of freedom
     observable::O  # observables for each integrand
     reweight::Vector{Float64}
+    reweight_additional::Vector{Float64}
     visited::Vector{Float64}
 
     ############# current state ######################
@@ -111,6 +112,7 @@ mutable struct Configuration{V,P,O}
     function Configuration(var::V, dof, obs::O=length(dof) == 1 ? 0.0 : zeros(length(dof));
         para::P=nothing,
         reweight::Vector{Float64}=ones(length(dof) + 1),
+        reweight_additional::Vector{Float64}=ones(length(dof) + 1),
         seed::Int=rand(Random.RandomDevice(), 1:1000000),
         neighbor::Union{Vector{Vector{Int}},Vector{Tuple{Int,Int}},Nothing}=nothing
     ) where {V,P,O}
@@ -155,7 +157,10 @@ mutable struct Configuration{V,P,O}
         @assert typeof(neighbor) == Vector{Vector{Int}} "Configuration.neighbor should be with a type of Vector{Vector{Int}} to avoid mistakes. Now get $(typeof(neighbor))"
         @assert Nd == length(neighbor) "$Nd elements are expected for neighbor=$neighbor"
         @assert Nd == length(reweight) "reweight vector size is wrong! Note that the last element in reweight vector is for the normalization diagram."
+        @assert Nd == length(reweight_additional) "reweight_additional vector size is wrong! Note that the last element in reweight vector is for the normalization diagram."
         @assert all(x -> x > 0, reweight) "All reweight factors should be positive."
+        @assert all(x -> x > 0, reweight_additional) "All reweight_additional factors should be positive."
+        reweight .*= reweight_additional
         reweight /= sum(reweight) # normalize the reweight factors
 
         curr = 1 # set the current diagram to be the first one
@@ -174,7 +179,8 @@ mutable struct Configuration{V,P,O}
         accept = zeros(Float64, (2, Nd, max(Nd, Nv)))
 
         return new{V,P,O}(seed, MersenneTwister(seed), para, var,  # static parameters
-            collect(neighbor), collect(dof), obs, collect(reweight), visited, # integrand properties
+            collect(neighbor), collect(dof), obs, collect(reweight), collect(reweight_additional),
+            visited, # integrand properties
             0, curr, norm, normalization, absweight, propose, accept  # current MC state
         )
     end

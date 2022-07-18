@@ -65,7 +65,7 @@ function sample(config::Configuration, integrand::Function, measure::Function=si
     # println(reweight)
 
     if alpha > 1.0
-        @warn(red("beta should be less than 1.0"))
+        @warn(red("learning rate alpha should be less than 1.0"))
     end
 
     ############ initialized timer ####################################
@@ -286,6 +286,7 @@ function doReweight!(config, alpha)
             config.reweight[vi] *= (avgstep / v)^alpha
         end
     end
+    config.reweight .*= config.reweight_additional
     # renoormalize all reweight to be (0.0, 1.0)
     config.reweight ./= sum(config.reweight)
     # avoid overreacting to atypically large reweighting factor
@@ -295,3 +296,22 @@ function doReweight!(config, alpha)
     # config.reweight = @. ((1 - config.reweight) / log(1 / config.reweight))^beta
     # config.reweight ./= sum(config.reweight)
 end
+
+# function doReweight!(config, alpha)
+#     avgstep = sum(config.visited) / length(config.visited)
+#     for (vi, v) in enumerate(config.visited)
+#         if v > 1000
+#             config.reweight[vi] *= avgstep / v
+#             if config.reweight[vi] < 1e-10
+#                 config.reweight[vi] = 1e-10
+#             end
+#         end
+#     end
+#     # renoormalize all reweight to be (0.0, 1.0)
+#     config.reweight .= config.reweight ./ sum(config.reweight)
+#     # dample reweight factor to avoid rapid, destabilizing changes
+#     # reweight factor close to 1.0 will not be changed much
+#     # reweight factor close to zero will be amplified significantly
+#     # Check Eq. (19) of https://arxiv.org/pdf/2009.05112.pdf for more detail
+#     config.reweight = @. ((1 - config.reweight) / log(1 / config.reweight))^2.0
+# end
