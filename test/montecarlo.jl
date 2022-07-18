@@ -189,7 +189,7 @@ function TestDiscrete(totalstep)
 end
 
 @testset "MonteCarlo Sampler" begin
-    totalStep = 1000_0
+    totalStep = 1000_000
 
     avg, err = Sphere1(totalStep)
     println("MC integration 1: $avg ± $err (exact: $(π / 4.0))")

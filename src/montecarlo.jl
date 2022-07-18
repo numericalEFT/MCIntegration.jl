@@ -286,7 +286,7 @@ function doReweight!(config, alpha)
             config.reweight[vi] *= (avgstep / v)^alpha
         end
     end
-    config.reweight .*= config.reweight_additional
+    config.reweight .*= config.reweight_goal
     # renoormalize all reweight to be (0.0, 1.0)
     config.reweight ./= sum(config.reweight)
     # avoid overreacting to atypically large reweighting factor
