@@ -185,6 +185,9 @@ function sample(config::Configuration, integrand::Function, measure::Function=si
         #     println("0 var: ", config.var[1].histogram, " vs ", summedConfig.var[1].histogram)
         # end
         ################################################################################
+        if print >= 0
+            println(green("Iteration $iter is done. $(time() - startTime) seconds passed."))
+        end
     end
     ################################ IO ######################################
     if MPI.Comm_rank(comm) == root

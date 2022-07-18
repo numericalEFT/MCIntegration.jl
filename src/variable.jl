@@ -54,6 +54,25 @@ mutable struct Tau <: Variable
     end
 end
 
+### variables that uses a vegas+ algorithm for impotrant sampling ###
+# mutable struct Vegas{D,G} <: Variable
+#     permutation::Vector{Int}
+#     uniform::Matrix{Float64}
+#     data::Matrix{Float64}
+#     gidx::Vector{Int}
+#     offset::Int
+#     grid::G
+
+#     width::Vector{Float64}
+#     histogram::Vector{Float64}
+#     accumulation::Vector{Float64}
+#     distribution::Vector{Float64}
+
+#     alpha::Float64
+#     beta::Float64
+#     adapt::Bool
+# end
+
 mutable struct Continuous{G} <: Variable
     data::Vector{Float64}
     gidx::Vector{Int}
