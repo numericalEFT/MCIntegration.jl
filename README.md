@@ -59,9 +59,9 @@ This package defines some common types of variables. Internally, each variable t
 
 Here we list some of the common variables types
 
-- Continous(start, end): continuous real-valued variables on the domain [start, end). MC will learn the distribution and perform an imporant sampling accordingly.
+- Continous(lower::Float64, upper::Float64): continuous real-valued variables on the domain [lower, upper). MC will learn the distribution and perform an imporant sampling accordingly.
 
-- Discrete(lower, upper): integer variables in the closed set [lower, upper]. MC will learn the distribution and perform an imporant sampling accordingly.
+- Discrete(lower::Int, upper::Int): integer variables in the closed set [lower, upper]. MC will learn the distribution and perform an imporant sampling accordingly.
 
 More supported variables types can be found in the [source code](src/variable.jl).
 
