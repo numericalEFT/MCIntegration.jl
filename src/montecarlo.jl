@@ -212,7 +212,7 @@ function montecarlo(config::Configuration, integrand::Function, measure::Functio
 
     # updates = [changeIntegrand,] # TODO: sample changeVariable more often
     updates = [changeIntegrand, swapVariable, changeVariable] # TODO: sample changeVariable more often
-    for i = 2:length(config.var)
+    for i = 2:length(config.var)*2
         push!(updates, changeVariable)
     end
 
