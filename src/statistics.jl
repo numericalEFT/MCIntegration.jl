@@ -1,3 +1,18 @@
+"""
+struct Result{O,C}
+
+    the returned result of the MC integration.
+
+# Members
+
+- `mean`: mean of the MC integration
+- `stdev`: standard deviation of the MC integration
+- `chi2`: chi-square of the MC integration
+- `neval`: number of evaluations of the integrand
+- `dof`: degrees of freedom of the MC integration (number of iterations - 1)
+- `config`: configuration of the MC integration from the last iteration
+- `iteractions`: list of tuples [(data, error, Configuration), ...] from each iteration
+"""
 struct Result{O,C}
     mean::O
     stdev::O
@@ -35,6 +50,14 @@ function tostring(mval, merr; pm="±")
     # return "$val $pm $(round(merr, sigdigits=error_digits))"
 end
 
+"""
+function summary(result::Result, pick::Union{Function,AbstractVector}=obs -> real(first(obs)))
+
+    print the summary of the result. 
+    It will first print the configuration from the last iteration, then print the weighted average and standard deviation of the picked observable from each iteration.
+    The pick function is used to select one of the observable to be printed. The return value of pick function must be a Number.
+
+"""
 function summary(result::Result, pick::Union{Function,AbstractVector}=obs -> real(first(obs)))
     summary(result.config)
 
@@ -81,6 +104,16 @@ function MPIreduce(data)
     end
 end
 
+"""
+
+function average(history, max=length(history))
+
+average the history[1:max]. Return the mean, standard deviation and chi2 of the history.
+
+# Arguments
+- `history`: a list of tuples, such as [(data, error, Configuration), ...]
+- `max`: the number of data to average over
+"""
 function average(history, max=length(history))
     @assert max > 0
     if max == 1

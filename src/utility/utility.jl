@@ -64,6 +64,11 @@ function locate(accumulation::AbstractVector, p::Number)
     # error("p=$p is out of the upper bound $(accumulation[end])")
 end
 
+"""
+function smooth(dist::AbstractVector, factor=6)
+
+    Smooth the distribution by averaging two nearest neighbor. The average ratio is given by 1 : factor : 1 for the elements which are not on the boundary.
+"""
 function smooth(dist::AbstractVector, factor=6)
     if length(dist) <= 1
         return dist
@@ -77,7 +82,17 @@ function smooth(dist::AbstractVector, factor=6)
     return new
 end
 
-function rescale(dist::AbstractVector, alpha=1.0)
+"""
+function rescale(dist::AbstractVector, alpha=1.5)
+
+    rescale the dist array to avoid overreacting to atypically large number.
+    There are three steps:
+    1. dist will be first normalize to [0, 1].
+    2. Then the values that are close to 1.0 will not be changed much, while that close to zero will be amplified to a value controlled by alpha.
+    3. In the end, the rescaled dist array will be normalized to [0, 1].
+    Check Eq. (19) of https://arxiv.org/pdf/2009.05112.pdf for more detail
+"""
+function rescale(dist::AbstractVector, alpha=1.5)
     if length(dist) == 1
         return dist
     end

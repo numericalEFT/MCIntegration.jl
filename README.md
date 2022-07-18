@@ -27,35 +27,27 @@ function integrand(config)
     end
 end
 
-# Define how to measure the observable
-function measure(config)
-    factor = 1.0 / config.reweight[config.curr]
-    weight = integrand(config)
-    config.observable[config.curr] += weight / abs(weight) * factor #note that config.observable is an array with two elements as discussed below
-end
+# MC step of each iteration, and the iteration number. After each iteraction, the program will try to improve the important sampling
+const neval, niter = 1e4, 10
 
-# MC step of each block
-const blockStep = 1e6
-
-# Define the types variables, the first argument sets the range, the second argument gives the largest change to the variable in one MC update. see the section [variable](#variable) for more details.
-T = MCIntegration.Continuous([0.0, 1.0], 0.5)
+# Define the types variables, the first two arguments set the boundary. see the section [variable](#variable) for more details.
+T = Continuous(0.0, 1.0)
 
 # Define how many (degrees of freedom) variables of each type. 
 # For example, [[n1, n2], [m1, m2], ...] means the first integral involves n1 varibales of type 1, and n2 variables of type2, while the second integral involves m1 variables of type 1 and m2 variables of type 2. 
 dof = [[2,], [3,]]
 
-# Define the container for the observable. It must be a number or an array-like object. In this case, the observable has two elements, corresponds to the results for the two integrals. 
-obs = [0.0, 0.0]
-
 # Define the configuration struct which is container of all kinds of internal data for MC,
-# the second argument is a tuple listing all types of variables, one then specify the degrees of freedom of each variable type in the third argument.  
-config = MCIntegration.Configuration(blockStep, (T,), dof, obs)
+# the first argument is a tuple listing all types of variables, one then specify the degrees of freedom of each variable type in the second argument.  
+config = Configuration((T,), dof)
 
-# perform MC integration. Nblock is the number of independent blocks to estimate the error bar. In MPI mode, the blocks will be sent to different workers. Set "print=n" to control the level of information to print.
-avg, err = MCIntegration.sample(config, integrand, measure; Nblock = 64, print = 1)
+# perform MC integration. Set print>=0 to print more information.
+result = sample(config, integrand; neval=neval, niter=niter, print=-1)
 
-#avg, err are the same shape as obs. In MPI mode, only the root node return meaningful estimates. All other workers simply return nothing
-if isnothing(avg) == false
+# In MPI mode, only the root node return meaningful estimates. All other workers simply return nothing
+if isnothing(result) == false
+    # MCIntegration.summary(result) # uncomment this line to print the summary of the result
+    avg, err = result.mean, result.stdev
     println("Circle area: $(avg[1]) +- $(err[1]) (exact: $(π / 4.0))")
     println("Sphere volume: $(avg[2]) +- $(err[2]) (exact: $(4.0 * π / 3.0 / 8))")
 end
@@ -63,13 +55,13 @@ end
 
 # Variables
 
-This package defines some common types of variables. Internally, each variable type holds a vector of variables (which is the field named `data`). The actual number of variables in this vector is called the degrees of freedom (dof). Note that different integral may share the same variable types, but have different degrees of freedom. In the above code example, the integral for the circle area and the sphere volume both involve the variable type `Tau`. The former has dof=2, while the latter has dof=3. 
+This package defines some common types of variables. Internally, each variable type holds a vector of variables (which is the field named `data`). The actual number of variables in this vector is called the degrees of freedom (dof). Note that different integral may share the same variable types, but have different degrees of freedom. In the above code example, the integral for the circle area and the sphere volume both involve the variable type `Continuous`. The former has dof=2, while the latter has dof=3. 
 
-Here we briefly list some of the common variables types
+Here we list some of the common variables types
 
-- Continous([start, end], length scale): continuous real-valued variables with specified range and a length scale. The length scale controls the change of the variable in one MC update. A reasonable estimate of the length scale improves the MC efficiency.
+- Continous(start, end): continuous real-valued variables on the domain [start, end). MC will learn the distribution and perform an imporant sampling accordingly.
 
-- Discrete(lower, upper): integer variables in the closed set [lower, upper]. MC will uniformly sample all integers within this range.
+- Discrete(lower, upper): integer variables in the closed set [lower, upper]. MC will learn the distribution and perform an imporant sampling accordingly.
 
 More supported variables types can be found in the [source code](src/variable.jl).
 
