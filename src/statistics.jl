@@ -1,7 +1,7 @@
 """
     struct Result{O,C}
 
-    the returned result of the MC integration.
+the returned result of the MC integration.
 
 # Members
 
@@ -53,9 +53,9 @@ end
 """
     function summary(result::Result, pick::Union{Function,AbstractVector}=obs -> real(first(obs)))
 
-    print the summary of the result. 
-    It will first print the configuration from the last iteration, then print the weighted average and standard deviation of the picked observable from each iteration.
-    The pick function is used to select one of the observable to be printed. The return value of pick function must be a Number.
+print the summary of the result. 
+It will first print the configuration from the last iteration, then print the weighted average and standard deviation of the picked observable from each iteration.
+The pick function is used to select one of the observable to be printed. The return value of pick function must be a Number.
 
 """
 function summary(result::Result, pick::Union{Function,AbstractVector}=obs -> real(first(obs)))

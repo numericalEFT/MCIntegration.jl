@@ -3,7 +3,7 @@
 
     Struct that contains everything needed for MC.
 
-    There are three different componenets:
+There are three different componenets:
 
  # Members
 
