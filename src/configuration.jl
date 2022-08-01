@@ -116,7 +116,7 @@ Create a Configuration struct
     function Configuration(var::V, dof, obs::O=length(dof) == 1 ? 0.0 : zeros(length(dof));
         para::P=nothing,
         reweight::Vector{Float64}=ones(length(dof) + 1),
-        reweight_goal::Vector{Float64}=ones(length(dof) + 1),
+        reweight_goal::Union{Vector{Float64},Nothing}=nothing,
         seed::Int=rand(Random.RandomDevice(), 1:1000000),
         neighbor::Union{Vector{Vector{Int}},Vector{Tuple{Int,Int}},Nothing}=nothing
     ) where {V,P,O}
@@ -166,6 +166,10 @@ Create a Configuration struct
         @assert all(x -> x > 0, reweight_goal) "All reweight_goal factors should be positive."
         reweight .*= reweight_goal
         reweight /= sum(reweight) # normalize the reweight factors
+
+        if isnothing(reweight_goal)
+            reweight_goal = ones(length(dof) + 1)
+        end
 
         curr = 1 # set the current diagram to be the first one
         norm = Nd # set the normalization diagram to be the last one
