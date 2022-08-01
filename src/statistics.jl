@@ -60,8 +60,11 @@ end
 
 print the summary of the result. 
 It will first print the configuration from the last iteration, then print the weighted average and standard deviation of the picked observable from each iteration.
-The pick function is used to select one of the observable to be printed. The return value of pick function must be a Number.
 
+# Arguments
+- result: Result object contains the history from each iteration
+- pick: The pick function is used to select one of the observable to be printed. The return value of pick function must be a Number.
+- name: name of each picked observable. If name is not given, the index of the pick function will be used.
 """
 function summary(result::Result, pick::Union{Function,AbstractVector}=obs -> real(first(obs)), name=nothing)
     # summary(result.config)
