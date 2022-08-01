@@ -35,7 +35,12 @@ end
 
 function tostring(mval, merr; pm="±")
     # println(mval, ", ", merr)
-    return @sprintf("%16.8g %s %.8g", mval, pm, merr)
+    if isfinite(mval) && isfinite(merr)
+        return @sprintf("%16.8g %s %.8g", mval, pm, merr)
+    else
+        return "$mval $pm $merr"
+    end
+
     # val = if iszero(merr) || !isfinite(merr)
     #     mval
     # else
@@ -51,23 +56,29 @@ function tostring(mval, merr; pm="±")
 end
 
 """
-    function summary(result::Result, pick::Union{Function,AbstractVector}=obs -> real(first(obs)))
+    function summary(result::Result, pick::Union{Function,AbstractVector}=obs -> real(first(obs)), name=nothing)
 
 print the summary of the result. 
 It will first print the configuration from the last iteration, then print the weighted average and standard deviation of the picked observable from each iteration.
 The pick function is used to select one of the observable to be printed. The return value of pick function must be a Number.
 
 """
-function summary(result::Result, pick::Union{Function,AbstractVector}=obs -> real(first(obs)))
-    summary(result.config)
+function summary(result::Result, pick::Union{Function,AbstractVector}=obs -> real(first(obs)), name=nothing)
+    # summary(result.config)
 
     if pick isa Function
         pick = [pick,]
     else
         @assert eltype(pick) <: Function "pick must be either a function or a vector of functions!"
     end
+
+    if isnothing(name) == false
+        name = collect(name)
+    end
+
     for (i, p) in enumerate(pick)
-        barbar = "==================================     Results#$i    =============================================="
+        info = isnothing(name) ? "#$i" : "-$(name[i])"
+        barbar = "==================================     Results$info    =============================================="
         bar = "---------------------------------------------------------------------------------------------------"
         println(barbar)
         println(yellow(@sprintf("%6s %-36s %-36s %16s", "iter", "         integral", "        wgt average", "chi2/dof")))
@@ -75,12 +86,16 @@ function summary(result::Result, pick::Union{Function,AbstractVector}=obs -> rea
         for iter in 1:result.dof+1
             m0, e0 = p(result.iterations[iter][1]), p(result.iterations[iter][2])
             m, e, chi2 = average(result.iterations, iter)
+            # println(size(m))
+            # println(m)
+            # println("testing: ", p(m))
             m, e, chi2 = p(m), p(e), p(chi2)
+            # println(size(m))
             println(@sprintf("%6s %-36s %-36s %16.4f", iter, tostring(m0, e0), tostring(m, e), iter == 1 ? 0.0 : chi2 / (iter - 1)))
         end
         println(bar)
         m, e = p(result.mean), p(result.stdev)
-        println(green("result#$i = $m ± $e"))
+        println(green("result#$info = $m ± $e"))
         println()
     end
 end
@@ -137,14 +152,14 @@ function average(history, max=length(history))
     if eltype(history[end][1]) <: Complex
         dataR = [real.(history[i][1]) for i in 1:max]
         dataI = [imag.(history[i][1]) for i in 1:max]
-        weightR = [1.0 ./ real.(history[i][2]) .^ 2 for i in 1:max]
-        weightI = [1.0 ./ imag.(history[i][2]) .^ 2 for i in 1:max]
+        weightR = [1.0 ./ (real.(history[i][2]) .+ 1.0e-10) .^ 2 for i in 1:max]
+        weightI = [1.0 ./ (imag.(history[i][2]) .+ 1.0e-10) .^ 2 for i in 1:max]
         mR, eR, chi2R = _statistic(dataR, weightR)
         mI, eI, chi2I = _statistic(dataI, weightI)
         return mR + mI * 1im, eR + eI * 1im, chi2R + chi2I * 1im
     else
         data = [history[i][1] for i in 1:max]
-        weight = [1.0 ./ history[i][2] .^ 2 for i in 1:max]
+        weight = [1.0 ./ (history[i][2] .+ 1.0e-10) .^ 2 for i in 1:max]
         return _statistic(data, weight)
     end
 end
