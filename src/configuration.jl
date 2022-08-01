@@ -161,15 +161,15 @@ Create a Configuration struct
         @assert typeof(neighbor) == Vector{Vector{Int}} "Configuration.neighbor should be with a type of Vector{Vector{Int}} to avoid mistakes. Now get $(typeof(neighbor))"
         @assert Nd == length(neighbor) "$Nd elements are expected for neighbor=$neighbor"
         @assert Nd == length(reweight) "reweight vector size is wrong! Note that the last element in reweight vector is for the normalization diagram."
-        @assert Nd == length(reweight_goal) "reweight_goal vector size is wrong! Note that the last element in reweight vector is for the normalization diagram."
         @assert all(x -> x > 0, reweight) "All reweight factors should be positive."
+
+        if isnothing(reweight_goal)
+            reweight_goal = ones(Nd)
+        end
+        @assert Nd == length(reweight_goal) "reweight_goal vector size is wrong! Note that the last element in reweight vector is for the normalization diagram."
         @assert all(x -> x > 0, reweight_goal) "All reweight_goal factors should be positive."
         reweight .*= reweight_goal
         reweight /= sum(reweight) # normalize the reweight factors
-
-        if isnothing(reweight_goal)
-            reweight_goal = ones(length(dof) + 1)
-        end
 
         curr = 1 # set the current diagram to be the first one
         norm = Nd # set the normalization diagram to be the last one
