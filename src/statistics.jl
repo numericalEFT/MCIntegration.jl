@@ -55,6 +55,11 @@ function tostring(mval, merr; pm="±")
     # return "$val $pm $(round(merr, sigdigits=error_digits))"
 end
 
+function Base.show(io::IO, result::Result)
+    print(io, summary(result.config))
+    print(io, summary(result))
+end
+
 """
     function summary(result::Result, pick::Union{Function,AbstractVector}=obs -> real(first(obs)), name=nothing)
 
