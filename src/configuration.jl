@@ -118,7 +118,8 @@ Create a Configuration struct
         reweight::Vector{Float64}=ones(length(dof) + 1),
         reweight_goal::Union{Vector{Float64},Nothing}=nothing,
         seed::Int=rand(Random.RandomDevice(), 1:1000000),
-        neighbor::Union{Vector{Vector{Int}},Vector{Tuple{Int,Int}},Nothing}=nothing
+        neighbor::Union{Vector{Vector{Int}},Vector{Tuple{Int,Int}},Nothing}=nothing,
+        kwargs...
     ) where {V,P,O}
         # println(var)
         @assert V <: Tuple{Vararg{Variable}} || V <: Tuple{Variable} "Configuration.var must be a tuple of Variable to maximize efficiency. Now get $(typeof(V))"

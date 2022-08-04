@@ -60,7 +60,9 @@ function sample(config::Configuration, integrand::Function, measure::Function=si
     niter=10, # number of iterations
     block=16, # number of blocks
     alpha=1.0, # learning rate of the reweight factor
-    print=0, printio=stdout, save=0, saveio=nothing, timer=[])
+    print=0, printio=stdout, save=0, saveio=nothing, timer=[],
+    kwargs...
+)
 
     # println(reweight)
 
@@ -185,8 +187,10 @@ function sample(config::Configuration, integrand::Function, measure::Function=si
         #     println("0 var: ", config.var[1].histogram, " vs ", summedConfig.var[1].histogram)
         # end
         ################################################################################
-        if print >= 0
-            println(green("Iteration $iter is done. $(time() - startTime) seconds passed."))
+        if MPI.Comm_rank(comm) == root
+            if print >= 0
+                println(green("Iteration $iter is done. $(time() - startTime) seconds passed."))
+            end
         end
     end
     ################################ IO ######################################
