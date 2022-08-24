@@ -22,6 +22,24 @@ function Sphere1(totalstep)
     return result.mean, result.stdev
 end
 
+function Sphere1_default_measure(totalstep)
+    function integrand(config)
+        X = config.var[1]
+        if (X[1]^2 + X[2]^2 < 1.0)
+            return 1.0
+        else
+            return 0.0
+        end
+    end
+
+    T = MCIntegration.Tau(1.0, 1.0 / 2.0)
+    dof = [[2,],] # number of T variable for the normalization and the integrand
+    config = MCIntegration.Configuration((T,), dof, 0.0)
+    result = MCIntegration.sample(config, integrand; neval=totalstep, block=64, print=-1)
+    # avg, err = MonteCarlo.sample(totalstep, (T,), dof, [0.0, ], integrand, measure; Nblock=64, print=-1)
+    return result.mean, result.stdev
+end
+
 function Sphere2(totalstep)
     function integrand(config)
         X = config.var[1]
@@ -48,7 +66,7 @@ end
 
 function Sphere3(totalstep; offset=0)
     function integrand(config)
-        @assert config.curr == 1 || config.curr == 2
+        @assert config.curr == 1 || config.curr == 2 "$(config.curr) is not a valid integrand"
         X = config.var[1]
         if config.curr == 1
             if (X[1+offset]^2 + X[2+offset]^2 < 1.0)
@@ -192,6 +210,11 @@ end
     totalStep = 1000_000
 
     avg, err = Sphere1(totalStep)
+    println("MC integration 1: $avg ± $err (exact: $(π / 4.0))")
+    @test abs(avg - π / 4.0) < 5.0 * err
+    # @test abs(avg[1] - π / 4.0) < 5.0 * err[1]
+
+    avg, err = Sphere1_default_measure(totalStep)
     println("MC integration 1: $avg ± $err (exact: $(π / 4.0))")
     @test abs(avg - π / 4.0) < 5.0 * err
     # @test abs(avg[1] - π / 4.0) < 5.0 * err[1]

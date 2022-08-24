@@ -269,12 +269,14 @@ function montecarlo(config::Configuration, integrand::Function, measure::Functio
 end
 
 function simple_measure(config, integrand)
-    factor = 1.0 / config.reweight[config.curr]
-    weight = integrand(config)
+    # factor = 1.0 / config.reweight[config.curr]
+    # weight = integrand(config)
     if config.observable isa AbstractVector
-        config.observable[config.curr] += weight / abs(weight) * factor
+        # config.observable[config.curr] += weight / abs(weight) * factor
+        config.observable[config.curr] += config.relaiveWeight
     elseif config.observable isa AbstractFloat
-        config.observable += weight / abs(weight) * factor
+        # config.observable += weight / abs(weight) * factor
+        config.observable += config.relativeWeight
     else
         error("simple_measure can only be used with AbstractVector or AbstractFloat observables")
     end

@@ -32,13 +32,15 @@ function changeIntegrand(config, integrand)
     end
 
     config.curr = new
-    newAbsWeight = (new == config.norm ? 1.0 : abs(integrand(config)))
+    weight = (new == config.norm ? 1.0 : abs(integrand(config)))
+    newAbsWeight = abs(weight)
     R = prop * newAbsWeight * config.reweight[new] / currAbsWeight / config.reweight[curr]
 
     config.propose[1, curr, new] += 1.0
     if rand(config.rng) < R  # accept the change
         config.accept[1, curr, new] += 1.0
         config.absWeight = newAbsWeight
+        setweight!(config, weight)
         ########## accumulate config.var histogram #############
         # for vi = 1:length(config.var)
         #     offset = config.var[vi].offset
@@ -50,7 +52,7 @@ function changeIntegrand(config, integrand)
         # end
     else # reject the change
         config.curr = curr # reset the current diagram index
-        config.absWeight = currAbsWeight
+        # config.absWeight = currAbsWeight
 
         ############ Redo changes to config.var #############
         for vi = 1:length(config.var)
@@ -89,7 +91,8 @@ function changeVariable(config, integrand)
         return
     end
 
-    newAbsWeight = abs(integrand(config))
+    weight = integrand(config)
+    newAbsWeight = abs(weight)
     currAbsWeight = config.absWeight
     R = prop * newAbsWeight / currAbsWeight
 
@@ -99,10 +102,11 @@ function changeVariable(config, integrand)
         # curr == 2 && println("accept, $curr")
         config.accept[2, curr, vi] += 1.0
         config.absWeight = newAbsWeight
+        setweight!(config, weight)
         # accumulate!(var, idx)
     else
         # var[idx] = oldvar
-        config.absWeight = currAbsWeight
+        # config.absWeight = currAbsWeight
         shiftRollback!(var, idx, config)
     end
 end
@@ -130,7 +134,8 @@ function swapVariable(config, integrand)
         return
     end
 
-    newAbsWeight = abs(integrand(config))
+    weight = integrand(config)
+    newAbsWeight = abs(weight)
     currAbsWeight = config.absWeight
     R = prop * newAbsWeight / currAbsWeight
 
@@ -140,9 +145,10 @@ function swapVariable(config, integrand)
         # curr == 2 && println("accept, $curr")
         config.accept[2, curr, vi] += 1.0
         config.absWeight = newAbsWeight
+        setweight!(config, weight)
     else
         # var[idx] = oldvar
-        config.absWeight = currAbsWeight
+        # config.absWeight = currAbsWeight
         swapRollback!(var, idx1, idx2, config)
     end
 end
