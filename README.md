@@ -13,6 +13,29 @@ MCIntegration provides a Monte Carlo algorithm to calculate high-dimensional int
 
 The following example demonstrates the basic usage of this package. This code calculates the area of a circle and the volume of a sphere using one Markov chain. The code can be found [here](example/sphere.jl).
 
+The following command evaluate a two-dimensional integral ∫dx₁dx₂ (x₁^2+x₂^2) in the domain [0, 1)x[0, 1]
+```julia
+julia> X=Continuous(0.0, 1.0)
+Adaptive continuous variable ∈ [0.0, 1.0). Learning rate = 2.0. 
+
+julia> integrate(c->(X=c.var[1]; X[1]^2+X[2]^2); var = (X, ), dof = [(2, ),])
+==================================     Integral-1    ==============================================
+  iter          integral                            wgt average                          chi2/dof
+---------------------------------------------------------------------------------------------------
+     1       0.65074464 ± 0.047564903             0.65074464 ± 0.047564903                 0.0000
+     2       0.76468743 ± 0.045398931             0.71036936 ± 0.032840924                 3.0029
+     3       0.66119309 ± 0.042882335             0.69218964 ± 0.026073195                 1.9159
+     4       0.74476052 ± 0.045914954             0.70500827 ± 0.022672658                 1.6077
+     5       0.69634932 ± 0.058623829             0.70388163 ± 0.021146279                 1.2105
+     6        0.6543088 ± 0.048101827             0.69585279 ± 0.019358254                 1.1464
+     7       0.67531808 ± 0.044556231             0.69259211 ± 0.017754917                 0.9851
+     8       0.59976994 ± 0.023144883             0.65820474 ± 0.014087327                 2.2909
+     9       0.64934182 ± 0.040158383              0.6572336 ± 0.013293146                 2.0100
+    10       0.67476284 ± 0.029880299             0.66012976 ± 0.012145466                 1.8185
+---------------------------------------------------------------------------------------------------
+Integral-1 = 0.6601297573053011 ± 0.012145466472831361
+```
+
 ```julia
 using MCIntegration
 

@@ -55,6 +55,22 @@ include("statistics.jl")
 
 - `timer`: `StopWatch` other than print and save.
 """
+function integrate(integrand::Function, measure::Function=simple_measure;
+    neval=1e4, # number of evaluations
+    niter=10, # number of iterations
+    block=16, # number of blocks
+    alpha=1.0, # learning rate of the reweight factor
+    print=-1, printio=stdout, save=0, saveio=nothing, timer=[],
+    kwargs...
+)
+    config = Configuration(; kwargs...)
+    return sample(config, integrand, measure;
+        neval=neval,
+        niter=niter,
+        block=block,
+        alpha=alpha,
+        print=print, printio=printio, save=save, saveio=saveio, timer=timer, kwargs...)
+end
 function sample(config::Configuration, integrand::Function, measure::Function=simple_measure;
     neval=1e4 * length(config.dof), # number of evaluations
     niter=10, # number of iterations

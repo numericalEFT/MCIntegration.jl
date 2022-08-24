@@ -56,7 +56,7 @@ function tostring(mval, merr; pm="±")
 end
 
 function Base.show(io::IO, result::Result)
-    print(io, summary(result.config))
+    # print(io, summary(result.config))
     print(io, summary(result))
 end
 
@@ -85,8 +85,8 @@ function summary(result::Result, pick::Union{Function,AbstractVector}=obs -> rea
     end
 
     for (i, p) in enumerate(pick)
-        info = isnothing(name) ? "#$i" : "-$(name[i])"
-        barbar = "==================================     Results$info    =============================================="
+        info = isnothing(name) ? "-$i" : "-$(name[i])"
+        barbar = "==================================     Integral$info    =============================================="
         bar = "---------------------------------------------------------------------------------------------------"
         println(barbar)
         println(yellow(@sprintf("%6s %-36s %-36s %16s", "iter", "         integral", "        wgt average", "chi2/dof")))
@@ -103,8 +103,8 @@ function summary(result::Result, pick::Union{Function,AbstractVector}=obs -> rea
         end
         println(bar)
         m, e = p(result.mean), p(result.stdev)
-        println(green("result#$info = $m ± $e"))
-        println()
+        println(green("Integral$info = $m ± $e\n"))
+        # println()
     end
 end
 

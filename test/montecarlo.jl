@@ -36,6 +36,7 @@ function Sphere1_default_measure(totalstep)
     T = MCIntegration.Tau(1.0, 1.0 / 2.0)
     dof = [[2,],] # number of T variable for the normalization and the integrand
     config = MCIntegration.Configuration((T,), dof, 0.0)
+    # config = MCIntegration.Configuration(var=(T,), dof=dof, obs=0.0) #test dict api for Configuration
     @inferred integrand(config) #make sure the type is inferred for the integrand function
     result = MCIntegration.sample(config, integrand; neval=totalstep, block=64, print=-1)
     # avg, err = MonteCarlo.sample(totalstep, (T,), dof, [0.0, ], integrand, measure; Nblock=64, print=-1)
@@ -94,10 +95,9 @@ function Sphere3(totalstep; offset=0)
 
     T = MCIntegration.Continuous(0.0, 1.0; offset=offset)
     dof = [[2,], [3,]] # number of T variable for the normalization and the integrand
-    # config = MCIntegration.Configuration(totalstep, (T,), dof, [0.0, 0.0], neighbor=[[3, 2], [3, 1], [1, 2]])
-    config = MCIntegration.Configuration((T,), dof, [0.0, 0.0], neighbor=[(1, 3), (1, 2)])
+    config = MCIntegration.Configuration((T,), dof, [0.0, 0.0]; neighbor=[(1, 3), (1, 2)])
     @inferred integrand(config) #make sure the type is inferred for the integrand function
-    result = MCIntegration.sample(config, integrand, measure; neval=totalstep, block=64, print=-1)
+    result = MCIntegration.sample(config, integrand, measure; neval=totalstep, block=64, print=0)
     # avg, err = MonteCarlo.sample(totalstep, (T,), dof, [0.0, ], integrand, measure; Nblock=64, print=-1)
     return result.mean, result.stdev
 end

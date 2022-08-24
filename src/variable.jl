@@ -105,6 +105,13 @@ mutable struct Continuous{G} <: Variable
     end
 end
 
+function Base.show(io::IO, var::Continuous)
+    print(io, (var.adapt ? "Adaptive" : "Nonadaptive") * " continuous variable ∈ [$(var.lower), $(var.lower+var.range))."
+              * (var.adapt ? " Learning rate = $(var.alpha)." : "")
+              * (var.offset > 0 ? " Offset = $(var.offset)." : "")
+    )
+end
+
 function accumulate!(T::Continuous, idx::Int)
     if T.adapt
         T.histogram[T.gidx[idx]] += 1
@@ -156,6 +163,13 @@ mutable struct Discrete <: Variable
         train!(newVar)
         return newVar
     end
+end
+
+function Base.show(io::IO, var::Discrete)
+    print(io, (var.adapt ? "Adaptive" : "Nonadaptive") * " discrete variable ∈ [$(var.lower) ... $(var.upper)]."
+              * (var.adapt ? " Learning rate = $(var.alpha)." : "")
+              * (var.offset > 0 ? " Offset = $(var.offset)." : "")
+    )
 end
 
 function accumulate!(T::Discrete, idx::Int)

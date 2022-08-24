@@ -95,6 +95,7 @@ Create a Configuration struct
     ## Static parameters
 
     - `var`: TUPLE of variables, each variable should be derived from the abstract type Variable, see variable.jl for details). Use a tuple rather than a vector improves the performance.
+    By default, var = (Continuous(0.0, 1.0),), which is a single continuous variable.
 
     - `dof::Vector{Vector{Int}}`: degrees of freedom of each integrand, e.g., [[0, 1], [2, 3]] means the first integrand has zero var#1 and one var#2; while the second integrand has two var#1 and 3 var#2. 
     By default, dof=[ones(length(var)), ], which means that there is only one integrand, and each variable has one degree of freedom.
@@ -117,7 +118,14 @@ Create a Configuration struct
         By default, we assume the N integrands are in the increase order, meaning the neighbor will be set to [(N+1, 1), (1, 2), (2, 4), ..., (N-1, N)], where the first N entries are for diagram 1, 2, ..., N and the last entry is for the normalization diagram. Only the first diagram is connected to the normalization diagram.
         Only highly correlated integrands are not highly correlated should be defined as neighbors. Otherwise, most of the updates between the neighboring integrands will be rejected and wasted.
     """
-    function Configuration(var::V, dof=[ones(Int, length(var)),], obs::O=length(dof) == 1 ? 0.0 : zeros(length(dof));
+
+    # function Configuration(var::V=(Continuous(0.0, 1.0),), dof=[ones(Int, length(var)),], obs::O=length(dof) == 1 ? 0.0 : zeros(length(dof)); para::P=nothing, kwargs...) where {V,P,O}
+    #     return Configuration(; var=var, dof=dof, obs=obs, para=para, kwargs...)
+    # end
+    function Configuration(;
+        var::V=(Continuous(0.0, 1.0),),
+        dof::AbstractVector=[ones(Int, length(var)),],
+        obs::O=length(dof) == 1 ? 0.0 : zeros(length(dof)),
         para::P=nothing,
         reweight::Vector{Float64}=ones(length(dof) + 1),
         reweight_goal::Union{Vector{Float64},Nothing}=nothing,
@@ -125,14 +133,21 @@ Create a Configuration struct
         neighbor::Union{Vector{Vector{Int}},Vector{Tuple{Int,Int}},Nothing}=nothing,
         kwargs...
     ) where {V,P,O}
-        # println(var)
         @assert V <: Tuple{Vararg{Variable}} || V <: Tuple{Variable} "Configuration.var must be a tuple of Variable to maximize efficiency. Now get $(typeof(V))"
         Nv = length(var) # number of variables
 
         ################# integrand initialization #########################
-        @assert typeof(dof) == Vector{Vector{Int}} "Configuration.dof should be with a type of Vector{Vector{Int}} to avoid mistakes. Now get $(typeof(dof))"
+        # @assert eltype(dof) == Union(Vector{Vector{Int}}, Vector{Tuple}) "Configuration.dof should be with a type of Vector{Vector{Int}} to avoid mistakes. Now get $(typeof(dof))"
+        # @assert typeof(dof) == Union(Vector{Vector{Int}}, Vector{Tuple}) "Configuration.dof should be with a type of Vector{Vector{Int}} to avoid mistakes. Now get $(typeof(dof))"
+        # @assert typeof(dof) == Union(Vector{Vector{Int}}, Vector{Tuple}) "Configuration.dof should be with a type of Vector{Vector{Int}} to avoid mistakes. Now get $(typeof(dof))"
         # add normalization diagram to dof
-        dof = deepcopy(dof) # don't modify the input dof
+        if eltype(dof) <: Tuple{Vararg{Any}}
+            dof = [collect(d) for d in dof]
+        elseif eltype(dof) <: AbstractVector
+            dof = deepcopy(dof) # don't modify the input dof
+        else
+            error("Configuration.dof should be with a type of Vector{Vector{Int}} or Vector{Tuple{Int, ..., Int}} to avoid mistakes. Now get $(typeof(dof))")
+        end
         push!(dof, zeros(Int, length(var))) # add the degrees of freedom for the normalization diagram
 
         Nd = length(dof) # number of integrands + renormalization diagram
