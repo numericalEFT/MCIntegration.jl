@@ -117,7 +117,7 @@ Create a Configuration struct
         By default, we assume the N integrands are in the increase order, meaning the neighbor will be set to [(N+1, 1), (1, 2), (2, 4), ..., (N-1, N)], where the first N entries are for diagram 1, 2, ..., N and the last entry is for the normalization diagram. Only the first diagram is connected to the normalization diagram.
         Only highly correlated integrands are not highly correlated should be defined as neighbors. Otherwise, most of the updates between the neighboring integrands will be rejected and wasted.
     """
-    function Configuration(var::V, dof=[ones(length(var)),], obs::O=length(dof) == 1 ? 0.0 : zeros(length(dof));
+    function Configuration(var::V, dof=[ones(Int, length(var)),], obs::O=length(dof) == 1 ? 0.0 : zeros(length(dof));
         para::P=nothing,
         reweight::Vector{Float64}=ones(length(dof) + 1),
         reweight_goal::Union{Vector{Float64},Nothing}=nothing,

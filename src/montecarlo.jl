@@ -60,7 +60,7 @@ function sample(config::Configuration, integrand::Function, measure::Function=si
     niter=10, # number of iterations
     block=16, # number of blocks
     alpha=1.0, # learning rate of the reweight factor
-    print=0, printio=stdout, save=0, saveio=nothing, timer=[],
+    print=-1, printio=stdout, save=0, saveio=nothing, timer=[],
     kwargs...
 )
 

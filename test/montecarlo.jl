@@ -17,6 +17,7 @@ function Sphere1(totalstep)
     T = MCIntegration.Tau(1.0, 1.0 / 2.0)
     dof = [[2,],] # number of T variable for the normalization and the integrand
     config = MCIntegration.Configuration((T,), dof, 0.0)
+    @inferred integrand(config) #make sure the type is inferred for the integrand function
     result = MCIntegration.sample(config, integrand, measure; neval=totalstep, block=64, print=-1)
     # avg, err = MonteCarlo.sample(totalstep, (T,), dof, [0.0, ], integrand, measure; Nblock=64, print=-1)
     return result.mean, result.stdev
@@ -35,6 +36,7 @@ function Sphere1_default_measure(totalstep)
     T = MCIntegration.Tau(1.0, 1.0 / 2.0)
     dof = [[2,],] # number of T variable for the normalization and the integrand
     config = MCIntegration.Configuration((T,), dof, 0.0)
+    @inferred integrand(config) #make sure the type is inferred for the integrand function
     result = MCIntegration.sample(config, integrand; neval=totalstep, block=64, print=-1)
     # avg, err = MonteCarlo.sample(totalstep, (T,), dof, [0.0, ], integrand, measure; Nblock=64, print=-1)
     return result.mean, result.stdev
@@ -59,6 +61,7 @@ function Sphere2(totalstep)
     T = MCIntegration.TauPair(1.0, 1.0 / 2.0)
     dof = [[1,],] # number of T variable for the normalization and the integrand
     config = MCIntegration.Configuration((T,), dof, 0.0)
+    @inferred integrand(config) #make sure the type is inferred for the integrand function
     result = MCIntegration.sample(config, integrand, measure; neval=totalstep, block=64, print=-1)
     # avg, err = MonteCarlo.sample(totalstep, (T,), dof, [0.0, ], integrand, measure; Nblock=64, print=-1)
     return result.mean, result.stdev
@@ -93,6 +96,7 @@ function Sphere3(totalstep; offset=0)
     dof = [[2,], [3,]] # number of T variable for the normalization and the integrand
     # config = MCIntegration.Configuration(totalstep, (T,), dof, [0.0, 0.0], neighbor=[[3, 2], [3, 1], [1, 2]])
     config = MCIntegration.Configuration((T,), dof, [0.0, 0.0], neighbor=[(1, 3), (1, 2)])
+    @inferred integrand(config) #make sure the type is inferred for the integrand function
     result = MCIntegration.sample(config, integrand, measure; neval=totalstep, block=64, print=-1)
     # avg, err = MonteCarlo.sample(totalstep, (T,), dof, [0.0, ], integrand, measure; Nblock=64, print=-1)
     return result.mean, result.stdev
@@ -113,6 +117,7 @@ function Exponential1(totalstep)
     K = MCIntegration.RadialFermiK(1.0, 0.01)
     dof = [[1,],] # number of T variable for the normalization and the integrand
     config = MCIntegration.Configuration((K,), dof, 0.0)
+    @inferred integrand(config) #make sure the type is inferred for the integrand function
     result = MCIntegration.sample(config, integrand, measure; neval=totalstep, block=64, print=-1)
     # avg, err = MonteCarlo.sample(totalstep, (T,), dof, [0.0, ], integrand, measure; Nblock=64, print=-1)
     return result.mean, result.stdev
@@ -134,6 +139,7 @@ function Lorentz1(totalstep)
     K = MCIntegration.RadialFermiK(1.0, 0.001)
     dof = [[1,],] # number of T variable for the normalization and the integrand
     config = MCIntegration.Configuration((K,), dof, 0.0)
+    @inferred integrand(config) #make sure the type is inferred for the integrand function
     result = MCIntegration.sample(config, integrand, measure; neval=totalstep, block=64, print=-1)
     # avg, err = MonteCarlo.sample(totalstep, (T,), dof, [0.0, ], integrand, measure; Nblock=64, print=-1)
     return result.mean, result.stdev
@@ -160,6 +166,7 @@ function Exponential2(totalstep)
     K = MCIntegration.RadialFermiK(1.0, 0.01)
     dof = [[1,], [2,]] # number of T variable for the normalization and the integrand
     config = MCIntegration.Configuration((K,), dof, [0.0, 0.0])
+    @inferred integrand(config) #make sure the type is inferred for the integrand function
     result = MCIntegration.sample(config, integrand, measure; neval=totalstep, block=64, print=-1)
     # avg, err = MonteCarlo.sample(totalstep, (T,), dof, [0.0, ], integrand, measure; Nblock=64, print=-1)
     return result.mean, result.stdev
@@ -186,6 +193,7 @@ function Lorentz2(totalstep)
     K = MCIntegration.RadialFermiK(1.0, 0.01)
     dof = [[1,], [2,]] # number of T variable for the normalization and the integrand
     config = MCIntegration.Configuration((K,), dof, [0.0, 0.0])
+    @inferred integrand(config) #make sure the type is inferred for the integrand function
     result = MCIntegration.sample(config, integrand, measure; neval=totalstep, block=64, print=-1)
     # avg, err = MonteCarlo.sample(totalstep, (T,), dof, [0.0, ], integrand, measure; Nblock=64, print=-1)
     return result.mean, result.stdev
@@ -200,7 +208,7 @@ function TestDiscrete(totalstep)
     X = MCIntegration.Discrete(1, 3, adapt=true)
     dof = [[1,],] # number of X variable of the integrand
     config = MCIntegration.Configuration((X,), dof)
-
+    @inferred integrand(config) #make sure the type is inferred for the integrand function
     result = MCIntegration.sample(config, integrand; neval=totalstep, niter=10, block=64, print=-1)
     # println(MCIntegration.summary(result))
     return result.mean, result.stdev
