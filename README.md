@@ -31,7 +31,7 @@ end
 const neval, niter = 1e4, 10
 
 # Define the types variables, the first two arguments set the boundary. see the section [variable](#variable) for more details.
-T = Continuous(0.0, 1.0)
+X = Continuous(0.0, 1.0)
 
 # Define how many (degrees of freedom) variables of each type. 
 # For example, [[n1, n2], [m1, m2], ...] means the first integral involves n1 varibales of type 1, and n2 variables of type2, while the second integral involves m1 variables of type 1 and m2 variables of type 2. 
@@ -39,7 +39,7 @@ dof = [[2,], [3,]]
 
 # Define the configuration struct which is container of all kinds of internal data for MC,
 # the first argument is a tuple listing all types of variables, one then specify the degrees of freedom of each variable type in the second argument.  
-config = Configuration((T,), dof)
+config = Configuration((X,), dof)
 
 # perform MC integration. Set print>=0 to print more information.
 result = sample(config, integrand; neval=neval, niter=niter, print=-1)
