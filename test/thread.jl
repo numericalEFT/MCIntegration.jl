@@ -6,9 +6,8 @@
     Threads.@threads for i in 1:3
         println("test thread: ", i)
         X = Continuous(0.0, 1.0)
-        config = Configuration((X,))
-        result = sample(config, config -> (config.var[1][1])^i)
+        result = integrate(config -> (config.var[1][1])^i; var=(Continuous(0.0, 1.0),), print=-1)
         println(i, " -> ", result.mean, "+-", result.stdev)
-        check(result.mean, result.stdev, 1 / (1 + i))
+        check(result, 1 / (1 + i))
     end
 end

@@ -172,7 +172,7 @@ function Configuration(;
     propose = zeros(Float64, (2, Nd, max(Nd, Nv))) .+ 1.0e-8 # add a small initial value to avoid Inf when inverted
     accept = zeros(Float64, (2, Nd, max(Nd, Nv)))
 
-    return new{V,P,O}(seed, MersenneTwister(seed), para, var,  # static parameters
+    return Configuration{V,P,O}(seed, MersenneTwister(seed), para, var,  # static parameters
         collect(neighbor), collect(dof), obs, collect(reweight), collect(reweight_goal),
         visited, # integrand properties
         0, curr, norm, normalization, 1.0 / reweight[curr], absweight, propose, accept  # current MC state
