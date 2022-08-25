@@ -68,7 +68,7 @@ function run(steps)
     obs = zeros(Float64, Qsize) # observable for the normalization diagram and the bubble
 
     config = MCIntegration.Configuration(var=(T, K, Ext), dof=dof, obs=obs, para=para)
-    result = MCIntegration.sample(config, integrand, measure; neval=steps, print=0, block=16)
+    result = MCIntegration.integrate(integrand; config=config, measure=measure, neval=steps, print=0, block=16)
 
     if isnothing(result) == false
         @unpack n, extQ = Para()

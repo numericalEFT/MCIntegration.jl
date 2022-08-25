@@ -7,6 +7,7 @@ using LinearAlgebra
 using StaticArrays, Printf, Dates
 using Graphs
 using ProgressMeter
+# using Test
 using .MCUtility
 const RNG = Random.GLOBAL_RNG
 

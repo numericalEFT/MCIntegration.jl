@@ -15,10 +15,10 @@ The following example demonstrates the basic usage of this package. This code ca
 
 The following command evaluate a two-dimensional integral ∫dx₁dx₂ (x₁^2+x₂^2) in the domain [0, 1)x[0, 1].
 ```julia
-julia> X=Continuous(0.0, 1.0) #Define the types variables, the first two arguments set the boundary. see the section [variable](#variable) for more details.
-Adaptive continuous variable ∈ [0.0, 1.0). Learning rate = 2.0. 
+julia> X=Continuous(0.0, 1.0) #Create a pool of continuous variables. It supports as much as 16 same type of variables. see the section [variable](#variable) for more details.
+Adaptive continuous variable in the domain [0.0, 1.0). Max variable number = 16. Learning rate = 2.0.
 
-julia> integrate(c->(X=c.var[1]; X[1]^2+X[2]^2); var = (X, ), dof = [(2, ),]);
+julia> integrate(c->(X=c.var[1]; X[1]^2+X[2]^2); var = (X, ), dof = [(2, ),]); # We use two of the continuous variables to calculate a two-dimensional integral ∫dx₁dx₂(x₁²+x₂²) in the domain [0, 1)x[0, 1)
 ==================================     Integral 1    ==============================================
   iter          integral                            wgt average                          chi2/dof
 ---------------------------------------------------------------------------------------------------
@@ -76,13 +76,18 @@ end
 
 # Variables
 
-This package defines some common types of variables. Internally, each variable type holds a vector of variables (which is the field named `data`). The actual number of variables in this vector is called the degrees of freedom (dof). Note that different integral may share the same variable types, but have different degrees of freedom. In the above code example, the integral for the circle area and the sphere volume both involve the variable type `Continuous`. The former has dof=2, while the latter has dof=3. 
+The integrals you want to evaluate may have different degrees of freedom, but are probably share the same types of variables. 
+In the above code example, the integral for the circle area and the sphere volume both involve the variable type `Continuous`. The former has dof=2, while the latter has dof=3. 
 
-Here we list some of the common variables types
+To evaluate these integrals simultaneouly, it makes sense to create a pool of variables. A pool of two common variables types can created with the following constructors:
 
-- Continous(lower::Float64, upper::Float64): continuous real-valued variables on the domain [lower, upper). MC will learn the distribution and perform an imporant sampling accordingly.
-
+- Continous(lower::Float64, upper::Float64): continuous real-valued variables on the domain [lower, upper). MC will optimize the distribution and perform an imporant sampling accordingly.
 - Discrete(lower::Int, upper::Int): integer variables in the closed set [lower, upper]. MC will learn the distribution and perform an imporant sampling accordingly.
+
+The size of pool can be specified by an optional arguments `size`, which is $16$ by default. Once created, you can access to a given variable with stanard vector indexing interface.
+You only need to choose some of them to evaluate a given integral. The others serve as dummy variables. They will not cause any computational overhead.  
+
+After each iteration, the code will try to optimize how the variables are sampled, so that the most important regimes of the integrals will be sampled most frequently. 
 
 More supported variables types can be found in the [source code](src/variable.jl).
 
@@ -96,7 +101,7 @@ where `#CPU` is the number of workers. Internally, the MC sampler will send the 
 
 Note that you need to install the package [MPI.jl](https://github.com/JuliaParallel/MPI.jl) to use the MPI mode. See this [link](https://juliaparallel.github.io/MPI.jl/stable/configuration/) for the instruction on the configuration.
 
-The user essentially doesn't need to write additional code to support the parallelization. The only tricky part is the output: only the function `MCIntegratoin.sample` of the root node returns meaningful estimates, while other workers simply returns `nothing`. 
+The user essentially doesn't need to write additional code to support the parallelization. The only tricky part is the output: only the function `MCIntegratoin.integrate` of the root node returns meaningful estimates, while other workers simply returns `nothing`. 
 
 # Algorithm
 The internal algorithm and some simple benchmarks can be found in the [document](docs/src/man/important_sampling.md).
