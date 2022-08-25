@@ -18,53 +18,74 @@ include("statistics.jl")
 
 """
 
-    sample(config::Configuration, integrand::Function, measure::Function; Nblock=16, print=0, printio=stdout, save=0, saveio=nothing, timer=[])
+    function integrate(integrand::Function;
+        measure::Function=simple_measure,
+        neval=1e5, 
+        niter=10, 
+        block=16, 
+        alpha=1.0, 
+        print=-1, 
+        printio=stdout,
+        kwargs...
+    )
 
- sample the integrands, collect statistics, and return the expected values and errors.
+ Calculate the integrals, collect statistics, and return a Result struct that contains the estimations and errors.
 
  # Remarks
  - User may run the MC in parallel using MPI. Simply run `mpiexec -n N julia userscript.jl` where `N` is the number of workers. In this mode, only the root process returns meaningful results. All other workers return `nothing, nothing`. User is responsible to handle the returning results properly. If you have multiple number of mpi version, you can use "mpiexecjl" in your "~/.julia/package/MPI/###/bin" to make sure the version is correct. See https://juliaparallel.github.io/MPI.jl/stable/configuration/ for more detail.
-
  - In the MC, a normalization diagram is introduced to normalize the MC estimates of the integrands. More information can be found in the link: https://kunyuan.github.io/QuantumStatistics.jl/dev/man/important_sampling/#Important-Sampling. User don't need to explicitly specify this normalization diagram.Internally, normalization diagram will be added to each table that is related to the integrands.
 
  # Arguments
 
- - `config`: Configuration struct
-
- - `integrand`: function call to evaluate the integrand. It should accept an argument of the type `Configuration`, and return a weight. 
+ - `integrand`: function call to evaluate the integrand. It should accept an argument of the type [`Configuration`](@ref), and return a weight. 
     Internally, MC only samples the absolute value of the weight. Therefore, it is also important to define Main.abs for the weight if its type is user-defined. 
-
-- `measure`: function call to measure. It should accept an argument of the type `Configuration`, then manipulate observables `obs`. By default, the function MCIntegration.simple_measure will be used.
-
-- `neval`: number of evaluations of the integrand per iteration. By default, it is set to 1e4 * length(config.dof).
-
-- `niter`: number of iterations. The reweight factor and the variables will be self-adapted after each iteration. By default, it is set to 10.
-
-- `block`: Number of blocks. Each block will be evaluated by about neval/block times. The results from the blocks will be assumed to be statistically independent, and will be used to estimate the error.
-   The tasks will automatically distributed to multi-process in MPI mode. If the numebr of workers N is larger than block, then block will be set to be N.
-   By default, it is set to 16.
-
+- `measure`: function call to measure. It should accept an argument the type [`Configuration`](@ref). Then you can accumulate the measurements with Configuration.obs. 
+   If every integral is expected to be a float number, you can use MCIntegration.simple_measure as the default.
+- `neval`: number of evaluations of the integrand per iteration. 
+- `niter`: number of iterations. The reweight factor and the variables will be self-adapted after each iteration. 
+- `block`: Number of blocks. Each block will be evaluated by about neval/block times. Each block is assumed to be statistically independent, and will be used to estimate the error. 
+   In MPI mode, the blocks are distributed among the workers. If the numebr of workers N is larger than block, then block will be set to be N.
 - `alpha`: Learning rate of the reweight factor after each iteraction. Note that alpha <=1, where alpha = 0 means no reweighting.  
-
 - `print`: -1 to not print anything, 0 to print minimal information, >0 to print summary for every `print` seconds
-
 - `printio`: `io` to print the information
+- `kwargs`: keyword arguments. 
+   If `config` is specified, then `config` will be used as the [`Configuration`](@ref). Otherwise, a new [`Configuration`](@ref) object will be created with the constructor Configuration(; kwargs...).
+   In the latter case, you may need to specifiy additional arguments for the `Configuration` constructor, check [`Configuration`](@ref) docs for more details.
 
-- `save`: -1 to not save anything, 0 to save observables `obs` in the end of sampling, >0 to save observables `obs` for every `save` seconds
-
-- `saveio`: `io` to save
-
-- `timer`: `StopWatch` other than print and save.
+# Examples
+```julia-repl
+julia> integrate(c->(X=c.var[1]; X[1]^2+X[2]^2); var = (Continuous(0.0, 1.0), ), dof = [(2, ),], print=-1)
+==================================     Integral-1    ==============================================
+  iter          integral                            wgt average                          chi2/dof
+---------------------------------------------------------------------------------------------------
+     1       0.75635674 ± 0.033727463             0.75635674 ± 0.033727463                 0.0000
+     2       0.63865386 ± 0.037056202             0.70302829 ± 0.024942894                 5.5180
+     3       0.76433252 ± 0.06486697              0.71092504 ± 0.023281055                 3.1480
+     4       0.64730886 ± 0.044154018             0.69708628 ± 0.020593731                 2.6401
+     5       0.70840759 ± 0.043918356             0.69912689 ± 0.018645635                 1.9937
+     6       0.66853011 ± 0.039370893             0.69352162 ± 0.016851385                 1.6936
+     7       0.75108782 ± 0.046025832             0.70032623 ± 0.015824115                 1.6413
+     8       0.67506441 ± 0.053890967             0.69832105 ± 0.015183104                 1.4357
+     9       0.71884473 ± 0.046650952              0.7002868 ± 0.014437688                 1.2781
+    10       0.69904531 ± 0.033491092             0.70009224 ± 0.013258207                 1.1362
+---------------------------------------------------------------------------------------------------
+Integral-1 = 0.700092241210273 ± 0.013258207327344304
+```
 """
-function integrate(integrand::Function, measure::Function=simple_measure;
+function integrate(integrand::Function;
+    measure::Function=simple_measure,
     neval=1e4, # number of evaluations
     niter=10, # number of iterations
     block=16, # number of blocks
     alpha=1.0, # learning rate of the reweight factor
-    print=-1, printio=stdout, save=0, saveio=nothing, timer=[],
+    print=0, printio=stdout, save=0, saveio=nothing, timer=[],
     kwargs...
 )
-    config = Configuration(; kwargs...)
+    if haskey(kwargs, "config")
+        config = pop!(kwargs, "config")
+    else
+        config = Configuration(; kwargs...)
+    end
     return sample(config, integrand, measure;
         neval=neval,
         niter=niter,
