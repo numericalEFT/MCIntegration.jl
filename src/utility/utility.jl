@@ -21,7 +21,8 @@ function progressBar(step, total)
     pos = barWidth * percent / 100.0
     for i = 1:barWidth
         if i <= pos
-            str *= "█"
+            # str *= "█"
+            str *= "="
         else
             str *= " "
         end

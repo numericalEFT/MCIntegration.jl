@@ -7,7 +7,7 @@ using Lehmann
 using MCIntegration
 # using ProfileView
 
-const Steps = 1e5
+const Steps = 1e7
 
 # include("parameter.jl")
 beta = 25.0
@@ -67,20 +67,20 @@ function run(steps)
     dof = [[1, 1, 1],] # degrees of freedom of the normalization diagram and the bubble
     obs = zeros(Float64, Qsize) # observable for the normalization diagram and the bubble
 
-    config = MCIntegration.Configuration((T, K, Ext), dof, obs; para=para)
-    result = MCIntegration.sample(config, integrand, measure; neval=steps, print=-1, block=16)
-    # sleep(100)
+    config = MCIntegration.Configuration(var=(T, K, Ext), dof=dof, obs=obs, para=para)
+    result = MCIntegration.sample(config, integrand, measure; neval=steps, print=0, block=16)
 
     if isnothing(result) == false
         @unpack n, extQ = Para()
         avg, std = result.mean, result.stdev
 
+        @printf("%10s  %10s   %10s  %10s\n", "q/kF", "avg", "err", "exact")
         for (idx, q) in enumerate(extQ)
             q = q[1]
             p = Polarization.Polarization0_ZeroTemp(q, para.n, basic) * spin
             @printf("%10.6f  %10.6f ± %10.6f  %10.6f\n", q / basic.kF, avg[idx], std[idx], p)
         end
-        println(MCIntegration.summary(result))
+        # println(MCIntegration.summary(result))
         # i = 1
         # println(result.config.var[i].histogram)
         # println(sum(result.config.var[i].histogram))

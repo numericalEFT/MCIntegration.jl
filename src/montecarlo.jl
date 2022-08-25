@@ -112,7 +112,6 @@ function sample(config::Configuration, integrand::Function, measure::Function=si
     # nevalperblock = neval # number of evaluations per block
 
     results = []
-    startTime = time()
     obsSum, obsSquaredSum = zero(config.observable), zero(config.observable)
 
     # configVec = Vector{Configuration}[]
@@ -125,6 +124,7 @@ function sample(config::Configuration, integrand::Function, measure::Function=si
     #     progress = Progress(niter; dt=(0.1 + print), enabled=(print >= 0), showspeed=true, desc="Total iterations $(niter): ", output=printio)
     # end
 
+    startTime = time()
     for iter in 1:niter
 
         obsSum *= 0
@@ -235,7 +235,10 @@ function sample(config::Configuration, integrand::Function, measure::Function=si
         # end
         if print >= 0
             summary(result)
-            println(red("Cost $(time() - startTime) seconds."))
+            if print > 0
+                println(yellow("$(Dates.now()), Total time: $(time() - startTime) seconds."))
+                # println(green("Cost $(time() - startTime) seconds."))
+            end
         end
         return result
         # return result.mean, result.stdev
