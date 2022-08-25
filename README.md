@@ -37,7 +37,6 @@ Integral 1 = 0.6857705325654451 ± 0.013588681837082542   (chi2/dof = 2.71)
 ```
 
 The following is a more involved example with a script.
-
 ```julia
 using MCIntegration
 
@@ -72,6 +71,18 @@ if isnothing(result) == false
     println("Circle area: $(avg[1]) +- $(err[1]) (exact: $(π / 4.0))")
     println("Sphere volume: $(avg[2]) +- $(err[2]) (exact: $(4.0 * π / 3.0 / 8))")
 end
+```
+
+You can also use the julia do-syntax to simplify the integration part in above example:
+```julia
+result = integrate(var = (Continuous(0.0, 1.0),), dof = d[[2,], [3,]], neval = 1e7, niter = 10, print = 0) do config
+    X = config.var[1]
+    if config.curr == 1 #config.curr is the index of the currently sampled integral by MC
+        return (X[1]^2 + X[2]^2 < 1.0) ? 1.0 : 0.0
+    else
+        return (X[1]^2 + X[2]^2 + X[3]^2 < 1.0) ? 1.0 : 0.0
+    end
+end  
 ```
 
 # Variables
