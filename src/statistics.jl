@@ -57,7 +57,7 @@ end
 
 function Base.show(io::IO, result::Result)
     # print(io, summary(result.config))
-    print(io, summary(result))
+    print(io, summary(result; verbose=-1))
 end
 
 """
@@ -71,7 +71,7 @@ It will first print the configuration from the last iteration, then print the we
 - pick: The pick function is used to select one of the observable to be printed. The return value of pick function must be a Number.
 - name: name of each picked observable. If name is not given, the index of the pick function will be used.
 """
-function summary(result::Result, pick::Union{Function,AbstractVector}=obs -> real(first(obs)), name=nothing)
+function summary(result::Result, pick::Union{Function,AbstractVector}=obs -> real(first(obs)), name=nothing; verbose=0)
     # summary(result.config)
 
     if pick isa Function
@@ -85,25 +85,31 @@ function summary(result::Result, pick::Union{Function,AbstractVector}=obs -> rea
     end
 
     for (i, p) in enumerate(pick)
-        info = isnothing(name) ? "-$i" : "-$(name[i])"
-        barbar = "==================================     Integral$info    =============================================="
-        bar = "---------------------------------------------------------------------------------------------------"
-        println(barbar)
-        println(yellow(@sprintf("%6s %-36s %-36s %16s", "iter", "         integral", "        wgt average", "chi2/dof")))
-        println(bar)
-        for iter in 1:result.dof+1
-            m0, e0 = p(result.iterations[iter][1]), p(result.iterations[iter][2])
-            m, e, chi2 = average(result.iterations, iter)
-            # println(size(m))
-            # println(m)
-            # println("testing: ", p(m))
-            m, e, chi2 = p(m), p(e), p(chi2)
-            # println(size(m))
-            println(@sprintf("%6s %-36s %-36s %16.4f", iter, tostring(m0, e0), tostring(m, e), iter == 1 ? 0.0 : chi2 / (iter - 1)))
+        info = isnothing(name) ? "$i" : "$(name[i])"
+        if verbose >= 0
+            barbar = "==================================     Integral $info    =============================================="
+            bar = "---------------------------------------------------------------------------------------------------"
+            println(barbar)
+            println(yellow(@sprintf("%6s %-36s %-36s %16s", "iter", "         integral", "        wgt average", "chi2/dof")))
+            println(bar)
+            for iter in 1:result.dof+1
+                m0, e0 = p(result.iterations[iter][1]), p(result.iterations[iter][2])
+                m, e, chi2 = average(result.iterations, iter)
+                # println(size(m))
+                # println(m)
+                # println("testing: ", p(m))
+                m, e, chi2 = p(m), p(e), p(chi2)
+                # println(size(m))
+                println(@sprintf("%6s %-36s %-36s %16.4f", iter, tostring(m0, e0), tostring(m, e), iter == 1 ? 0.0 : chi2 / (iter - 1)))
+            end
+            println(bar)
         end
-        println(bar)
-        m, e = p(result.mean), p(result.stdev)
-        println(green("Integral$info = $m ± $e\n"))
+        m, e, chi2 = p(result.mean), p(result.stdev), p(result.chi2)
+        if result.dof == 0
+            println(green("Integral $info = $m ± $e\n"))
+        else
+            println(green("Integral $info = $m ± $e   (chi2/dof = $(round(chi2/result.dof, sigdigits=3)))\n"))
+        end
         # println()
     end
 end
