@@ -3,11 +3,9 @@ using Test
 
 function check(result, expect)
     mean, error = result.mean, result.stdev
-    @test abs(mean - expect) < 5.0 * error
-end
-
-function check(mean, error, expect)
-    @test abs(mean - expect) < 5.0 * error
+    for ei in eachindex(expect)
+        @test abs(mean[ei] - expect[ei]) < 5.0 * error[ei]
+    end
 end
 
 # @testset "MCIntegration.jl" begin

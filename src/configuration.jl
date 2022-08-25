@@ -91,21 +91,18 @@ By default, it will be set to 0.0 if there is only one integrand (e.g., length(d
 function Configuration(;
     var::V=(Continuous(0.0, 1.0),),
     dof::AbstractVector=[ones(Int, length(var)),],
-    obs::O=length(dof) == 1 ? 0.0 : zeros(length(dof)),
-    para::P=nothing,
+    obs::Union{Number,AbstractArray}=length(dof) == 1 ? 0.0 : zeros(length(dof)),
+    para=nothing,
     reweight::Vector{Float64}=ones(length(dof) + 1),
     reweight_goal::Union{Vector{Float64},Nothing}=nothing,
     seed::Int=rand(Random.RandomDevice(), 1:1000000),
     neighbor::Union{Vector{Vector{Int}},Vector{Tuple{Int,Int}},Nothing}=nothing,
     kwargs...
-) where {V,P,O}
+) where {V}
     @assert V <: Tuple{Vararg{Variable}} || V <: Tuple{Variable} "Configuration.var must be a tuple of Variable to maximize efficiency. Now get $(typeof(V))"
     Nv = length(var) # number of variables
 
     ################# integrand initialization #########################
-    # @assert eltype(dof) == Union(Vector{Vector{Int}}, Vector{Tuple}) "Configuration.dof should be with a type of Vector{Vector{Int}} to avoid mistakes. Now get $(typeof(dof))"
-    # @assert typeof(dof) == Union(Vector{Vector{Int}}, Vector{Tuple}) "Configuration.dof should be with a type of Vector{Vector{Int}} to avoid mistakes. Now get $(typeof(dof))"
-    # @assert typeof(dof) == Union(Vector{Vector{Int}}, Vector{Tuple}) "Configuration.dof should be with a type of Vector{Vector{Int}} to avoid mistakes. Now get $(typeof(dof))"
     # add normalization diagram to dof
     if eltype(dof) <: Tuple{Vararg{Any}}
         dof = [collect(d) for d in dof]
@@ -172,7 +169,7 @@ function Configuration(;
     propose = zeros(Float64, (2, Nd, max(Nd, Nv))) .+ 1.0e-8 # add a small initial value to avoid Inf when inverted
     accept = zeros(Float64, (2, Nd, max(Nd, Nv)))
 
-    return Configuration{V,P,O}(seed, MersenneTwister(seed), para, var,  # static parameters
+    return Configuration{V,typeof(para),typeof(obs)}(seed, MersenneTwister(seed), para, var,  # static parameters
         collect(neighbor), collect(dof), obs, collect(reweight), collect(reweight_goal),
         visited, # integrand properties
         0, curr, norm, normalization, 1.0 / reweight[curr], absweight, propose, accept  # current MC state

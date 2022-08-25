@@ -40,13 +40,14 @@ end
 """
 function locate(accumulation::AbstractVector, p::Number)
     n = length(accumulation)
-
     if accumulation[1] > p || accumulation[end] <= p
         error("$p is not in $accumulation")
         return -1
     end
 
-    jl, ju = 1, n + 1
+    # O(log(N)) bisection algorithm
+    jl = 1
+    ju = n + 1
     while (ju - jl > 1)
         jm = (jl + ju) ÷ 2
         if p < accumulation[jm]
@@ -55,13 +56,15 @@ function locate(accumulation::AbstractVector, p::Number)
             jl = jm
         end
     end
-    for i = 1:length(accumulation)
-        if accumulation[i] > p
-            @assert jl + 1 == i "$jl vs $i"
-            return jl
-        end
-    end
-    # return jl + 1
+
+    # O(N) naive algorithm
+    # for i = 1:length(accumulation)
+    #     if accumulation[i] > p
+    #         @assert jl + 1 == i "$jl vs $i"
+    #         return jl
+    #     end
+    # end
+    return jl
     # error("p=$p is out of the upper bound $(accumulation[end])")
 end
 

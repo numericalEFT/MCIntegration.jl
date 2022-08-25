@@ -22,7 +22,7 @@ mutable struct FermiK{D} <: Variable
     end
 end
 
-Base.getindex(Var::FermiK{D}, i::Int) where {D} = Var.data[:, i]
+Base.getindex(Var::FermiK{D}, i::Int) where {D} = view(Var.data, :, i)
 function Base.setindex!(Var::FermiK{D}, v, i::Int) where {D}
     view(Var.data, :, i) .= v
 end

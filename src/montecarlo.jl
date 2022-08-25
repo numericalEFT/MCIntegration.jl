@@ -10,8 +10,8 @@ using ProgressMeter
 using .MCUtility
 const RNG = Random.GLOBAL_RNG
 
-include("configuration.jl")
 include("variable.jl")
+include("configuration.jl")
 include("sampler.jl")
 include("updates.jl")
 include("statistics.jl")
@@ -19,6 +19,7 @@ include("statistics.jl")
 """
 
     function integrate(integrand::Function;
+        config::Union{Configuration,Nothing}=nothing,
         measure::Function=simple_measure,
         neval=1e5, 
         niter=10, 
@@ -37,8 +38,9 @@ include("statistics.jl")
 
  # Arguments
 
- - `integrand`: function call to evaluate the integrand. It should accept an argument of the type [`Configuration`](@ref), and return a weight. 
-    Internally, MC only samples the absolute value of the weight. Therefore, it is also important to define Main.abs for the weight if its type is user-defined. 
+- `integrand`: function call to evaluate the integrand. It should accept an argument of the type [`Configuration`](@ref), and return a weight. 
+   Internally, MC only samples the absolute value of the weight. Therefore, it is also important to define Main.abs for the weight if its type is user-defined. 
+- `config`: [`Configuration`](@ref) object to perform the MC integration. If `nothing`, it attempts to create a new one with Configuration(; kwargs...).
 - `measure`: function call to measure. It should accept an argument the type [`Configuration`](@ref). Then you can accumulate the measurements with Configuration.obs. 
    If every integral is expected to be a float number, you can use MCIntegration.simple_measure as the default.
 - `neval`: number of evaluations of the integrand per iteration. 
@@ -48,9 +50,7 @@ include("statistics.jl")
 - `alpha`: Learning rate of the reweight factor after each iteraction. Note that alpha <=1, where alpha = 0 means no reweighting.  
 - `print`: -1 to not print anything, 0 to print minimal information, >0 to print summary for every `print` seconds
 - `printio`: `io` to print the information
-- `kwargs`: keyword arguments. 
-   If `config` is specified, then `config` will be used as the [`Configuration`](@ref). Otherwise, a new [`Configuration`](@ref) object will be created with the constructor Configuration(; kwargs...).
-   In the latter case, you may need to specifiy additional arguments for the `Configuration` constructor, check [`Configuration`](@ref) docs for more details.
+- `kwargs`: keyword arguments. If `config` is `nothing`, you may need to provide arguments for the `Configuration` constructor, check [`Configuration`](@ref) docs for more details.
 
 # Examples
 ```julia-repl
@@ -65,11 +65,10 @@ function integrate(integrand::Function;
     block=16, # number of blocks
     alpha=1.0, # learning rate of the reweight factor
     print=0, printio=stdout, save=0, saveio=nothing, timer=[],
+    config::Union{Configuration,Nothing}=nothing,
     kwargs...
 )
-    if haskey(kwargs, "config")
-        config = pop!(kwargs, "config")
-    else
+    if isnothing(config)
         config = Configuration(; kwargs...)
     end
     return sample(config, integrand, measure;
@@ -124,12 +123,8 @@ function sample(config::Configuration, integrand::Function, measure::Function=si
     # configVec = Vector{Configuration}[]
 
     #In the MPI mode, progress will only need to track the progress of the root worker.
-    # if print > 0
     Ntotal = niter * block ÷ Nworker
     progress = Progress(Ntotal; dt=(0.5 + print), enabled=(print >= 0), showspeed=true, desc="Total iterations * blocks $(Ntotal): ", output=printio)
-    # else
-    #     progress = Progress(niter; dt=(0.1 + print), enabled=(print >= 0), showspeed=true, desc="Total iterations $(niter): ", output=printio)
-    # end
 
     startTime = time()
     for iter in 1:niter
@@ -255,6 +250,8 @@ end
 function montecarlo(config::Configuration, integrand::Function, measure::Function, neval, print, save, timer)
     ##############  initialization  ################################
     # don't forget to initialize the diagram weight
+    weight = integrand(config)
+    setweight!(config, weight)
     config.absWeight = abs(integrand(config))
 
 

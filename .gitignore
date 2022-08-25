@@ -1,6 +1,7 @@
 *.jl.*.cov
 *.jl.cov
 *.jl.mem
+*.pb.gz
 /docs/build/
 
 .history

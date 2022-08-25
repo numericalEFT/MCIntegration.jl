@@ -68,6 +68,7 @@ function changeIntegrand(config, integrand)
             end
         end
     end
+    return
 end
 
 function changeVariable(config, integrand)
@@ -102,13 +103,15 @@ function changeVariable(config, integrand)
         # curr == 2 && println("accept, $curr")
         config.accept[2, curr, vi] += 1.0
         config.absWeight = newAbsWeight
-        setweight!(config, weight)
+        config.relativeWeight = weight / newAbsWeight / config.reweight[config.curr]
+        # setweight!(config, weight)
         # accumulate!(var, idx)
     else
         # var[idx] = oldvar
         # config.absWeight = currAbsWeight
         shiftRollback!(var, idx, config)
     end
+    return
 end
 
 function swapVariable(config, integrand)
@@ -151,4 +154,5 @@ function swapVariable(config, integrand)
         # config.absWeight = currAbsWeight
         swapRollback!(var, idx1, idx2, config)
     end
+    return
 end
