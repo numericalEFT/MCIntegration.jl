@@ -19,7 +19,7 @@ dof = [[2,], [3,]]
 result = integrate(integrand;
     var=(Continuous(0.0, 1.0),),
     dof=dof,
-    neval=1e7,  # number of integrand evaluation
+    neval=1e6,  # number of integrand evaluation
     niter=10,   # number of iteration.  After each iteraction, the program will try to improve the important sampling
     print=0     #-1 to not print anything, 0 to print progressbar, >0 to print out internal configurations for every "print" seconds
 )
