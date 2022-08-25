@@ -13,9 +13,9 @@ MCIntegration provides a Monte Carlo algorithm to calculate high-dimensional int
 
 The following example demonstrates the basic usage of this package. This code calculates the area of a circle and the volume of a sphere using one Markov chain. The code can be found [here](example/sphere.jl).
 
-The following command evaluate a two-dimensional integral ∫dx₁dx₂ (x₁^2+x₂^2) in the domain [0, 1)x[0, 1]
+The following command evaluate a two-dimensional integral ∫dx₁dx₂ (x₁^2+x₂^2) in the domain [0, 1)x[0, 1].
 ```julia
-julia> X=Continuous(0.0, 1.0)
+julia> X=Continuous(0.0, 1.0) #Define the types variables, the first two arguments set the boundary. see the section [variable](#variable) for more details.
 Adaptive continuous variable ∈ [0.0, 1.0). Learning rate = 2.0. 
 
 julia> integrate(c->(X=c.var[1]; X[1]^2+X[2]^2); var = (X, ), dof = [(2, ),])
@@ -36,6 +36,8 @@ julia> integrate(c->(X=c.var[1]; X[1]^2+X[2]^2); var = (X, ), dof = [(2, ),])
 Integral-1 = 0.6601297573053011 ± 0.012145466472831361
 ```
 
+The following is a more involved example with a script.
+
 ```julia
 using MCIntegration
 
@@ -50,22 +52,18 @@ function integrand(config)
     end
 end
 
-# MC step of each iteration, and the iteration number. After each iteraction, the program will try to improve the important sampling
-const neval, niter = 1e4, 10
-
-# Define the types variables, the first two arguments set the boundary. see the section [variable](#variable) for more details.
-X = Continuous(0.0, 1.0)
-
 # Define how many (degrees of freedom) variables of each type. 
 # For example, [[n1, n2], [m1, m2], ...] means the first integral involves n1 varibales of type 1, and n2 variables of type2, while the second integral involves m1 variables of type 1 and m2 variables of type 2. 
 dof = [[2,], [3,]]
 
-# Define the configuration struct which is container of all kinds of internal data for MC,
-# the first argument is a tuple listing all types of variables, one then specify the degrees of freedom of each variable type in the second argument.  
-config = Configuration((X,), dof)
-
 # perform MC integration. Set print>=0 to print more information.
-result = sample(config, integrand; neval=neval, niter=niter, print=-1)
+result = integrate(integrand; 
+    var = (Continuous(0.0, 1.0),), 
+    dof = dof
+    neval=1e4,  # number of integrand evaluation
+    niter=10,   # number of iteration.  After each iteraction, the program will try to improve the important sampling
+    print=-1    #-1 to not print anything, 0 to print progressbar, >0 to print out internal configurations for every "print" seconds
+    )
 
 # In MPI mode, only the root node return meaningful estimates. All other workers simply return nothing
 if isnothing(result) == false

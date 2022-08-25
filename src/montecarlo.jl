@@ -6,6 +6,7 @@ using Random, MPI
 using LinearAlgebra
 using StaticArrays, Printf, Dates
 using Graphs
+using ProgressMeter
 using .MCUtility
 const RNG = Random.GLOBAL_RNG
 
@@ -71,6 +72,7 @@ function integrate(integrand::Function, measure::Function=simple_measure;
         alpha=alpha,
         print=print, printio=printio, save=save, saveio=saveio, timer=timer, kwargs...)
 end
+
 function sample(config::Configuration, integrand::Function, measure::Function=simple_measure;
     neval=1e4 * length(config.dof), # number of evaluations
     niter=10, # number of iterations
@@ -115,6 +117,14 @@ function sample(config::Configuration, integrand::Function, measure::Function=si
 
     # configVec = Vector{Configuration}[]
 
+    #In the MPI mode, progress will only need to track the progress of the root worker.
+    # if print > 0
+    Ntotal = niter * block ÷ Nworker
+    progress = Progress(Ntotal; dt=(0.5 + print), enabled=(print >= 0), showspeed=true, desc="Total iterations * blocks $(Ntotal): ", output=printio)
+    # else
+    #     progress = Progress(niter; dt=(0.1 + print), enabled=(print >= 0), showspeed=true, desc="Total iterations $(niter): ", output=printio)
+    # end
+
     for iter in 1:niter
 
         obsSum *= 0
@@ -152,6 +162,13 @@ function sample(config::Configuration, integrand::Function, measure::Function=si
                     obsSquaredSum += (imag(config.observable) / config.normalization)^2 * 1im
                 else
                     obsSquaredSum += (config.observable / config.normalization)^2
+                end
+            end
+
+            if MPI.Comm_rank(comm) == root
+                if print >= 0
+                    next!(progress)
+                    # println()
                 end
             end
         end
@@ -205,7 +222,8 @@ function sample(config::Configuration, integrand::Function, measure::Function=si
         ################################################################################
         if MPI.Comm_rank(comm) == root
             if print >= 0
-                println(green("Iteration $iter is done. $(time() - startTime) seconds passed."))
+                # println(green("Iteration $iter is done. $(time() - startTime) seconds passed."))
+                # next!(progress)
             end
         end
     end
@@ -237,9 +255,9 @@ function montecarlo(config::Configuration, integrand::Function, measure::Functio
     end
 
     ########### MC simulation ##################################
-    if (print > 0)
-        println(green("Seed $(config.seed) Start Simulation ..."))
-    end
+    # if (print > 0)
+    #     println(green("Seed $(config.seed) Start Simulation ..."))
+    # end
     startTime = time()
 
     for i = 1:neval
@@ -277,9 +295,9 @@ function montecarlo(config::Configuration, integrand::Function, measure::Functio
         end
     end
 
-    if (print > 0)
-        println(green("Seed $(config.seed) End Simulation. Cost $(time() - startTime) seconds."))
-    end
+    # if (print > 0)
+    #     println(green("Seed $(config.seed) End Simulation. Cost $(time() - startTime) seconds."))
+    # end
 
     return config
 end
@@ -289,7 +307,7 @@ function simple_measure(config, integrand)
     # weight = integrand(config)
     if config.observable isa AbstractVector
         # config.observable[config.curr] += weight / abs(weight) * factor
-        config.observable[config.curr] += config.relaiveWeight
+        config.observable[config.curr] += config.relativeWeight
     elseif config.observable isa AbstractFloat
         # config.observable += weight / abs(weight) * factor
         config.observable += config.relativeWeight

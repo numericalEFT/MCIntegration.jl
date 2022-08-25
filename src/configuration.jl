@@ -303,6 +303,7 @@ function summary(config::Configuration, total_neval=nothing)
     barbar = "===========================  Configuration  ========================================="
     bar = "-------------------------------------------------------------------------------------"
 
+    println()
     println(barbar)
     println(green(Dates.now()))
     println("\nneval = $(config.neval)")
@@ -366,8 +367,8 @@ function summary(config::Configuration, total_neval=nothing)
     println(bar)
     println(yellow("Total Proposed: $(totalproposed / neval * 100.0)%\n"))
     if isnothing(total_neval) == false
-        println(green(progressBar(neval, total_neval)))
+        println(yellow(progressBar(neval, total_neval)))
     end
-    println()
+    # println()
 
 end
