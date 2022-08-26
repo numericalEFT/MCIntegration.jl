@@ -53,7 +53,7 @@ end
 
 # Define how many (degrees of freedom) variables of each type. 
 # For example, [[n1, n2], [m1, m2], ...] means the first integral involves n1 varibales of type 1, and n2 variables of type2, while the second integral involves m1 variables of type 1 and m2 variables of type 2. 
-dof = [[2,], [3,]]
+dof = [(2,), (3,)]
 
 # perform MC integration. Set print>=0 to print more information.
 result = integrate(integrand; 
@@ -75,7 +75,7 @@ end
 
 You can also use the julia do-syntax to simplify the integration part in above example:
 ```julia
-result = integrate(var = (Continuous(0.0, 1.0),), dof = d[[2,], [3,]], neval = 1e7, niter = 10, print = 0) do config
+result = integrate(var = (Continuous(0.0, 1.0),), dof = [(2,), (3,)], neval = 1e7, niter = 10, print = 0) do config
     X = config.var[1]
     if config.curr == 1 #config.curr is the index of the currently sampled integral by MC
         return (X[1]^2 + X[2]^2 < 1.0) ? 1.0 : 0.0
