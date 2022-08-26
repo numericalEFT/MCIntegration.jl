@@ -13,6 +13,30 @@ MCIntegration provides a Monte Carlo algorithm to calculate high-dimensional int
 
 The following example demonstrates the basic usage of this package. This code calculates the area of a circle and the volume of a sphere using one Markov chain. The code can be found [here](example/sphere.jl).
 
+The following command evaluate a two-dimensional integral ∫dx₁dx₂ (x₁^2+x₂^2) in the domain [0, 1)x[0, 1].
+```julia
+julia> X=Continuous(0.0, 1.0) #Create a pool of continuous variables. It supports as much as 16 same type of variables. see the section [variable](#variable) for more details.
+Adaptive continuous variable in the domain [0.0, 1.0). Max variable number = 16. Learning rate = 2.0.
+
+julia> integrate(c->(X=c.var[1]; X[1]^2+X[2]^2); var = (X, ), dof = [(2, ),]); # We use two of the continuous variables to calculate a two-dimensional integral ∫dx₁dx₂(x₁²+x₂²) in the domain [0, 1)x[0, 1)
+==================================     Integral 1    ==============================================
+  iter          integral                            wgt average                          chi2/dof
+---------------------------------------------------------------------------------------------------
+     1       0.73654787 ± 0.055229117             0.73654787 ± 0.055229117                 0.0000
+     2       0.78941426 ± 0.055157194             0.76301551 ± 0.03902743                  0.4587
+     3       0.61901138 ± 0.037712078             0.68854587 ± 0.027119558                 3.7497
+     4       0.56745577 ± 0.036761374             0.64587037 ± 0.021823618                 4.8419
+     5       0.76823135 ± 0.044066048             0.66997078 ± 0.01955667                  5.1793
+     6       0.69963303 ± 0.038825448             0.67597367 ± 0.017466038                 4.2366
+     7         0.661647 ± 0.040428194             0.67372024 ± 0.016033698                 3.5481
+     8       0.69492029 ± 0.0346462               0.67745974 ± 0.014551045                 3.0853
+     9       0.71363189 ± 0.068011508             0.67904303 ± 0.014229025                 2.7335
+    10       0.75550931 ± 0.045812645             0.68577053 ± 0.013588682                 2.7121
+---------------------------------------------------------------------------------------------------
+Integral 1 = 0.6857705325654451 ± 0.013588681837082542   (chi2/dof = 2.71)
+```
+
+The following is a more involved example with a script.
 ```julia
 using MCIntegration
 
@@ -27,22 +51,18 @@ function integrand(config)
     end
 end
 
-# MC step of each iteration, and the iteration number. After each iteraction, the program will try to improve the important sampling
-const neval, niter = 1e4, 10
-
-# Define the types variables, the first two arguments set the boundary. see the section [variable](#variable) for more details.
-T = Continuous(0.0, 1.0)
-
 # Define how many (degrees of freedom) variables of each type. 
 # For example, [[n1, n2], [m1, m2], ...] means the first integral involves n1 varibales of type 1, and n2 variables of type2, while the second integral involves m1 variables of type 1 and m2 variables of type 2. 
-dof = [[2,], [3,]]
-
-# Define the configuration struct which is container of all kinds of internal data for MC,
-# the first argument is a tuple listing all types of variables, one then specify the degrees of freedom of each variable type in the second argument.  
-config = Configuration((T,), dof)
+dof = [(2,), (3,)]
 
 # perform MC integration. Set print>=0 to print more information.
-result = sample(config, integrand; neval=neval, niter=niter, print=-1)
+result = integrate(integrand; 
+    var = (Continuous(0.0, 1.0),), 
+    dof = dof
+    neval=1e7,  # number of integrand evaluation
+    niter=10,   # number of iteration.  After each iteraction, the program will try to improve the important sampling
+    print=0     #-1 to not print anything, 0 to print progressbar, >0 to print out internal configurations for every "print" seconds
+    )
 
 # In MPI mode, only the root node return meaningful estimates. All other workers simply return nothing
 if isnothing(result) == false
@@ -53,15 +73,32 @@ if isnothing(result) == false
 end
 ```
 
+You can also use the julia do-syntax to simplify the integration part in above example:
+```julia
+result = integrate(var = (Continuous(0.0, 1.0),), dof = [(2,), (3,)], neval = 1e7, niter = 10, print = 0) do config
+    X = config.var[1]
+    if config.curr == 1 #config.curr is the index of the currently sampled integral by MC
+        return (X[1]^2 + X[2]^2 < 1.0) ? 1.0 : 0.0
+    else
+        return (X[1]^2 + X[2]^2 + X[3]^2 < 1.0) ? 1.0 : 0.0
+    end
+end  
+```
+
 # Variables
 
-This package defines some common types of variables. Internally, each variable type holds a vector of variables (which is the field named `data`). The actual number of variables in this vector is called the degrees of freedom (dof). Note that different integral may share the same variable types, but have different degrees of freedom. In the above code example, the integral for the circle area and the sphere volume both involve the variable type `Continuous`. The former has dof=2, while the latter has dof=3. 
+The integrals you want to evaluate may have different degrees of freedom, but are probably share the same types of variables. 
+In the above code example, the integral for the circle area and the sphere volume both involve the variable type `Continuous`. The former has dof=2, while the latter has dof=3. 
 
-Here we list some of the common variables types
+To evaluate these integrals simultaneouly, it makes sense to create a pool of variables. A pool of two common variables types can created with the following constructors:
 
-- Continous(lower::Float64, upper::Float64): continuous real-valued variables on the domain [lower, upper). MC will learn the distribution and perform an imporant sampling accordingly.
-
+- Continous(lower::Float64, upper::Float64): continuous real-valued variables on the domain [lower, upper). MC will optimize the distribution and perform an imporant sampling accordingly.
 - Discrete(lower::Int, upper::Int): integer variables in the closed set [lower, upper]. MC will learn the distribution and perform an imporant sampling accordingly.
+
+The size of pool can be specified by an optional arguments `size`, which is $16$ by default. Once created, you can access to a given variable with stanard vector indexing interface.
+You only need to choose some of them to evaluate a given integral. The others serve as dummy variables. They will not cause any computational overhead.  
+
+After each iteration, the code will try to optimize how the variables are sampled, so that the most important regimes of the integrals will be sampled most frequently. 
 
 More supported variables types can be found in the [source code](src/variable.jl).
 
@@ -75,7 +112,7 @@ where `#CPU` is the number of workers. Internally, the MC sampler will send the 
 
 Note that you need to install the package [MPI.jl](https://github.com/JuliaParallel/MPI.jl) to use the MPI mode. See this [link](https://juliaparallel.github.io/MPI.jl/stable/configuration/) for the instruction on the configuration.
 
-The user essentially doesn't need to write additional code to support the parallelization. The only tricky part is the output: only the function `MCIntegratoin.sample` of the root node returns meaningful estimates, while other workers simply returns `nothing`. 
+The user essentially doesn't need to write additional code to support the parallelization. The only tricky part is the output: only the function `MCIntegratoin.integrate` of the root node returns meaningful estimates, while other workers simply returns `nothing`. 
 
 # Algorithm
 The internal algorithm and some simple benchmarks can be found in the [document](docs/src/man/important_sampling.md).

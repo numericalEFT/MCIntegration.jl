@@ -22,7 +22,7 @@ mutable struct FermiK{D} <: Variable
     end
 end
 
-Base.getindex(Var::FermiK{D}, i::Int) where {D} = Var.data[:, i]
+Base.getindex(Var::FermiK{D}, i::Int) where {D} = view(Var.data, :, i)
 function Base.setindex!(Var::FermiK{D}, v, i::Int) where {D}
     view(Var.data, :, i) .= v
 end
@@ -38,19 +38,6 @@ mutable struct RadialFermiK <: Variable
         @assert offset + 1 < size
         k = [kF * (i - 0.5) / size for i = 1:size] #avoid duplication
         return new(k, kF, δk, offset, [0.0,])
-    end
-end
-
-mutable struct Tau <: Variable
-    data::Vector{Float64}
-    λ::Float64
-    β::Float64
-    offset::Int
-    histogram::Vector{Float64}
-    function Tau(β=1.0, λ=0.5, size=MaxOrder; offset=0)
-        @assert offset + 1 < size
-        t = [β * (i - 0.5) / size for i = 1:size] #avoid duplication
-        return new(t, λ, β, offset, [0.0,])
     end
 end
 
@@ -88,6 +75,7 @@ mutable struct Continuous{G} <: Variable
     adapt::Bool
     function Continuous(lower::Float64, upper::Float64, size=MaxOrder; offset=0, grid::G=collect(LinRange(lower, upper, 129)), alpha=2.0, adapt=true) where {G}
         @assert offset + 1 < size
+        size = size + 1 # need one more element as cache for the swap operation
         @assert upper > lower + 2 * eps(1.0)
         t = LinRange(lower + (upper - lower) / size, upper - (upper - lower) / size, size) #avoid duplication
         gidx = [locate(grid, t[i]) for i = 1:size]
@@ -103,6 +91,14 @@ mutable struct Continuous{G} <: Variable
 
         return var
     end
+end
+
+function Base.show(io::IO, var::Continuous)
+    print(io, (var.adapt ? "Adaptive" : "Nonadaptive") * " continuous variable in the domain [$(var.lower), $(var.lower+var.range))."
+              * (" Max variable number = $(length(var.data)-1-var.offset).")
+              * (var.adapt ? " Learning rate = $(var.alpha)." : "")
+              * (var.offset > 0 ? " Offset = $(var.offset)." : "")
+    )
 end
 
 function accumulate!(T::Continuous, idx::Int)
@@ -148,14 +144,23 @@ mutable struct Discrete <: Variable
         return Discrete([bound[0], bound[1]], size; offset=offset, alpha=alpha, adapt=adapt)
     end
     function Discrete(lower::Int, upper::Int, size=MaxOrder; offset=0, alpha=2.0, adapt=true)
-        d = collect(Iterators.take(Iterators.cycle(lower:upper), size)) #avoid dulication
         @assert offset + 1 < size
+        size = size + 1 # need one more element as cache for the swap operation
+        d = collect(Iterators.take(Iterators.cycle(lower:upper), size)) #avoid dulication
         @assert upper >= lower
         histogram = ones(upper - lower + 1)
         newVar = new(d, lower, upper, upper - lower + 1, offset, histogram, [], [], alpha, adapt)
         train!(newVar)
         return newVar
     end
+end
+
+function Base.show(io::IO, var::Discrete)
+    print(io, (var.adapt ? "Adaptive" : "Nonadaptive") * " discrete variable in the domain [$(var.lower), ..., $(var.upper)]."
+              * (" Max variable number = $(length(var.data)-1-var.offset).")
+              * (var.adapt ? " Learning rate = $(var.alpha)." : "")
+              * (var.offset > 0 ? " Offset = $(var.offset)." : "")
+    )
 end
 
 function accumulate!(T::Discrete, idx::Int)

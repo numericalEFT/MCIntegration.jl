@@ -1,7 +1,15 @@
 *.jl.*.cov
 *.jl.cov
 *.jl.mem
+*.pb.gz
 /docs/build/
 
 .history
+.vscode
 .DS_Store
+Manifest.toml
+*.pdf
+*.png
+*.jpg
+*.jld2
+__pycache__

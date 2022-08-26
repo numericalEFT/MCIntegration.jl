@@ -6,61 +6,86 @@ using Random, MPI
 using LinearAlgebra
 using StaticArrays, Printf, Dates
 using Graphs
+using ProgressMeter
+# using Test
 using .MCUtility
 const RNG = Random.GLOBAL_RNG
 
-include("configuration.jl")
 include("variable.jl")
+include("configuration.jl")
 include("sampler.jl")
 include("updates.jl")
 include("statistics.jl")
 
 """
 
-    sample(config::Configuration, integrand::Function, measure::Function; Nblock=16, print=0, printio=stdout, save=0, saveio=nothing, timer=[])
+    function integrate(integrand::Function;
+        config::Union{Configuration,Nothing}=nothing,
+        measure::Function=simple_measure,
+        neval=1e5, 
+        niter=10, 
+        block=16, 
+        alpha=1.0, 
+        print=-1, 
+        printio=stdout,
+        kwargs...
+    )
 
- sample the integrands, collect statistics, and return the expected values and errors.
+ Calculate the integrals, collect statistics, and return a Result struct that contains the estimations and errors.
 
  # Remarks
  - User may run the MC in parallel using MPI. Simply run `mpiexec -n N julia userscript.jl` where `N` is the number of workers. In this mode, only the root process returns meaningful results. All other workers return `nothing, nothing`. User is responsible to handle the returning results properly. If you have multiple number of mpi version, you can use "mpiexecjl" in your "~/.julia/package/MPI/###/bin" to make sure the version is correct. See https://juliaparallel.github.io/MPI.jl/stable/configuration/ for more detail.
-
  - In the MC, a normalization diagram is introduced to normalize the MC estimates of the integrands. More information can be found in the link: https://kunyuan.github.io/QuantumStatistics.jl/dev/man/important_sampling/#Important-Sampling. User don't need to explicitly specify this normalization diagram.Internally, normalization diagram will be added to each table that is related to the integrands.
 
  # Arguments
 
- - `config`: Configuration struct
-
- - `integrand`: function call to evaluate the integrand. It should accept an argument of the type `Configuration`, and return a weight. 
-    Internally, MC only samples the absolute value of the weight. Therefore, it is also important to define Main.abs for the weight if its type is user-defined. 
-
-- `measure`: function call to measure. It should accept an argument of the type `Configuration`, then manipulate observables `obs`. By default, the function MCIntegration.simple_measure will be used.
-
-- `neval`: number of evaluations of the integrand per iteration. By default, it is set to 1e4 * length(config.dof).
-
-- `niter`: number of iterations. The reweight factor and the variables will be self-adapted after each iteration. By default, it is set to 10.
-
-- `block`: Number of blocks. Each block will be evaluated by about neval/block times. The results from the blocks will be assumed to be statistically independent, and will be used to estimate the error.
-   The tasks will automatically distributed to multi-process in MPI mode. If the numebr of workers N is larger than block, then block will be set to be N.
-   By default, it is set to 16.
-
+- `integrand`: function call to evaluate the integrand. It should accept an argument of the type [`Configuration`](@ref), and return a weight. 
+   Internally, MC only samples the absolute value of the weight. Therefore, it is also important to define Main.abs for the weight if its type is user-defined. 
+- `config`: [`Configuration`](@ref) object to perform the MC integration. If `nothing`, it attempts to create a new one with Configuration(; kwargs...).
+- `measure`: function call to measure. It should accept an argument the type [`Configuration`](@ref). Then you can accumulate the measurements with Configuration.obs. 
+   If every integral is expected to be a float number, you can use MCIntegration.simple_measure as the default.
+- `neval`: number of evaluations of the integrand per iteration. 
+- `niter`: number of iterations. The reweight factor and the variables will be self-adapted after each iteration. 
+- `block`: Number of blocks. Each block will be evaluated by about neval/block times. Each block is assumed to be statistically independent, and will be used to estimate the error. 
+   In MPI mode, the blocks are distributed among the workers. If the numebr of workers N is larger than block, then block will be set to be N.
 - `alpha`: Learning rate of the reweight factor after each iteraction. Note that alpha <=1, where alpha = 0 means no reweighting.  
-
 - `print`: -1 to not print anything, 0 to print minimal information, >0 to print summary for every `print` seconds
-
 - `printio`: `io` to print the information
+- `kwargs`: keyword arguments. If `config` is `nothing`, you may need to provide arguments for the `Configuration` constructor, check [`Configuration`](@ref) docs for more details.
 
-- `save`: -1 to not save anything, 0 to save observables `obs` in the end of sampling, >0 to save observables `obs` for every `save` seconds
-
-- `saveio`: `io` to save
-
-- `timer`: `StopWatch` other than print and save.
+# Examples
+```julia-repl
+julia> integrate(c->(X=c.var[1]; X[1]^2+X[2]^2); var = (Continuous(0.0, 1.0), ), dof = [(2, ),], print=-1)
+Integral 1 = 0.6830078240204353 ± 0.014960689298028415   (chi2/dof = 1.46)
+```
 """
+function integrate(integrand::Function;
+    measure::Function=simple_measure,
+    neval=1e4, # number of evaluations
+    niter=10, # number of iterations
+    block=16, # number of blocks
+    alpha=1.0, # learning rate of the reweight factor
+    print=0, printio=stdout, save=0, saveio=nothing, timer=[],
+    config::Union{Configuration,Nothing}=nothing,
+    kwargs...
+)
+    if isnothing(config)
+        config = Configuration(; kwargs...)
+    end
+    return sample(config, integrand, measure;
+        neval=neval,
+        niter=niter,
+        block=block,
+        alpha=alpha,
+        print=print, printio=printio, save=save, saveio=saveio, timer=timer, kwargs...)
+end
+
 function sample(config::Configuration, integrand::Function, measure::Function=simple_measure;
     neval=1e4 * length(config.dof), # number of evaluations
     niter=10, # number of iterations
     block=16, # number of blocks
     alpha=1.0, # learning rate of the reweight factor
-    print=0, printio=stdout, save=0, saveio=nothing, timer=[],
+    print=-1, printio=stdout, save=0, saveio=nothing, timer=[],
     kwargs...
 )
 
@@ -94,11 +119,15 @@ function sample(config::Configuration, integrand::Function, measure::Function=si
     # nevalperblock = neval # number of evaluations per block
 
     results = []
-    startTime = time()
     obsSum, obsSquaredSum = zero(config.observable), zero(config.observable)
 
     # configVec = Vector{Configuration}[]
 
+    #In the MPI mode, progress will only need to track the progress of the root worker.
+    Ntotal = niter * block ÷ Nworker
+    progress = Progress(Ntotal; dt=(0.5 + print), enabled=(print >= 0), showspeed=true, desc="Total iterations * blocks $(Ntotal): ", output=printio)
+
+    startTime = time()
     for iter in 1:niter
 
         obsSum *= 0
@@ -136,6 +165,13 @@ function sample(config::Configuration, integrand::Function, measure::Function=si
                     obsSquaredSum += (imag(config.observable) / config.normalization)^2 * 1im
                 else
                     obsSquaredSum += (config.observable / config.normalization)^2
+                end
+            end
+
+            if MPI.Comm_rank(comm) == root
+                if print >= 0
+                    next!(progress)
+                    # println()
                 end
             end
         end
@@ -189,7 +225,8 @@ function sample(config::Configuration, integrand::Function, measure::Function=si
         ################################################################################
         if MPI.Comm_rank(comm) == root
             if print >= 0
-                println(green("Iteration $iter is done. $(time() - startTime) seconds passed."))
+                # println(green("Iteration $iter is done. $(time() - startTime) seconds passed."))
+                # next!(progress)
             end
         end
     end
@@ -201,7 +238,10 @@ function sample(config::Configuration, integrand::Function, measure::Function=si
         # end
         if print >= 0
             summary(result)
-            println(red("Cost $(time() - startTime) seconds."))
+            if print > 0
+                println(yellow("$(Dates.now()), Total time: $(time() - startTime) seconds."))
+                # println(green("Cost $(time() - startTime) seconds."))
+            end
         end
         return result
         # return result.mean, result.stdev
@@ -211,6 +251,8 @@ end
 function montecarlo(config::Configuration, integrand::Function, measure::Function, neval, print, save, timer)
     ##############  initialization  ################################
     # don't forget to initialize the diagram weight
+    weight = integrand(config)
+    setweight!(config, weight)
     config.absWeight = abs(integrand(config))
 
 
@@ -221,9 +263,9 @@ function montecarlo(config::Configuration, integrand::Function, measure::Functio
     end
 
     ########### MC simulation ##################################
-    if (print > 0)
-        println(green("Seed $(config.seed) Start Simulation ..."))
-    end
+    # if (print > 0)
+    #     println(green("Seed $(config.seed) Start Simulation ..."))
+    # end
     startTime = time()
 
     for i = 1:neval
@@ -261,20 +303,22 @@ function montecarlo(config::Configuration, integrand::Function, measure::Functio
         end
     end
 
-    if (print > 0)
-        println(green("Seed $(config.seed) End Simulation. Cost $(time() - startTime) seconds."))
-    end
+    # if (print > 0)
+    #     println(green("Seed $(config.seed) End Simulation. Cost $(time() - startTime) seconds."))
+    # end
 
     return config
 end
 
 function simple_measure(config, integrand)
-    factor = 1.0 / config.reweight[config.curr]
-    weight = integrand(config)
+    # factor = 1.0 / config.reweight[config.curr]
+    # weight = integrand(config)
     if config.observable isa AbstractVector
-        config.observable[config.curr] += weight / abs(weight) * factor
+        # config.observable[config.curr] += weight / abs(weight) * factor
+        config.observable[config.curr] += config.relativeWeight
     elseif config.observable isa AbstractFloat
-        config.observable += weight / abs(weight) * factor
+        # config.observable += weight / abs(weight) * factor
+        config.observable += config.relativeWeight
     else
         error("simple_measure can only be used with AbstractVector or AbstractFloat observables")
     end
