@@ -12,3 +12,4 @@ Manifest.toml
 *.png
 *.jpg
 *.jld2
+__pycache__
