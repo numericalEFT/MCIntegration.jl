@@ -244,16 +244,23 @@ def my_integrant3(x):
     return log(x[1])/sqrt(x[1])
 
 
-if __name__ == "__main__":
-    unit = pi
-    ndim = 3
-    maxeval = 2000000
-    exact = 1.3932  # exact value of the integral
+def my_integrand4(x):
+    dx2 = 0
+    for d in range(4):
+        dx2 += (x[:, d] - 0.5) ** 2
+    return exp(-dx2 * 100.) * 1013.2118364296088
 
-    # unit = 1.0
-    # ndim = 1
+
+if __name__ == "__main__":
+    # unit = pi
+    # ndim = 3
     # maxeval = 2000000
     # exact = 1.3932  # exact value of the integral
+
+    unit = 1.0
+    ndim = 4
+    maxeval = 1000000
+    exact = 1.3932  # exact value of the integral
 
     cum = Cumulants()
 
@@ -265,7 +272,7 @@ if __name__ == "__main__":
 
     random.seed(0)
 
-    Vegas_step3(my_integrant2, pi, maxeval, nstart, nincrease, grid, cum)
+    Vegas_step3(my_integrand4, unit, maxeval, nstart, nincrease, grid, cum)
 
     print(cum.avg, '+-', cum.err, 'exact=', exact,
           'real error=', abs(cum.avg-exact)/exact)
