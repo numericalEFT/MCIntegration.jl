@@ -7,7 +7,7 @@ def f1(x):
 
 
 integ = vegas.Integrator([[0, 1]])
-result = integ(f1, nitn=10, neval=100000)
+result = integ(f1, nitn=10, neval=100000, beta=0.0)
 
 # def f(x):
 #     dx2 = 0
@@ -20,3 +20,4 @@ result = integ(f1, nitn=10, neval=100000)
 # result = integ(f, nitn=10, neval=1000)
 print(result.summary())
 print('result = %s    Q = %.2f' % (result, result.Q))
+print(integ.map.grid.base)
