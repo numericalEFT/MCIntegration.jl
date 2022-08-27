@@ -230,7 +230,7 @@ def Vegas_step3(integrant, unit, maxeval, nstart, nincrease, grid, cum):
     cum.err *= unit**ndim
 
 
-def my_integrant2(x):
+def my_integrand2(x):
     """ For testing, we are integration the function
        1/(1-cos(x)*cos(y)*cos(z))/pi^3
        in the interval [0,pi]**3
@@ -239,9 +239,9 @@ def my_integrant2(x):
     return 1.0/(1.0-cos(x[:, 0])*cos(x[:, 1])*cos(x[:, 2]))/pi**3
 
 
-def my_integrant3(x):
+def my_integrand3(x):
     # somehow fails the following example
-    return log(x[1])/sqrt(x[1])
+    return log(x[:, 0])/sqrt(x[:, 0])
 
 
 def my_integrand4(x):
@@ -252,13 +252,21 @@ def my_integrand4(x):
 
 
 if __name__ == "__main__":
+    # integrand2
     # unit = pi
     # ndim = 3
     # maxeval = 2000000
     # exact = 1.3932  # exact value of the integral
 
+    # integrand4
+    # unit = 1.0
+    # ndim = 4
+    # maxeval = 1000000
+    # exact = 1.3932  # exact value of the integral
+
+    # integrand3
     unit = 1.0
-    ndim = 4
+    ndim = 1
     maxeval = 1000000
     exact = 1.3932  # exact value of the integral
 
@@ -272,7 +280,7 @@ if __name__ == "__main__":
 
     random.seed(0)
 
-    Vegas_step3(my_integrand4, unit, maxeval, nstart, nincrease, grid, cum)
+    Vegas_step3(my_integrand3, unit, maxeval, nstart, nincrease, grid, cum)
 
     print(cum.avg, '+-', cum.err, 'exact=', exact,
           'real error=', abs(cum.avg-exact)/exact)
