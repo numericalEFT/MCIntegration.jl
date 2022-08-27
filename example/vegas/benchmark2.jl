@@ -1,3 +1,15 @@
+"""
+Example from Cuba.jl documentation: https://giordano.github.io/Cuba.jl/stable/#One-dimensional-integral-1
+Integral log(x)/sqrt(x) in [0, 1), expected to be -4
+Evaluated 1e5 times
+
+Cuba: -3.9964946185407024 ± 0.0014907251005373207
+Vegas classic: -3.99078(68)
+Vegas+hypercube redistribution: -3.99908(39)
+
+Both MCIntegration and Kristjan's vegas fail this example
+"""
+
 using Cuba
 using MCIntegration
 # using Plots
@@ -13,12 +25,13 @@ end
 # plot(x, f1.(x))
 
 result = vegas((x, f) -> f[1] = f1(x[1]), maxevals=1e4)
-@time result = vegas((x, f) -> f[1] = f1(x[1]), maxevals=1e4)
+@time result = vegas((x, f) -> f[1] = f1(x[1]), maxevals=1e5)
 
 integ = Vegas.Integrator([[0, 1],])
+result = integ(f1, nitn=10, neval=1e4, beta=0.0)
 
-result = integ(f1, nitn=10, neval=1e3)
-@time result = integ(f1, nitn=10, neval=1e3)
+integ2 = Vegas.Integrator([[0, 1],])
+result = integ2(f1, nitn=10, neval=1e4)
 println(result.summary())
 println("result = $(result), Q = $(result.Q)")
 

@@ -1,4 +1,5 @@
 """
+Example from Kristjan's homepage: http://www.physics.rutgers.edu/~haule/509/src_numerics/Random/Vegas/Vegas_2021.ipynb
 Benchmark 1/(1-cos(x)*cos(y)*cos(z)) with different codes.
 Exact: 1.3932
 

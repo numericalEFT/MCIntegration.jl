@@ -1,4 +1,5 @@
 """
+Example adapated from Vegas homepage: https://vegas.readthedocs.io/en/latest/tutorial.html#multiple-integrands-simultaneously
 Benchmark three integrals
 After 1e5 evaluations
 
