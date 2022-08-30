@@ -73,7 +73,7 @@ mutable struct Continuous{G} <: Variable
     distribution::Vector{Float64} # length(grid) - 1
     alpha::Float64
     adapt::Bool
-    function Continuous(lower::Float64, upper::Float64, size=MaxOrder; offset=0, grid::G=collect(LinRange(lower, upper, 129)), alpha=2.0, adapt=true) where {G}
+    function Continuous(lower::Float64, upper::Float64, size=MaxOrder; offset=0, grid::G=collect(LinRange(lower, upper, 1000)), alpha=2.0, adapt=true) where {G}
         @assert offset + 1 < size
         size = size + 1 # need one more element as cache for the swap operation
         @assert upper > lower + 2 * eps(1.0)
