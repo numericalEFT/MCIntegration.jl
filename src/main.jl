@@ -105,7 +105,7 @@ function integrate(integrand::Function;
             clearStatistics!(config) # reset statistics
 
             if solver == :MCMC
-                config = MCMC.montecarlo(config, integrand, nevalperblock, print, save, timer; kwargs...)
+                config = MCMC.markovchain_montecarlo(config, integrand, nevalperblock, print, save, timer; kwargs...)
             elseif solver == :MC
             else
                 error("Solver $solver is not supported!")
