@@ -14,3 +14,5 @@ Manifest.toml
 *.jld2
 __pycache__
 .ipynb_checkpoints
+benchmark-c
+benchmark-fortran
