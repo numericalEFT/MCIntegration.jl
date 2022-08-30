@@ -107,6 +107,7 @@ function integrate(integrand::Function;
             if solver == :MCMC
                 config = MCMC.markovchain_montecarlo(config, integrand, nevalperblock, print, save, timer; kwargs...)
             elseif solver == :MC
+                config = MC.montecarlo(config, integrand, nevalperblock, print, save, timer; kwargs...)
             else
                 error("Solver $solver is not supported!")
             end

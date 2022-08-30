@@ -23,7 +23,7 @@ function montecarlo(config::Configuration, integrand::Function, neval, print, sa
         end
         # sampler may want to reject, then prop has already been set to zero
         weight = integrand(config)
-        config.obs .+= weight .* prop
+        config.observable += weight * prop
 
         ######## accumulate variable #################
         for (vi, var) in enumerate(config.var)
