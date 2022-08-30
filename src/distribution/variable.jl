@@ -1,8 +1,3 @@
-abstract type Variable end
-abstract type Model end
-const MaxOrder = 16
-
-
 mutable struct FermiK{D} <: Variable
     # data::Vector{MVector{D,Float64}}
     data::Matrix{Float64}
