@@ -113,8 +113,8 @@ function train_bk!(T::Continuous)
     accumulation = [sum(distribution[1:i]) for i in 1:length(distribution)]
     T.accumulation = [0.0, accumulation...] # start with 0.0 and end with 1.0
     T.distribution = distribution ./ T.width
-    println(T.distribution)
-    println(T.accumulation)
+    # println(T.distribution)
+    # println(T.accumulation)
     @assert (T.accumulation[1] ≈ 0.0) && (T.accumulation[end] ≈ 1.0) "$(T.accumulation)"
 end
 """

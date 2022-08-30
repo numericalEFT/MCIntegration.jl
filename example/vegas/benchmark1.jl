@@ -9,6 +9,7 @@ classic Vegas: 1.39114(48)
 Vegas + hypercube redistribution: 1.39314(15)
 Cuba: 1.3922290364427665 ± 0.0010906210048935345
 """
+
 using MCIntegration
 using PyCall
 using Cuba

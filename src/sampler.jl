@@ -481,12 +481,26 @@ Propose to generate new (uniform) variable randomly in [T.lower, T.lower+T.range
 - `T`:  Continuous variable
 - `idx`: T.data[idx] will be updated
 """
+# @inline function create!(T::Continuous, idx::Int, config)
+#     (idx >= length(T.data) - 1) && error("$idx overflow!")
+#     gidx = locate(T.accumulation, rand(config.rng))
+#     T[idx] = T.grid[gidx] + rand(config.rng) * (T.grid[gidx+1] - T.grid[gidx])
+#     T.gidx[idx] = gidx
+#     return 1.0 / T.distribution[gidx]
+# end
 @inline function create!(T::Continuous, idx::Int, config)
     (idx >= length(T.data) - 1) && error("$idx overflow!")
-    gidx = locate(T.accumulation, rand(config.rng))
-    T[idx] = T.grid[gidx] + rand(config.rng) * (T.grid[gidx+1] - T.grid[gidx])
-    T.gidx[idx] = gidx
-    return 1.0 / T.distribution[gidx]
+    N = length(T.grid) - 1
+    y = rand(config.rng) # [0, 1) random number
+    iy = Int(floor(y * N)) + 1
+    dy = y * N - (iy - 1)
+    x = T.grid[iy] + dy * (T.grid[iy+1] - T.grid[iy])
+    T[idx] = x
+    # gidx = locate(T.accumulation, rand(config.rng))
+    # T[idx] = T.grid[gidx] + rand(config.rng) * (T.grid[gidx+1] - T.grid[gidx])
+    T.gidx[idx] = iy
+    return (N * (T.grid[iy+1] - T.grid[iy]))
+    # return N
 end
 @inline createRollback!(T::Continuous, idx::Int, config) = nothing
 
@@ -499,11 +513,18 @@ Propose to remove old variable in [T.lower, T.lower+T.range), return proposal pr
 - `T`:  Continuous variable
 - `idx`: T.data[idx] will be updated
 """
+# @inline function remove!(T::Continuous, idx::Int, config)
+#     (idx >= length(T.data) - 1) && error("$idx overflow!")
+#     # currIdx = locate(T.grid, T[idx]) - 1
+#     currIdx = T.gidx[idx]
+#     return T.distribution[currIdx]
+# end
 @inline function remove!(T::Continuous, idx::Int, config)
     (idx >= length(T.data) - 1) && error("$idx overflow!")
     # currIdx = locate(T.grid, T[idx]) - 1
-    currIdx = T.gidx[idx]
-    return T.distribution[currIdx]
+    iy = T.gidx[idx]
+    return 1 / ((T.grid[iy+1] - T.grid[iy]) * (length(T.grid) - 1))
+    # return 1.0 / (length(T.grid) - 1)
 end
 @inline removeRollback!(T::Continuous, idx::Int, config) = nothing
 
