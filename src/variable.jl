@@ -68,9 +68,9 @@ mutable struct Continuous{G} <: Variable
     offset::Int
     grid::G
     width::Vector{Float64}
-    histogram::Vector{Float64}
-    accumulation::Vector{Float64}
-    distribution::Vector{Float64}
+    histogram::Vector{Float64} # length(grid) - 1
+    accumulation::Vector{Float64} # length(grid)
+    distribution::Vector{Float64} # length(grid) - 1
     alpha::Float64
     adapt::Bool
     function Continuous(lower::Float64, upper::Float64, size=MaxOrder; offset=0, grid::G=collect(LinRange(lower, upper, 129)), alpha=2.0, adapt=true) where {G}
@@ -106,6 +106,18 @@ function accumulate!(T::Continuous, idx::Int)
         T.histogram[T.gidx[idx]] += 1
     end
 end
+# function train!(T::Continuous)
+#     distribution = smooth(T.histogram, 6.0)
+#     distribution = rescale(distribution, T.alpha)
+#     distribution ./= sum(distribution)
+#     accumulation = [sum(distribution[1:i]) for i in 1:length(distribution)]
+#     T.accumulation = [0.0, accumulation...] # start with 0.0 and end with 1.0
+#     T.distribution = distribution ./ T.width
+#     @assert (T.accumulation[1] ≈ 0.0) && (T.accumulation[end] ≈ 1.0) "$(T.accumulation)"
+# end
+"""
+Vegas adaptive map
+"""
 function train!(T::Continuous)
     distribution = smooth(T.histogram, 6.0)
     distribution = rescale(distribution, T.alpha)
@@ -114,6 +126,24 @@ function train!(T::Continuous)
     T.accumulation = [0.0, accumulation...] # start with 0.0 and end with 1.0
     T.distribution = distribution ./ T.width
     @assert (T.accumulation[1] ≈ 0.0) && (T.accumulation[end] ≈ 1.0) "$(T.accumulation)"
+    newgrid = similar(T.grid)
+    newgrid[1] = T.grid[1]
+    newgrid[end] = T.grid[end]
+    j = 1
+    Sd = 0.0
+    delta = sum(distribution) / length(T.grid)
+    for i in eachindex(T.grid)
+        if i == 1
+            continue
+        end
+        while Sd < delta
+            Sd += distribution[j]
+            j += 1
+        end
+        Sd -= delta
+        # println("Sd= $Sd, j = $j , i=$i")
+        newgrid[i] = T.grid[j] - Sd / distribution[j-1] * (T.grid[j] - T.grid[j-1])
+    end
 end
 
 mutable struct TauPair <: Variable
