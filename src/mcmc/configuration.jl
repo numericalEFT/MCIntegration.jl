@@ -196,7 +196,7 @@ function clearStatistics!(config)
     fill!(config.propose, 1.0e-8)
     fill!(config.accept, 1.0e-10)
     for var in config.var
-        clearStatistics!(var)
+        Dist.clearStatistics!(var)
     end
 end
 
@@ -208,7 +208,7 @@ function addConfig!(c::Configuration, ic::Configuration)
     c.normalization += ic.normalization
     c.observable += ic.observable
     for (vi, var) in enumerate(c.var)
-        addStatistics!(var, ic.var[vi])
+        Dist.addStatistics!(var, ic.var[vi])
     end
 end
 
@@ -234,29 +234,9 @@ function MPIreduceConfig!(c::Configuration, root, comm)
     MPI.Reduce!(c.visited, MPI.SUM, root, comm)
     MPI.Reduce!(c.propose, MPI.SUM, root, comm)
     MPI.Reduce!(c.accept, MPI.SUM, root, comm)
-    # if MPI.Comm_rank(comm) == root
-    #     # reweight ./= MPI.Comm_size(comm)
-    #     # return SummaryStat(neval, visited, reweight, propose, accept)
-    #     rc = deepcopy(c)
-    #     rc.neval = MPI.Reduce(c.neval, MPI.SUM, root, comm)
-    #     rc.visited = MPI.Reduce(c.visited, MPI.SUM, root, comm)
-    #     rc.propose = MPI.Reduce(c.propose, MPI.SUM, root, comm)
-    #     rc.accept = MPI.Reduce(c.accept, MPI.SUM, root, comm)
-    #     rc.observable = MPI.Reduce(c.observable, MPI.SUM, root, comm)
-    #     rc.normalization = MPI.Reduce(c.normalization, MPI.SUM, root, comm)
-    #     return rc
-    # else
-    #     MPI.Reduce(c.neval, MPI.SUM, root, comm)
-    #     MPI.Reduce(c.visited, MPI.SUM, root, comm)
-    #     MPI.Reduce(c.propose, MPI.SUM, root, comm)
-    #     MPI.Reduce(c.accept, MPI.SUM, root, comm)
-    #     MPI.Reduce(c.observable, MPI.SUM, root, comm)
-    #     MPI.Reduce(c.normalization, MPI.SUM, root, comm)
-    #     return c
-    # end
 end
 
-function summary(config::Configuration, total_neval=nothing)
+function report(config::Configuration, total_neval=nothing)
     neval, visited, reweight, propose, accept = config.neval, config.visited, config.reweight, config.propose, config.accept
     var, neighbor = config.var, config.neighbor
 

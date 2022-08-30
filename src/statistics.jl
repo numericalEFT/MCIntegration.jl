@@ -57,11 +57,11 @@ end
 
 function Base.show(io::IO, result::Result)
     # print(io, summary(result.config))
-    print(io, summary(result; verbose=-1))
+    print(io, report(result; verbose=-1))
 end
 
 """
-    function summary(result::Result, pick::Union{Function,AbstractVector}=obs -> real(first(obs)), name=nothing)
+    function report(result::Result, pick::Union{Function,AbstractVector}=obs -> real(first(obs)), name=nothing)
 
 print the summary of the result. 
 It will first print the configuration from the last iteration, then print the weighted average and standard deviation of the picked observable from each iteration.
@@ -71,7 +71,7 @@ It will first print the configuration from the last iteration, then print the we
 - pick: The pick function is used to select one of the observable to be printed. The return value of pick function must be a Number.
 - name: name of each picked observable. If name is not given, the index of the pick function will be used.
 """
-function summary(result::Result, pick::Union{Function,AbstractVector}=obs -> real(first(obs)), name=nothing; verbose=0)
+function report(result::Result, pick::Union{Function,AbstractVector}=obs -> real(first(obs)), name=nothing; verbose=0)
     # summary(result.config)
 
     if pick isa Function
@@ -111,25 +111,6 @@ function summary(result::Result, pick::Union{Function,AbstractVector}=obs -> rea
             println(green("Integral $info = $m ± $e   (chi2/dof = $(round(chi2/result.dof, sigdigits=3)))\n"))
         end
         # println()
-    end
-end
-
-function MPIreduce(data)
-    comm = MPI.COMM_WORLD
-    Nworker = MPI.Comm_size(comm)  # number of MPI workers
-    rank = MPI.Comm_rank(comm)  # rank of current MPI worker
-    root = 0 # rank of the root worker
-
-    if Nworker == 1 #no parallelization
-        return data
-    end
-    if typeof(data) <: AbstractArray
-        MPI.Reduce!(data, MPI.SUM, root, comm) # root node gets the sum of observables from all blocks
-        return data
-    else
-        result = [data,]  # MPI.Reduce works for array only
-        MPI.Reduce!(result, MPI.SUM, root, comm) # root node gets the sum of observables from all blocks
-        return result[1]
     end
 end
 

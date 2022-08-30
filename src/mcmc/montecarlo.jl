@@ -1,24 +1,4 @@
 """
-Monte Carlo Calculator for Diagrams
-"""
-
-using Random, MPI
-using LinearAlgebra
-using StaticArrays, Printf, Dates
-using Graphs
-using ProgressMeter
-# using Test
-using .MCUtility
-const RNG = Random.GLOBAL_RNG
-
-include("variable.jl")
-include("configuration.jl")
-include("sampler.jl")
-include("updates.jl")
-include("statistics.jl")
-
-"""
-
     function integrate(integrand::Function;
         config::Union{Configuration,Nothing}=nothing,
         measure::Function=simple_measure,
@@ -179,8 +159,8 @@ function sample(config::Configuration, integrand::Function, measure::Function=si
             end
         end
         #################### collect statistics  ####################################
-        MPIreduce(obsSum)
-        MPIreduce(obsSquaredSum)
+        MCUtility.MPIreduce(obsSum)
+        MCUtility.MPIreduce(obsSquaredSum)
         # collect all statistics to summedConfig of the root worker
         MPIreduceConfig!(summedConfig, root, comm)
 
@@ -201,7 +181,7 @@ function sample(config::Configuration, integrand::Function, measure::Function=si
             ################### self-learning ##########################################
             doReweight!(summedConfig, alpha)
             for var in summedConfig.var
-                train!(var)
+                Dist.train!(var)
             end
         end
 
@@ -214,7 +194,7 @@ function sample(config::Configuration, integrand::Function, measure::Function=si
         config.reweight = MPI.bcast(summedConfig.reweight, root, comm) # broadcast reweight factors to all workers
         for vi in 1:length(config.var)
             config.var[vi].histogram = MPI.bcast(summedConfig.var[vi].histogram, root, comm)
-            train!(config.var[vi])
+            Dist.train!(config.var[vi])
         end
         # if MPI.Comm_rank(comm) == 1
         #     println("1 reweight: ", config.reweight, " vs ", summedConfig.reweight)
@@ -240,7 +220,7 @@ function sample(config::Configuration, integrand::Function, measure::Function=si
         # summary(results[end][3], neval)
         # end
         if print >= 0
-            summary(result)
+            report(result)
             if print > 0
                 println(yellow("$(Dates.now()), Total time: $(time() - startTime) seconds."))
                 # println(green("Cost $(time() - startTime) seconds."))
@@ -285,7 +265,7 @@ function montecarlo(config::Configuration, integrand::Function, measure::Functio
                 for (vi, var) in enumerate(config.var)
                     offset = var.offset
                     for pos = 1:config.dof[config.curr][vi]
-                        accumulate!(var, pos + offset)
+                        Dist.accumulate!(var, pos + offset)
                     end
                 end
             end

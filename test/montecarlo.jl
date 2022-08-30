@@ -23,17 +23,11 @@ function Sphere2(totalstep)
         end
     end
 
-    function measure(config)
-        factor = 1.0 / config.reweight[config.curr]
-        weight = integrand(config)
-        config.observable += weight / abs(weight) * factor
-    end
-
-    T = MCIntegration.TauPair(1.0, 1.0 / 2.0)
+    T = Dist.TauPair(1.0, 1.0 / 2.0)
     dof = [[1,],] # number of T variable for the normalization and the integrand
-    config = MCIntegration.Configuration(var=(T,), dof=dof)
+    config = Configuration(var=(T,), dof=dof)
     @inferred integrand(config) #make sure the type is inferred for the integrand function
-    return MCIntegration.integrate(integrand, measure=measure, config=config, neval=totalstep, block=64, print=-1)
+    return integrate(integrand, config=config, neval=totalstep, block=64, print=-1)
 end
 
 function Sphere3(totalstep; offset=0)
@@ -56,16 +50,14 @@ function Sphere3(totalstep; offset=0)
     end
 
     function measure(config)
-        factor = 1.0 / config.reweight[config.curr]
-        weight = integrand(config)
-        config.observable[config.curr] += weight / abs(weight) * factor
+        config.observable[config.curr] += config.relativeWeight
     end
 
-    T = MCIntegration.Continuous(0.0, 1.0; offset=offset)
+    T = Continuous(0.0, 1.0; offset=offset)
     dof = [[2,], [3,]] # number of T variable for the normalization and the integrand
-    config = MCIntegration.Configuration(var=(T,), dof=dof, obs=[0.0, 0.0]; neighbor=[(1, 3), (1, 2)])
+    config = Configuration(var=(T,), dof=dof, obs=[0.0, 0.0]; neighbor=[(1, 3), (1, 2)])
     @inferred integrand(config) #make sure the type is inferred for the integrand function
-    return MCIntegration.integrate(integrand, measure=measure, config=config, neval=totalstep, block=64, print=0)
+    return integrate(integrand, measure=measure, config=config, neval=totalstep, block=64, print=0)
 end
 
 # function Exponential1(totalstep)
@@ -171,11 +163,11 @@ function TestDiscrete(totalstep)
         return x
     end
 
-    X = MCIntegration.Discrete(1, 3, adapt=true)
+    X = Discrete(1, 3, adapt=true)
     dof = [[1,],] # number of X variable of the integrand
-    config = MCIntegration.Configuration(var=(X,), dof=dof)
+    config = Configuration(var=(X,), dof=dof)
     @inferred integrand(config) #make sure the type is inferred for the integrand function
-    return MCIntegration.sample(config, integrand; neval=totalstep, niter=10, block=64, print=-1)
+    return integrate(integrand; config=config, neval=totalstep, niter=10, block=64, print=-1)
 end
 
 function TestSingular1(totalstep)

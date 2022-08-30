@@ -17,11 +17,11 @@ function changeIntegrand(config, integrand)
         offset = config.var[vi].offset
         if (currdof[vi] < newdof[vi]) # more degrees of freedom
             for pos = currdof[vi]+1:newdof[vi]
-                prop *= create!(config.var[vi], pos + offset, config)
+                prop *= Dist.create!(config.var[vi], pos + offset, config)
             end
         elseif (currdof[vi] > newdof[vi]) # less degrees of freedom
             for pos = newdof[vi]+1:currdof[vi]
-                prop *= remove!(config.var[vi], pos + offset, config)
+                prop *= Dist.remove!(config.var[vi], pos + offset, config)
             end
         end
     end
@@ -59,11 +59,11 @@ function changeIntegrand(config, integrand)
             offset = config.var[vi].offset
             if (currdof[vi] < newdof[vi]) # more degrees of freedom
                 for pos = currdof[vi]+1:newdof[vi]
-                    createRollback!(config.var[vi], pos + offset, config)
+                    Dist.createRollback!(config.var[vi], pos + offset, config)
                 end
             elseif (currdof[vi] > newdof[vi]) # less degrees of freedom
                 for pos = newdof[vi]+1:currdof[vi]
-                    removeRollback!(config.var[vi], pos + offset, config)
+                    Dist.removeRollback!(config.var[vi], pos + offset, config)
                 end
             end
         end
@@ -85,7 +85,7 @@ function changeVariable(config, integrand)
     # oldvar = copy(var[idx])
     currAbsWeight = config.absWeight
 
-    prop = shift!(var, idx, config)
+    prop = Dist.shift!(var, idx, config)
 
     # sampler may want to reject, then prop has already been set to zero
     if prop <= eps(0.0)
@@ -109,7 +109,7 @@ function changeVariable(config, integrand)
     else
         # var[idx] = oldvar
         # config.absWeight = currAbsWeight
-        shiftRollback!(var, idx, config)
+        Dist.shiftRollback!(var, idx, config)
     end
     return
 end
@@ -130,7 +130,7 @@ function swapVariable(config, integrand)
     # oldvar = copy(var[idx])
     currAbsWeight = config.absWeight
 
-    prop = swap!(var, idx1, idx2, config)
+    prop = Dist.swap!(var, idx1, idx2, config)
 
     # sampler may want to reject, then prop has already been set to zero
     if prop <= eps(0.0)
@@ -152,7 +152,7 @@ function swapVariable(config, integrand)
     else
         # var[idx] = oldvar
         # config.absWeight = currAbsWeight
-        swapRollback!(var, idx1, idx2, config)
+        Dist.swapRollback!(var, idx1, idx2, config)
     end
     return
 end
