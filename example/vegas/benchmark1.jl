@@ -24,6 +24,7 @@ function fc(x)
 end
 
 # MCIntegration : 1.3961243672238552 ± 0.008180219118720399
+# MCIntegratin with vegas-like grid: 1.3925602769659569 ± 0.0048896463116989905
 integrate(neval=200000, var=(Continuous(0.0, 1π, alpha=3.0, adapt=true),), dof=[[3,],]) do config
     x = config.var[1]
     return f(x)

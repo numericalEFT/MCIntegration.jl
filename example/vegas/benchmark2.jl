@@ -7,6 +7,7 @@ Cuba: -3.998162393712846 ± 0.00044066437168409556
 Vegas classic:  -3.99798(14)
 Vegas+hypercube redistribution: -3.999953(24)
 Kristjan' Vegas: -3.999076429439272 +- 0.0004549401949589529
+MCIntegration: -4.016640971329379 ± 0.018422223764188922
 
 Both MCIntegration and Kristjan's vegas fail this example
 """

@@ -178,6 +178,19 @@ function TestDiscrete(totalstep)
     return MCIntegration.sample(config, integrand; neval=totalstep, niter=10, block=64, print=-1)
 end
 
+function TestSingular1(totalstep)
+    #log(x)/sqrt(x), singular in x->0
+    return integrate(c -> log(c.var[1][1]) / sqrt(c.var[1][1]); neval=totalstep, print=-1)
+end
+
+function TestSingular2(totalstep)
+    #1/(1-cos(x)*cos(y)*cos(z))
+    return integrate(var=(Continuous(0.0, 1π),), dof=[[3,],], neval=totalstep, print=-1) do config
+        x = config.var[1]
+        return 1.0 / (1.0 - cos(x[1]) * cos(x[2]) * cos(x[3])) / π^3
+    end
+end
+
 @testset "MonteCarlo Sampler" begin
     neval = 1000_000
 
@@ -185,6 +198,8 @@ end
     check(Sphere2(neval), π / 4.0)
     check(Sphere3(neval), [π / 4.0, 4.0 * π / 3.0 / 8])
     check(TestDiscrete(neval), 6.0)
+    check(TestSingular1(neval), -4.0)
+    check(TestSingular2(neval), 1.3932)
 
     # avg, err = Sphere2(totalStep)
     # println("MC integration 2: $avg ± $err (exact: $(π / 4.0))")

@@ -259,11 +259,12 @@ function montecarlo(config::Configuration, integrand::Function, measure::Functio
     config.absWeight = abs(integrand(config))
 
 
-    updates = [changeIntegrand,] # TODO: sample changeVariable more often
-    # updates = [changeIntegrand, swapVariable, changeVariable] # TODO: sample changeVariable more often
-    # for i = 2:length(config.var)*2
-    #     push!(updates, changeVariable)
-    # end
+    # updates = [changeIntegrand,] # TODO: sample changeVariable more often
+    # updates = [changeIntegrand, swapVariable,] # TODO: sample changeVariable more often
+    updates = [changeIntegrand, swapVariable, changeVariable] # TODO: sample changeVariable more often
+    for i = 2:length(config.var)*2
+        push!(updates, changeVariable)
+    end
 
     ########### MC simulation ##################################
     # if (print > 0)
@@ -277,7 +278,7 @@ function montecarlo(config::Configuration, integrand::Function, measure::Functio
         _update = rand(config.rng, updates) # randomly select an update
         _update(config, integrand)
         # if i % 10 == 0 && i >= neval / 100
-        if i % 2 == 0 && i >= neval / 100
+        if i % measurefreq == 0 && i >= neval / 100
 
             ######## accumulate variable #################
             if config.curr != config.norm
