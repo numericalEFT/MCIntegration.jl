@@ -16,9 +16,7 @@ using ..MCUtility
 using Random, MPI
 using LinearAlgebra
 using Printf, Dates
-using ProgressMeter
 
 include("montecarlo.jl")
 include("updates.jl")
-export integrate, sample, report
 end

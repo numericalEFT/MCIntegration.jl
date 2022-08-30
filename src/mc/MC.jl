@@ -2,9 +2,16 @@ module MC
 
 import ..Result
 import ..report
-
-using ..MCMC
 import ..Configuration
+import ..MPIreduceConfig!
+import ..setweight!
+import ..addConfig!
+import ..clearStatistics!
+
+using ..Dist
+import ..Variable
+
+using ..MCUtility
 
 include("vegas.jl")
 

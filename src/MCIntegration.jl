@@ -3,6 +3,7 @@ using MPI
 using Printf, Dates
 using Random
 using Graphs
+using ProgressMeter
 const RNG = Random.GLOBAL_RNG
 
 include("utility/utility.jl")
@@ -22,12 +23,13 @@ export Configuration
 include("mcmc/MCMC.jl")
 using .MCMC
 export MCMC
-export Configuration
-export integrate, sample
-export report
 
 include("mc/MC.jl")
 using .MC
 export MC
+
+include("main.jl")
+export integrate
+export report
 
 end
