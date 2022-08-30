@@ -1,7 +1,12 @@
 module MCMC
 
 import ..Result
-import ..MCIntegration.report
+import ..report
+import ..Configuration
+import ..MPIreduceConfig!
+import ..setweight!
+import ..addConfig!
+import ..clearStatistics!
 
 using ..Dist
 import ..Variable
@@ -11,11 +16,9 @@ using ..MCUtility
 using Random, MPI
 using LinearAlgebra
 using Printf, Dates
-using Graphs
 using ProgressMeter
 
-include("configuration.jl")
 include("montecarlo.jl")
 include("updates.jl")
-export Configuration, integrate, sample, report
+export integrate, sample, report
 end
