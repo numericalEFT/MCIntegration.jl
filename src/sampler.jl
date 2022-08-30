@@ -182,7 +182,7 @@ function shift!(K::FermiK{D}, idx::Int, config) where {D}
     if x < 1.0 / 3
         λ = 1.5
         ratio = 1.0 / λ + rand(rng) * (λ - 1.0 / λ)
-        K[idx] = K[idx] * ratio
+        K[idx] *= ratio
         return (D == 2) ? 1.0 : ratio
     elseif x < 2.0 / 3
         ϕ = rand(rng) * 2π

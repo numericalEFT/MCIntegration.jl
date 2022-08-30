@@ -67,6 +67,7 @@ function integrate(integrand::Function;
     alpha=1.0, # learning rate of the reweight factor
     print=0, printio=stdout, save=0, saveio=nothing, timer=[],
     config::Union{Configuration,Nothing}=nothing,
+    measurefreq=2,
     kwargs...
 )
     if isnothing(config)
@@ -77,6 +78,7 @@ function integrate(integrand::Function;
         niter=niter,
         block=block,
         alpha=alpha,
+        measurefreq=measurefreq,
         print=print, printio=printio, save=save, saveio=saveio, timer=timer, kwargs...)
 end
 
@@ -86,6 +88,7 @@ function sample(config::Configuration, integrand::Function, measure::Function=si
     block=16, # number of blocks
     alpha=1.0, # learning rate of the reweight factor
     print=-1, printio=stdout, save=0, saveio=nothing, timer=[],
+    measurefreq=2,
     kwargs...
 )
 
@@ -142,7 +145,7 @@ function sample(config::Configuration, integrand::Function, measure::Function=si
             # reset!(config, config.reweight) # reset configuration, keep the previous reweight factors
             clearStatistics!(config) # reset statistics
 
-            config = montecarlo(config, integrand, measure, nevalperblock, print, save, timer)
+            config = montecarlo(config, integrand, measure, nevalperblock, print, save, timer, measurefreq)
 
             addConfig!(summedConfig, config) # collect statistics from the config of each block to summedConfig
 
@@ -248,7 +251,7 @@ function sample(config::Configuration, integrand::Function, measure::Function=si
     end
 end
 
-function montecarlo(config::Configuration, integrand::Function, measure::Function, neval, print, save, timer)
+function montecarlo(config::Configuration, integrand::Function, measure::Function, neval, print, save, timer, measurefreq)
     ##############  initialization  ################################
     # don't forget to initialize the diagram weight
     weight = integrand(config)
@@ -273,7 +276,8 @@ function montecarlo(config::Configuration, integrand::Function, measure::Functio
         config.visited[config.curr] += 1
         _update = rand(config.rng, updates) # randomly select an update
         _update(config, integrand)
-        if i % 10 == 0 && i >= neval / 100
+        # if i % 10 == 0 && i >= neval / 100
+        if i % 2 == 0 && i >= neval / 100
 
             ######## accumulate variable #################
             if config.curr != config.norm
