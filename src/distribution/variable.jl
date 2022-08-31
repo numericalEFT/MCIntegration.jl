@@ -96,26 +96,27 @@ function Base.show(io::IO, var::Continuous)
     )
 end
 
-function accumulate!(T::Continuous, idx::Int)
+function accumulate!(T::Continuous, idx::Int, weight=1.0)
     if T.adapt
-        T.histogram[T.gidx[idx]] += 1
+        T.histogram[T.gidx[idx]] += weight
     end
 end
-function train_bk!(T::Continuous)
-    distribution = smooth(T.histogram, 6.0)
-    distribution = rescale(distribution, T.alpha)
-    distribution ./= sum(distribution)
-    accumulation = [sum(distribution[1:i]) for i in 1:length(distribution)]
-    T.accumulation = [0.0, accumulation...] # start with 0.0 and end with 1.0
-    T.distribution = distribution ./ T.width
-    # println(T.distribution)
-    # println(T.accumulation)
-    @assert (T.accumulation[1] ≈ 0.0) && (T.accumulation[end] ≈ 1.0) "$(T.accumulation)"
-end
+# function train_bk!(T::Continuous)
+#     distribution = smooth(T.histogram, 6.0)
+#     distribution = rescale(distribution, T.alpha)
+#     distribution ./= sum(distribution)
+#     accumulation = [sum(distribution[1:i]) for i in 1:length(distribution)]
+#     T.accumulation = [0.0, accumulation...] # start with 0.0 and end with 1.0
+#     T.distribution = distribution ./ T.width
+#     # println(T.distribution)
+#     # println(T.accumulation)
+#     @assert (T.accumulation[1] ≈ 0.0) && (T.accumulation[end] ≈ 1.0) "$(T.accumulation)"
+# end
 """
 Vegas adaptive map
 """
 function train!(T::Continuous)
+    # println("hist:", T.histogram[1:10])
     distribution = smooth(T.histogram, 6.0)
     distribution = rescale(distribution, T.alpha)
     newgrid = similar(T.grid)
@@ -196,6 +197,8 @@ function train!(T::Continuous)
     # println(T.distribution)
     # println(T.accumulation)
     @assert (T.accumulation[1] ≈ 0.0) && (T.accumulation[end] ≈ 1.0) "$(T.accumulation)"
+    clearStatistics!(T)
+    # println(T.histogram[1:10])
 end
 
 mutable struct TauPair <: Variable
@@ -261,6 +264,7 @@ function train!(T::Discrete)
     T.accumulation = [0.0, accumulation...] # start with 0.0 and end with 1.0
     T.distribution = distribution
     @assert (T.accumulation[1] ≈ 0.0) && (T.accumulation[end] ≈ 1.0) "$(T.accumulation)"
+    clearStatistics!(T)
 end
 
 # mutable struct ContinuousND{D} <: Variable

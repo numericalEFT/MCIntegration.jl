@@ -18,18 +18,20 @@ function montecarlo(config::Configuration, integrand::Function, neval, print, sa
             (currdof[vi] <= 0) && continue # return if the var has zero degree of freedom
             var = config.var[vi]
             for idx in 1:currdof[vi]
-                prop *= Dist.shift!(var, idx + var.offset, config)
+                prop *= Dist.create!(var, idx + var.offset, config)
             end
         end
         # sampler may want to reject, then prop has already been set to zero
         weight = integrand(config)
         config.observable += weight * prop
+        config.normalization += prop
 
         ######## accumulate variable #################
         for (vi, var) in enumerate(config.var)
             offset = var.offset
             for pos = 1:config.dof[curr][vi]
-                Dist.accumulate!(var, pos + offset)
+                Dist.accumulate!(var, pos + offset, (abs(weight)^2 * prop^2))
+                # Dist.accumulate!(var, pos + offset, 1.0)
             end
         end
         ###############################################

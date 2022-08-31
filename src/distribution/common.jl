@@ -69,6 +69,9 @@ function rescale(dist::AbstractVector, alpha=1.5)
     end
     dist ./= sum(dist)
     @assert all(x -> (0 < x < 1), dist) "$dist"
+    # println("before:", dist[1:10])
     dist = @. ((1 - dist) / log(1 / dist))^alpha
-    return dist ./= sum(dist)
+    # println(dist[1:10])
+    # return dist ./= sum(dist)
+    return dist
 end

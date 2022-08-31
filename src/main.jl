@@ -160,9 +160,9 @@ function integrate(integrand::Function;
 
             ################### self-learning ##########################################
             (solver == :MCMC) && MCMC.doReweight!(summedConfig, alpha)
-            for var in summedConfig.var
-                Dist.train!(var)
-            end
+            # for var in summedConfig.var
+            #     Dist.train!(var)
+            # end
         end
 
         ######################## syncronize between works ##############################

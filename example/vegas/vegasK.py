@@ -5,6 +5,7 @@ from numpy import *
 def smfun(x):
     if (x > 0):
         return ((x-1.)/log(x))**(1.5)
+        # return x
     else:
         return 0.
 
@@ -43,7 +44,10 @@ def Smoothen(fxbin):
             return  # can not refine the grid if the function is zero.
         fxb *= 1.0/norm         # we normalize the function.
         # Note that normalization is such that the sum is 1.
+        # print("before: ", idim, ",", fxb[0:10])
         final[idim, :] = vsmfun(fxb)
+        # print("after:", final[0, 0:10])
+    # print("after:", final[0, 0:10])
     return final
 
 
@@ -193,6 +197,7 @@ def Vegas_step3(integrant, unit, maxeval, nstart, nincrease, grid, cum):
                 # Here we make a better approximation for the function, which we are integrating.
                 for i in range(n):  # new2
                     # new2: just bin the function f. We saved the bin position before.
+                    # fxbin[dim, bins[i, dim]] += wfun[i]
                     fxbin[dim, bins[i, dim]] += wfun[i]
 
         w0 = sqrt(cum.sqsum*all_nsamples)  # w0 = sqrt(<fw^2>)
@@ -267,14 +272,14 @@ if __name__ == "__main__":
     # integrand3
     unit = 1.0
     ndim = 1
-    maxeval = 1000000
+    maxeval = 2000000
     exact = 1.3932  # exact value of the integral
 
     cum = Cumulants()
 
     nbins = 1024
-    nstart = 100000
-    nincrease = 5000
+    nstart = int(maxeval/10)
+    nincrease = 0
 
     grid = Grid(ndim, nbins)
 

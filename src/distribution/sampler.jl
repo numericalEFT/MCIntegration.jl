@@ -490,6 +490,7 @@ Propose to generate new (uniform) variable randomly in [T.lower, T.lower+T.range
     x = T.grid[iy] + dy * (T.grid[iy+1] - T.grid[iy])
     T[idx] = x
     T.gidx[idx] = iy
+    # Jacobian dx/dy = (x[i+1]-x[i])*N, where dy=1/N
     return (N * (T.grid[iy+1] - T.grid[iy]))
 end
 @inline createRollback!(T::Continuous, idx::Int, config) = nothing
