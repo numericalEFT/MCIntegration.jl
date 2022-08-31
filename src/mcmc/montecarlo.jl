@@ -63,16 +63,12 @@ function markovchain_montecarlo(config::Configuration, integrand::Function, neva
 end
 
 function simple_measure(config, integrand)
-    # factor = 1.0 / config.reweight[config.curr]
-    # weight = integrand(config)
-    if config.observable isa AbstractVector
-        # config.observable[config.curr] += weight / abs(weight) * factor
+    if (config.observable isa AbstractVector) && (eltype(config.observable) <: Number)
         config.observable[config.curr] += config.relativeWeight
-    elseif config.observable isa AbstractFloat
-        # config.observable += weight / abs(weight) * factor
+    elseif config.observable isa Number
         config.observable += config.relativeWeight
     else
-        error("simple_measure can only be used with AbstractVector or AbstractFloat observables")
+        error("simple_measure only works with observable of the AbstractVector of Number or Number types!")
     end
 end
 

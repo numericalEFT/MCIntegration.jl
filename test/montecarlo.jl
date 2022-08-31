@@ -57,7 +57,7 @@ function Sphere3(totalstep; offset=0)
     dof = [[2,], [3,]] # number of T variable for the normalization and the integrand
     config = Configuration(var=(T,), dof=dof, obs=[0.0, 0.0]; neighbor=[(1, 3), (1, 2)])
     @inferred integrand(config) #make sure the type is inferred for the integrand function
-    return integrate(integrand, measure=measure, config=config, neval=totalstep, block=64, print=0)
+    return integrate(integrand, measure=measure, config=config, neval=totalstep, block=64, print=-1)
 end
 
 # function Exponential1(totalstep)
@@ -183,6 +183,24 @@ function TestSingular2(totalstep)
     end
 end
 
+function TestComplex1(totalstep)
+    return integrate(neval=totalstep, print=-1, obs=0.0im) do config
+        x = config.var[1]
+        return x[1] + x[1]^2 * 1im
+    end
+end
+
+function TestComplex2(totalstep)
+    return integrate(dof=[[1,], [1,]], neval=totalstep, print=-1, obs=[0.0im, 0.0im]) do config
+        x = config.var[1]
+        if config.curr == 1
+            return x[1] + 0.0im
+        else
+            return x[1]^2 * 1im
+        end
+    end
+end
+
 @testset "MonteCarlo Sampler" begin
     neval = 1000_000
 
@@ -193,45 +211,8 @@ end
     check(TestSingular1(neval), -4.0)
     check(TestSingular2(neval), 1.3932)
 
-    # avg, err = Sphere2(totalStep)
-    # println("MC integration 2: $avg ± $err (exact: $(π / 4.0))")
-    # @test abs(avg - π / 4.0) < 5.0 * err
-    # # @test abs(avg[1] - π / 4.0) < 5.0 * err[1]
-
-    # avg, err = Sphere3(totalStep)
-    # println("MC integration 3: $(avg[1]) ± $(err[1]) (exact: $(π / 4.0))")
-    # println("MC integration 3: $(avg[2]) ± $(err[2]) (exact: $(4.0 * π / 3.0 / 8))")
-    # @test abs(avg[1] - π / 4.0) < 5.0 * err[1]
-    # @test abs(avg[2] - π / 6.0) < 5.0 * err[2]
-
-    # avg, err = Sphere3(totalStep, offset=2)
-    # println("MC integration 3 with offset: $(avg[1]) ± $(err[1]) (exact: $(π / 4.0))")
-    # println("MC integration 3 with offset: $(avg[2]) ± $(err[2]) (exact: $(4.0 * π / 3.0 / 8))")
-    # @test abs(avg[1] - π / 4.0) < 5.0 * err[1]
-    # @test abs(avg[2] - π / 6.0) < 5.0 * err[2]
-
-    # avg, err = Exponential1(totalStep)
-    # println("MC integration 4: $avg ± $err (exact: $(1.0))")
-    # @test abs(avg - 1.0) < 5.0 * err
-
-    # avg, err = Exponential2(totalStep)
-    # println("MC integration 5: $(avg[1]) ± $(err[1]) (exact: $(1.0))")
-    # println("MC integration 5: $(avg[2]) ± $(err[2]) (exact: $(1.0))")
-    # @test abs(avg[1] - 1.0) < 5.0 * err[1]
-    # @test abs(avg[2] - 1.0) < 5.0 * err[2]
-
-    # avg, err = Lorentz1(totalStep)
-    # println("MC integration 6: $avg ± $err (exact: $((LorentzN / 2 * π + LorentzN * atan(LorentzN)))")
-    # @test abs(avg - (LorentzN / 2 * π + LorentzN * atan(LorentzN))) < 5.0 * err
-
-    # avg, err = Lorentz2(totalStep)
-    # println("MC integration 7: $(avg[1]) ± $(err[1]) (exact: $((LorentzN / 2 * π + LorentzN * atan(LorentzN))))")
-    # println("MC integration 7: $(avg[2]) ± $(err[2]) (exact: $((LorentzN / 2 * π + LorentzN * atan(LorentzN))))")
-    # @test abs(avg[1] - ((LorentzN / 2 * π + LorentzN * atan(LorentzN)))) < 5.0 * err[1]
-    # @test abs(avg[2] - ((LorentzN / 2 * π + LorentzN * atan(LorentzN)))) < 5.0 * err[2]
-
-    # avg, err = TestDiscrete(totalStep)
-    # println("MC integration 8: $avg ± $err (exact: 6.0)")
-    # @test abs(avg - 6.0) < 5.0 * err # the sum of possible values of X
+    neval = 1000_00
+    check_complex(TestComplex1(neval), 0.5 + 1.0 / 3 * 1im)
+    check_complex(TestComplex2(neval), [0.5, 1.0 / 3 * 1im])
 
 end

@@ -119,21 +119,13 @@ function integrate(integrand::Function;
             end
 
             if typeof(obsSum) <: AbstractArray
-                obsSum .+= config.observable ./ config.normalization
-                if eltype(obsSquaredSum) <: Complex  #ComplexF16, ComplexF32 or ComplexF64 array
-                    obsSquaredSum .+= (real.(config.observable) ./ config.normalization) .^ 2
-                    obsSquaredSum .+= (imag.(config.observable) ./ config.normalization) .^ 2 * 1im
-                else
-                    obsSquaredSum .+= (config.observable ./ config.normalization) .^ 2
-                end
+                m = config.observable ./ config.normalization
+                obsSum += m
+                obsSquaredSum += (eltype(m) <: Complex) ? (@. (real(m))^2 + (imag(m))^2 * 1im) : m .^ 2
             else
-                obsSum += config.observable / config.normalization
-                if typeof(obsSquaredSum) <: Complex
-                    obsSquaredSum += (real(config.observable) / config.normalization)^2
-                    obsSquaredSum += (imag(config.observable) / config.normalization)^2 * 1im
-                else
-                    obsSquaredSum += (config.observable / config.normalization)^2
-                end
+                m = config.observable / config.normalization
+                obsSum += m
+                obsSquaredSum += (eltype(m) <: Complex) ? (real(m))^2 + (imag(m))^2 * 1im : m^2
             end
 
             if MPI.Comm_rank(comm) == root
@@ -149,12 +141,16 @@ function integrate(integrand::Function;
         if MPI.Comm_rank(comm) == root
             ##################### Extract Statistics  ################################
             mean = obsSum ./ block
-            if eltype(obsSquaredSum) <: Complex
-                r_std = @. sqrt((real.(obsSquaredSum) / block - real(mean)^2) / (block - 1))
-                i_std = @. sqrt((imag.(obsSquaredSum) / block - imag(mean)^2) / (block - 1))
-                std = r_std + i_std * 1im
+            if block > 1
+                if eltype(obsSquaredSum) <: Complex
+                    r_std = @. sqrt((real.(obsSquaredSum) / block - real(mean)^2) / (block - 1))
+                    i_std = @. sqrt((imag.(obsSquaredSum) / block - imag(mean)^2) / (block - 1))
+                    std = r_std + i_std * 1im
+                else
+                    std = @. sqrt((obsSquaredSum / block - mean^2) / (block - 1))
+                end
             else
-                std = @. sqrt((obsSquaredSum / block - mean^2) / (block - 1))
+                std = zero(config.observable) .+ 1e-10 # avoid division by zero
             end
             push!(results, (mean, std, summedConfig))
 

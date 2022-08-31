@@ -272,7 +272,7 @@ if __name__ == "__main__":
     # integrand3
     unit = 1.0
     ndim = 1
-    maxeval = 2000000
+    maxeval = 10000
     exact = 1.3932  # exact value of the integral
 
     cum = Cumulants()
