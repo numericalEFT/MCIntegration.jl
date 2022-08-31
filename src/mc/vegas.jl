@@ -7,6 +7,7 @@ function montecarlo(config::Configuration, integrand::Function, neval, print, sa
 
     ########### MC simulation ##################################
     startTime = time()
+    # mem = kwargs[:mem]
 
     for i = 1:neval
         config.neval += 1
@@ -24,13 +25,15 @@ function montecarlo(config::Configuration, integrand::Function, neval, print, sa
         # sampler may want to reject, then prop has already been set to zero
         weight = integrand(config)
         config.observable += weight * prop
-        config.normalization += prop
+        config.normalization += 1.0 #should be 1!
+        # push!(mem, weight * prop)
 
         ######## accumulate variable #################
         for (vi, var) in enumerate(config.var)
             offset = var.offset
             for pos = 1:config.dof[curr][vi]
                 Dist.accumulate!(var, pos + offset, (abs(weight)^2 * prop^2))
+                # Dist.accumulate!(var, pos + offset, (abs(weight) * prop))
                 # Dist.accumulate!(var, pos + offset, 1.0)
             end
         end

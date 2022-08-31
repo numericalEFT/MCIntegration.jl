@@ -24,6 +24,7 @@ function markovchain_montecarlo(config::Configuration, integrand::Function, neva
         config.visited[config.curr] += 1
         _update = rand(config.rng, updates) # randomly select an update
         _update(config, integrand)
+        # push!(kwargs[:mem], (config.curr, config.relativeWeight))
         # if i % 10 == 0 && i >= neval / 100
         if i % measurefreq == 0 && i >= neval / 100
 
@@ -41,11 +42,7 @@ function markovchain_montecarlo(config::Configuration, integrand::Function, neva
             if config.curr == config.norm # the last diagram is for normalization
                 config.normalization += 1.0 / config.reweight[config.norm]
             else
-                if measure == simple_measure
-                    simple_measure(config, integrand)
-                else
-                    measure(config)
-                end
+                measure(config)
             end
         end
         if i % 1000 == 0
@@ -62,7 +59,7 @@ function markovchain_montecarlo(config::Configuration, integrand::Function, neva
     return config
 end
 
-function simple_measure(config, integrand)
+function simple_measure(config)
     if (config.observable isa AbstractVector) && (eltype(config.observable) <: Number)
         config.observable[config.curr] += config.relativeWeight
     elseif config.observable isa Number

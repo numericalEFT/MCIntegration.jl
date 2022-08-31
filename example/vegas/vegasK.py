@@ -1,5 +1,6 @@
 from scipy import *
 from numpy import *
+import vegas
 
 
 def smfun(x):
@@ -272,7 +273,7 @@ if __name__ == "__main__":
     # integrand3
     unit = 1.0
     ndim = 1
-    maxeval = 10000
+    maxeval = 1000000
     exact = 1.3932  # exact value of the integral
 
     cum = Cumulants()
@@ -290,7 +291,18 @@ if __name__ == "__main__":
     print(cum.avg, '+-', cum.err, 'exact=', exact,
           'real error=', abs(cum.avg-exact)/exact)
 
-    print(grid.g[0, :nbins])
+    m = vegas.AdaptiveMap([grid.g[0, :nbins], ])
+    y = random.random([10000, 1])
+    y = random.random([10000, 1])
+    x = zeros([10000, 1])
+    jac = zeros(10000)
+    m.map(y, x, jac)
+    w = [log(xx)/sqrt(xx)*jac[xi] for xi, xx in enumerate(x[:, 0])]
+    print(w[:10])
+    print(mean(w))
+    print(std(w)/sqrt(len(w)))
+
+    # print(grid.g[0, :nbins])
     # plot(grid.g[0, :nbins])
     # plot(grid.g[1, :nbins])
     # plot(grid.g[2, :nbins])

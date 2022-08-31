@@ -45,8 +45,9 @@ function integrate(integrand::Function;
     neval=1e4, # number of evaluations
     niter=10, # number of iterations
     block=16, # number of blocks
-    alpha=1.0, # learning rate of the reweight factor
     print=0, printio=stdout, save=0, saveio=nothing, timer=[],
+    alpha=1.0, # learning rate of the reweight factor, only used in MCMC solver
+    adapt=true, # whether to adapt the grid and the reweight factor
     kwargs...
 )
     if isnothing(config)
@@ -152,6 +153,7 @@ function integrate(integrand::Function;
             else
                 std = zero(config.observable) .+ 1e-10 # avoid division by zero
             end
+            # println("mean: ", mean, ", std: ", std)
             push!(results, (mean, std, summedConfig))
 
             ################### self-learning ##########################################
@@ -169,7 +171,7 @@ function integrate(integrand::Function;
         config.reweight = MPI.bcast(summedConfig.reweight, root, comm) # broadcast reweight factors to all workers
         for vi in 1:length(config.var)
             config.var[vi].histogram = MPI.bcast(summedConfig.var[vi].histogram, root, comm)
-            Dist.train!(config.var[vi])
+            adapt && Dist.train!(config.var[vi])
         end
         ################################################################################
         if MPI.Comm_rank(comm) == root
