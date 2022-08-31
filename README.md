@@ -15,10 +15,12 @@ The following example demonstrates the basic usage of this package. This code ca
 
 The following command evaluate a two-dimensional integral ∫dx₁dx₂ (x₁^2+x₂^2) in the domain [0, 1)x[0, 1].
 ```julia
-julia> X=Continuous(0.0, 1.0) #Create a pool of continuous variables. It supports as much as 16 same type of variables. see the section [variable](#variable) for more details.
+#Create a pool of continuous variables. It supports as much as 16 same type of variables. see the section [variable](#variable) for more details.
+julia> X=Continuous(0.0, 1.0) 
 Adaptive continuous variable in the domain [0.0, 1.0). Max variable number = 16. Learning rate = 2.0.
 
-julia> integrate(c->(X=c.var[1]; X[1]^2+X[2]^2); var = (X, ), dof = [(2, ),]); # We use two of the continuous variables to calculate a two-dimensional integral ∫dx₁dx₂(x₁²+x₂²) in the domain [0, 1)x[0, 1)
+# We use two of the continuous variables to calculate a two-dimensional integral ∫dx₁dx₂(x₁²+x₂²) in the domain [0, 1)x[0, 1)
+julia> integrate(c->(X=c.var[1]; X[1]^2+X[2]^2); var = (X, ), dof = [(2, ),]); 
 ==================================     Integral 1    ==============================================
   iter          integral                            wgt average                          chi2/dof
 ---------------------------------------------------------------------------------------------------
