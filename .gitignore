@@ -13,3 +13,6 @@ Manifest.toml
 *.jpg
 *.jld2
 __pycache__
+.ipynb_checkpoints
+benchmark-c
+benchmark-fortran

@@ -32,7 +32,7 @@ function changeIntegrand(config, integrand)
     end
 
     config.curr = new
-    weight = (new == config.norm ? 1.0 : abs(integrand(config)))
+    weight = (new == config.norm ? 1.0 : integrand(config))
     newAbsWeight = abs(weight)
     R = prop * newAbsWeight * config.reweight[new] / currAbsWeight / config.reweight[curr]
 

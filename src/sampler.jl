@@ -182,7 +182,7 @@ function shift!(K::FermiK{D}, idx::Int, config) where {D}
     if x < 1.0 / 3
         λ = 1.5
         ratio = 1.0 / λ + rand(rng) * (λ - 1.0 / λ)
-        K[idx] = K[idx] * ratio
+        K[idx] *= ratio
         return (D == 2) ? 1.0 : ratio
     elseif x < 2.0 / 3
         ϕ = rand(rng) * 2π
@@ -483,10 +483,14 @@ Propose to generate new (uniform) variable randomly in [T.lower, T.lower+T.range
 """
 @inline function create!(T::Continuous, idx::Int, config)
     (idx >= length(T.data) - 1) && error("$idx overflow!")
-    gidx = locate(T.accumulation, rand(config.rng))
-    T[idx] = T.grid[gidx] + rand(config.rng) * (T.grid[gidx+1] - T.grid[gidx])
-    T.gidx[idx] = gidx
-    return 1.0 / T.distribution[gidx]
+    N = length(T.grid) - 1
+    y = rand(config.rng) # [0, 1) random number
+    iy = Int(floor(y * N)) + 1
+    dy = y * N - (iy - 1)
+    x = T.grid[iy] + dy * (T.grid[iy+1] - T.grid[iy])
+    T[idx] = x
+    T.gidx[idx] = iy
+    return (N * (T.grid[iy+1] - T.grid[iy]))
 end
 @inline createRollback!(T::Continuous, idx::Int, config) = nothing
 
@@ -502,8 +506,8 @@ Propose to remove old variable in [T.lower, T.lower+T.range), return proposal pr
 @inline function remove!(T::Continuous, idx::Int, config)
     (idx >= length(T.data) - 1) && error("$idx overflow!")
     # currIdx = locate(T.grid, T[idx]) - 1
-    currIdx = T.gidx[idx]
-    return T.distribution[currIdx]
+    iy = T.gidx[idx]
+    return 1 / ((T.grid[iy+1] - T.grid[iy]) * (length(T.grid) - 1))
 end
 @inline removeRollback!(T::Continuous, idx::Int, config) = nothing
 
@@ -521,10 +525,30 @@ Propose to shift an existing variable to a new one, both in [T.lower, T.lower+T.
     T[end] = T[idx]
     T.gidx[end] = T.gidx[idx]
     currIdx = T.gidx[idx]
-    gidx = locate(T.accumulation, rand(config.rng))
-    T[idx] = T.grid[gidx] + rand(config.rng) * (T.grid[gidx+1] - T.grid[gidx])
-    T.gidx[idx] = gidx
-    return T.distribution[currIdx] / T.distribution[gidx]
+
+    N = length(T.grid) - 1
+    x = rand(config.rng)
+    if x < 1.0 / 2
+        δ = 0.2
+        # x--> y
+        dyo = (T[idx] - T.grid[currIdx]) / (T.grid[currIdx+1] - T.grid[currIdx])
+        y = (currIdx - 1 + dyo) / N
+        y += 2 * δ * (rand(config.rng) - 0.5)
+        if y < 0.0
+            y += 1.0
+        end
+        if y >= 1.0
+            y -= 1.0
+        end
+    else
+        y = rand(config.rng) # [0, 1) random number
+    end
+    iy = Int(floor(y * N)) + 1
+    dy = y * N - (iy - 1)
+    x = T.grid[iy] + dy * (T.grid[iy+1] - T.grid[iy])
+    T[idx] = x
+    T.gidx[idx] = iy
+    return (T.grid[iy+1] - T.grid[iy]) / (T.grid[currIdx+1] - T.grid[currIdx])
 end
 
 @inline function shiftRollback!(T::Continuous, idx::Int, config)
@@ -532,7 +556,6 @@ end
     T[idx] = T[end]
     T.gidx[idx] = T.gidx[end]
 end
-
 
 @inline function swap!(T::Continuous, idx1::Int, idx2::Int, config)
     ((idx1 >= length(T.data) - 1) || (idx2 >= length(T.data) - 1)) && error("$idx1 or $idx2 overflow!")
@@ -546,6 +569,54 @@ end
     T[idx1], T[idx2] = T[idx2], T[idx1]
     T.gidx[idx1], T.gidx[idx2] = T.gidx[idx2], T.gidx[idx1]
 end
+
+############## version with histogram  #####################
+# @inline function create!(T::Continuous, idx::Int, config)
+#     (idx >= length(T.data) - 1) && error("$idx overflow!")
+#     gidx = locate(T.accumulation, rand(config.rng))
+#     T[idx] = T.grid[gidx] + rand(config.rng) * (T.grid[gidx+1] - T.grid[gidx])
+#     T.gidx[idx] = gidx
+#     return 1.0 / T.distribution[gidx]
+# end
+# @inline createRollback!(T::Continuous, idx::Int, config) = nothing
+
+# @inline function remove!(T::Continuous, idx::Int, config)
+#     (idx >= length(T.data) - 1) && error("$idx overflow!")
+#     # currIdx = locate(T.grid, T[idx]) - 1
+#     currIdx = T.gidx[idx]
+#     return T.distribution[currIdx]
+# end
+# @inline removeRollback!(T::Continuous, idx::Int, config) = nothing
+
+# @inline function shift!(T::Continuous, idx::Int, config)
+#     (idx >= length(T.data) - 1) && error("$idx overflow!")
+#     T[end] = T[idx]
+#     T.gidx[end] = T.gidx[idx]
+#     currIdx = T.gidx[idx]
+#     gidx = locate(T.accumulation, rand(config.rng))
+#     T[idx] = T.grid[gidx] + rand(config.rng) * (T.grid[gidx+1] - T.grid[gidx])
+#     T.gidx[idx] = gidx
+#     return T.distribution[currIdx] / T.distribution[gidx]
+# end
+
+# @inline function shiftRollback!(T::Continuous, idx::Int, config)
+#     (idx >= length(T.data) - 1) && error("$idx overflow!")
+#     T[idx] = T[end]
+#     T.gidx[idx] = T.gidx[end]
+# end
+
+# @inline function swap!(T::Continuous, idx1::Int, idx2::Int, config)
+#     ((idx1 >= length(T.data) - 1) || (idx2 >= length(T.data) - 1)) && error("$idx1 or $idx2 overflow!")
+#     T[idx1], T[idx2] = T[idx2], T[idx1]
+#     T.gidx[idx1], T.gidx[idx2] = T.gidx[idx2], T.gidx[idx1]
+#     return 1.0
+# end
+
+# @inline function swapRollback!(T::Continuous, idx1::Int, idx2::Int, config)
+#     ((idx1 >= length(T.data) - 1) || (idx2 >= length(T.data) - 1)) && error("$idx1 or $idx2 overflow!")
+#     T[idx1], T[idx2] = T[idx2], T[idx1]
+#     T.gidx[idx1], T.gidx[idx2] = T.gidx[idx2], T.gidx[idx1]
+# end
 
 # @inline function sample(model::Uniform{Int,D}, data, idx) where {D}
 #     p = 1.0

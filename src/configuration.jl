@@ -33,7 +33,7 @@
     Their shapes are (number of updates X integrand number X max(integrand number, variable number).
     The last index will waste some memory, but the dimension is small anyway.
 """
-mutable struct Configuration{V,P,O}
+mutable struct Configuration{V,P,O,T}
     ########### static parameters ###################
     seed::Int # seed to initialize random numebr generator, also serves as the unique pid of the configuration
     rng::MersenneTwister # random number generator seeded by seed
@@ -53,7 +53,7 @@ mutable struct Configuration{V,P,O}
     curr::Int # index of current integrand
     norm::Int # index of the normalization diagram
     normalization::Float64 # normalization factor for observables
-    relativeWeight::Float64 # reweighted weight of the current integrand
+    relativeWeight::T # reweighted weight of the current integrand
     absWeight::Float64 # the absweight of the current diagrams. Store it for fast updates
 
     propose::Array{Float64,3} # updates index, integrand index, integrand index
@@ -169,7 +169,7 @@ function Configuration(;
     propose = zeros(Float64, (2, Nd, max(Nd, Nv))) .+ 1.0e-8 # add a small initial value to avoid Inf when inverted
     accept = zeros(Float64, (2, Nd, max(Nd, Nv)))
 
-    return Configuration{V,typeof(para),typeof(obs)}(seed, MersenneTwister(seed), para, var,  # static parameters
+    return Configuration{V,typeof(para),typeof(obs),eltype(obs)}(seed, MersenneTwister(seed), para, var,  # static parameters
         collect(neighbor), collect(dof), obs, collect(reweight), collect(reweight_goal),
         visited, # integrand properties
         0, curr, norm, normalization, 1.0 / reweight[curr], absweight, propose, accept  # current MC state
