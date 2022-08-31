@@ -28,16 +28,17 @@ println(np.std(f) / sqrt(N))
 
 avg = []
 config = result.config
+config.curr = 1
 config.reweight = [0.2, 0.8]
 Nblock = 16
-for i in 1:Nblock
-    mem = []
-    MCIntegration.clearStatistics!(config)
-    config = MCMC.markovchain_montecarlo(config, c -> f1(c.var[1][1]), N, 0, 0, []; measurefreq=1, mem=mem)
-    obs = config.observable / config.normalization
-    # println("Block $i: ", np.mean(mem), "+-", np.std(mem) / sqrt(length(mem)))
-    push!(avg, obs)
-end
+# for i in 1:Nblock
+mem = []
+MCIntegration.clearStatistics!(config)
+config = MCMC.markovchain_montecarlo(config, c -> f1(c.var[1][1]), N, 0, 0, []; measurefreq=1, mem=mem)
+obs = config.observable / config.normalization
+# println("Block $i: ", np.mean(mem), "+-", np.std(mem) / sqrt(length(mem)))
+push!(avg, obs)
+# end
 println(avg)
 println(np.mean(avg))
 println(np.std(avg))

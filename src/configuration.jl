@@ -97,6 +97,7 @@ function Configuration(;
     reweight_goal::Union{Vector{Float64},Nothing}=nothing,
     seed::Int=rand(Random.RandomDevice(), 1:1000000),
     neighbor::Union{Vector{Vector{Int}},Vector{Tuple{Int,Int}},Nothing}=nothing,
+    curr::Int=1, # index of the current integrand
     kwargs...
 ) where {V}
     @assert V <: Tuple{Vararg{Variable}} || V <: Tuple{Variable} "Configuration.var must be a tuple of Variable to maximize efficiency. Now get $(typeof(V))"
@@ -154,7 +155,6 @@ function Configuration(;
     reweight .*= reweight_goal
     reweight /= sum(reweight) # normalize the reweight factors
 
-    curr = 1 # set the current diagram to be the first one
     norm = Nd # set the normalization diagram to be the last one
     # a small initial absweight makes the initial configuaration quickly updated,
     # so that no error is caused even if the intial absweight is wrong, 

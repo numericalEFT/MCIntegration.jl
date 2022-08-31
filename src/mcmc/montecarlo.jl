@@ -9,6 +9,7 @@ function markovchain_montecarlo(config::Configuration, integrand::Function, neva
     # updates = [changeIntegrand,] # TODO: sample changeVariable more often
     # updates = [changeIntegrand, swapVariable,] # TODO: sample changeVariable more often
     updates = [changeIntegrand, swapVariable, changeVariable] # TODO: sample changeVariable more often
+    # updates = [swapVariable, changeVariable] # TODO: sample changeVariable more often
     for i = 2:length(config.var)*2
         push!(updates, changeVariable)
     end
@@ -24,7 +25,7 @@ function markovchain_montecarlo(config::Configuration, integrand::Function, neva
         config.visited[config.curr] += 1
         _update = rand(config.rng, updates) # randomly select an update
         _update(config, integrand)
-        # push!(kwargs[:mem], (config.curr, config.relativeWeight))
+        # push!(kwargs[:mem], config.var[1][1])
         # if i % 10 == 0 && i >= neval / 100
         if i % measurefreq == 0 && i >= neval / 100
 
