@@ -62,10 +62,8 @@ mutable struct Continuous{G} <: Variable
     range::Float64
     offset::Int
     grid::G
-    width::Vector{Float64}
+    inc::Vector{Float64}
     histogram::Vector{Float64} # length(grid) - 1
-    accumulation::Vector{Float64} # length(grid)
-    distribution::Vector{Float64} # length(grid) - 1
     alpha::Float64
     adapt::Bool
     function Continuous(lower::Float64, upper::Float64, size=MaxOrder; offset=0, grid::G=collect(LinRange(lower, upper, 1000)), alpha=2.0, adapt=true) where {G}
@@ -74,13 +72,12 @@ mutable struct Continuous{G} <: Variable
         @assert upper > lower + 2 * eps(1.0)
         t = LinRange(lower + (upper - lower) / size, upper - (upper - lower) / size, size) #avoid duplication
         gidx = [locate(grid, t[i]) for i = 1:size]
-        # println(gidx)
 
         N = length(grid) - 1
-        width = [grid[i+1] - grid[i] for i in 1:N]
+        inc = [grid[i+1] - grid[i] for i in 1:N]
         histogram = ones(N)
 
-        var = new{G}(t, gidx, lower, upper - lower, offset, grid, width, histogram, [], [], alpha, adapt)
+        var = new{G}(t, gidx, lower, upper - lower, offset, grid, inc, histogram, alpha, adapt)
 
         train!(var)
 
@@ -101,17 +98,7 @@ function accumulate!(T::Continuous, idx::Int, weight=1.0)
         T.histogram[T.gidx[idx]] += weight
     end
 end
-# function train_bk!(T::Continuous)
-#     distribution = smooth(T.histogram, 6.0)
-#     distribution = rescale(distribution, T.alpha)
-#     distribution ./= sum(distribution)
-#     accumulation = [sum(distribution[1:i]) for i in 1:length(distribution)]
-#     T.accumulation = [0.0, accumulation...] # start with 0.0 and end with 1.0
-#     T.distribution = distribution ./ T.width
-#     # println(T.distribution)
-#     # println(T.accumulation)
-#     @assert (T.accumulation[1] ≈ 0.0) && (T.accumulation[end] ≈ 1.0) "$(T.accumulation)"
-# end
+
 """
 Vegas adaptive map
 """
@@ -123,82 +110,25 @@ function train!(T::Continuous)
     newgrid[1] = T.grid[1]
     newgrid[end] = T.grid[end]
 
-    # nbins = length(T.grid) - 1
-    # avgperbin = sum(distribution) / nbins
-    # # **** redefine the size of each bin  ****
-    # newgrid = zeros(nbins)
-    # thisbin = 0.0
-    # ibin = 0
-    # # we are trying to determine
-    # #   Int[ f(g) dg, {g, g_{i-1},g_i}] == I/N_g
-    # #   where I == avgperbin
-    # for newbin in 2:nbins  # all but the last bin, which is 1.0
-    #     while thisbin < avgperbin
-    #         ibin += 1
-    #         thisbin += distribution[ibin]
-    #         # prev = cur
-    #         # cur = T.grid[ibin]
-    #         # Explanation is in order :
-    #         #   prev    -- g^{old}_{l-1}
-    #         #   cur     -- g^{old}_l
-    #         #   thisbin -- Sm = f_{l-k}+.... +f_{l-2}+f_{l-1}+f_l
-    #         #   we know that  Sm is just a bit more than we need, i.e., I/N_g, hence we need to compute how much more
-    #         #   using linear interpolation :
-    #         #   g^{new} = g_l - (g_l-g_{l-1}) * (f_{l-k}+....+f_{l-2}+f_{l-1}+f_l - I/N_g)/f_l
-    #         #    clearly
-    #         #         if I/N_g == f_{l-k}+....+f_{l-2}+f_{l-1}+f_l
-    #         #            we will get g^{new} = g_l
-    #         #     and if I/N_g == f_{l-k}+....+f_{l-2}+f_{l-1}
-    #         #            we will get g^{new} = g_{l-1}
-    #         #     and if I/N_g  is between the two possibilities, we will get linear interpolation between
-    #         #     g_{l-1} and g_l
-    #         #
-    #         # thisbin <- (f_{l-k}+....+f_{l-2}+f_{l-1}+f_l - I/N_g)
-    #     end
-    #     thisbin -= avgperbin
-    #     # delta <-  (g_l-g_{l-1})*(f_{l-k}+....+f_{l-2}+f_{l-1}+f_l - I/N_g)
-    #     delta = (T.grid[ibin+1] - T.grid[ibin]) * thisbin
-    #     # cur is the closest point from the old mesh, while delta/imp is the correction using linear interpolation.
-    #     newgrid[newbin] = T.grid[ibin+1] - delta / distribution[ibin]
-    # end
-
-
     # See the paper https://arxiv.org/pdf/2009.05112.pdf Eq.(20)-(22).
     j = 0         # self_x index
     acc_f = 0.0   # sum(avg_f) accumulated
     avg_f = distribution
-    # println(distribution)
     # amount of acc_f per new increment
     # the Eq.(20) in the original paper use length(T.grid) as the denominator. It is not correct.
     f_ninc = sum(avg_f) / (length(T.grid) - 1)
     for i in 2:length(T.grid)-1
-        # println("working on i= $i")
         while acc_f < f_ninc
             j += 1
             acc_f += avg_f[j]
-            # println("inner j=$j, acc_f=$acc_f")
         end
         acc_f -= f_ninc
-        # println("outer j=$j, acc_f=$acc_f")
-        # println(j, ", ", length(T.grid))
         newgrid[i] = T.grid[j+1] - (acc_f / avg_f[j]) * (T.grid[j+1] - T.grid[j])
     end
     newgrid[end] = T.grid[end] # make sure the last element is the same as the last element of the original grid
     T.grid = newgrid
 
-    T.distribution = zeros(length(T.grid) - 1)
-    T.accumulation = zeros(length(T.grid))
-    for i in eachindex(T.distribution)
-        T.distribution[i] = 1.0
-        T.accumulation[i] = T.grid[i] - T.grid[1]
-    end
-    T.accumulation[end] = 1.0
-    # println(newgrid)
-    # println(T.distribution)
-    # println(T.accumulation)
-    @assert (T.accumulation[1] ≈ 0.0) && (T.accumulation[end] ≈ 1.0) "$(T.accumulation)"
-    clearStatistics!(T)
-    # println(T.histogram[1:10])
+    clearStatistics!(T) #remove histogram
 end
 
 mutable struct TauPair <: Variable
