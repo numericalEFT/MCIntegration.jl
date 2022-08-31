@@ -148,6 +148,7 @@ mutable struct Discrete <: Variable
     data::Vector{Int}
     lower::Int
     upper::Int
+    prop::Vector{Float64}
     size::Int
     offset::Int
     histogram::Vector{Float64}
@@ -162,9 +163,10 @@ mutable struct Discrete <: Variable
         @assert offset + 1 < size
         size = size + 1 # need one more element as cache for the swap operation
         d = collect(Iterators.take(Iterators.cycle(lower:upper), size)) #avoid dulication
+        prop = similar(d)
         @assert upper >= lower
         histogram = ones(upper - lower + 1)
-        newVar = new(d, lower, upper, upper - lower + 1, offset, histogram, [], [], alpha, adapt)
+        newVar = new(d, prop, lower, upper, upper - lower + 1, offset, histogram, [], [], alpha, adapt)
         train!(newVar)
         return newVar
     end
@@ -185,8 +187,6 @@ function accumulate!(T::Discrete, idx::Int)
     end
 end
 function train!(T::Discrete)
-    # return
-    # distribution = smooth(T.histogram, 6.0)
     distribution = deepcopy(T.histogram)
     distribution = rescale(distribution, T.alpha)
     distribution ./= sum(distribution)

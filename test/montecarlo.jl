@@ -204,15 +204,21 @@ end
 @testset "MonteCarlo Sampler" begin
     neval = 1000_000
 
+    println("Sphere1")
     check(Sphere1(neval), π / 4.0)
     # check(Sphere2(neval), π / 4.0)
+    println("Sphere3")
     check(Sphere3(neval), [π / 4.0, 4.0 * π / 3.0 / 8])
     # check(TestDiscrete(neval), 6.0)
+    println("Singular1")
     check(TestSingular1(neval), -4.0)
+    println("Singular2")
     check(TestSingular2(neval), 1.3932)
 
     neval = 1000_00
+    println("Complex1")
     check_complex(TestComplex1(neval), 0.5 + 1.0 / 3 * 1im)
+    println("Complex2")
     check_complex(TestComplex2(neval), [0.5, 1.0 / 3 * 1im])
 
 end

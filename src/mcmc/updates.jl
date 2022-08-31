@@ -41,19 +41,8 @@ function changeIntegrand(config, integrand)
         config.accept[1, curr, new] += 1.0
         config.absWeight = newAbsWeight
         setweight!(config, weight)
-        ########## accumulate config.var histogram #############
-        # for vi = 1:length(config.var)
-        #     offset = config.var[vi].offset
-        #     if (currdof[vi] < newdof[vi]) # more degrees of freedom
-        #         for pos = currdof[vi]+1:newdof[vi]
-        #             accumulate!(config.var[vi], pos + offset)
-        #         end
-        #     end
-        # end
     else # reject the change
         config.curr = curr # reset the current diagram index
-        # config.absWeight = currAbsWeight
-
         ############ Redo changes to config.var #############
         for vi = 1:length(config.var)
             offset = config.var[vi].offset
@@ -73,8 +62,6 @@ end
 
 function changeVariable(config, integrand)
     # update to change the variables of the current diagrams
-    (config.curr == config.norm) && return
-
     curr = config.curr
     currdof = config.dof[curr]
     vi = rand(config.rng, 1:length(currdof)) # update the variable type of the index vi
@@ -105,10 +92,7 @@ function changeVariable(config, integrand)
         config.absWeight = newAbsWeight
         config.relativeWeight = weight / newAbsWeight / config.reweight[config.curr]
         # setweight!(config, weight)
-        # accumulate!(var, idx)
     else
-        # var[idx] = oldvar
-        # config.absWeight = currAbsWeight
         Dist.shiftRollback!(var, idx, config)
     end
     return
@@ -116,7 +100,6 @@ end
 
 function swapVariable(config, integrand)
     # update to change the variables of the current diagrams
-    (config.curr == config.norm) && return
 
     curr = config.curr
     currdof = config.dof[curr]
@@ -127,7 +110,6 @@ function swapVariable(config, integrand)
     idx2 = var.offset + rand(config.rng, 1:currdof[vi]) # randomly choose one var to update
     (idx1 == idx2) && return
 
-    # oldvar = copy(var[idx])
     currAbsWeight = config.absWeight
 
     prop = Dist.swap!(var, idx1, idx2, config)
@@ -142,16 +124,12 @@ function swapVariable(config, integrand)
     currAbsWeight = config.absWeight
     R = prop * newAbsWeight / currAbsWeight
 
-    # curr == 2 && println("propose, $curr: old: $oldvar --> new: $(var[idx]), with R $newAbsWeight / $currAbsWeight * $prop = $R")
     config.propose[2, curr, vi] += 1.0
     if rand(config.rng) < R
-        # curr == 2 && println("accept, $curr")
         config.accept[2, curr, vi] += 1.0
         config.absWeight = newAbsWeight
         setweight!(config, weight)
     else
-        # var[idx] = oldvar
-        # config.absWeight = currAbsWeight
         Dist.swapRollback!(var, idx1, idx2, config)
     end
     return

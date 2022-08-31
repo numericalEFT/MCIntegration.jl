@@ -35,35 +35,29 @@ function markovchain_montecarlo(config::Configuration, integrand::Function, neva
 
             ######## accumulate variable and calculate variable probability #################
             prop = 1.0
-            if config.curr != config.norm
-                for (vi, var) in enumerate(config.var)
-                    offset = var.offset
-                    for pos = 1:config.dof[config.curr][vi]
-                        Dist.accumulate!(var, pos + offset, 1.0)
-                        # Dist.accumulate!(var, pos + offset, config.absWeight)
-                        prop *= var.prop[pos+offset]
-                    end
+            for (vi, var) in enumerate(config.var)
+                offset = var.offset
+                for pos = 1:config.dof[config.curr][vi]
+                    # Dist.accumulate!(var, pos + offset, 1.0)
+                    # Dist.accumulate!(var, pos + offset, config.absWeight)
+                    prop *= var.prop[pos+offset]
                 end
-                for (vi, var) in enumerate(config.var)
-                    offset = var.offset
-                    for pos = 1:config.dof[config.curr][vi]
-                        # need to make sure Δxᵢ*∫_xᵢ^xᵢ₊₁ dx f^2(x)dx is a constant
-                        # where  Δxᵢ ∝ 1/prop ∝ Jacobian for the vegas map
-                        # since the current weight is sampled with the probability density ∝ |f(x)|*reweight
-                        # the estimator ∝ Δxᵢ*f^2(x)/(|f(x)|*reweight) = |f(x)|/prop/reweight
+            end
+            for (vi, var) in enumerate(config.var)
+                offset = var.offset
+                for pos = 1:config.dof[config.curr][vi]
+                    # need to make sure Δxᵢ*∫_xᵢ^xᵢ₊₁ dx f^2(x)dx is a constant
+                    # where  Δxᵢ ∝ 1/prop ∝ Jacobian for the vegas map
+                    # since the current weight is sampled with the probability density ∝ |f(x)|*reweight
+                    # the estimator ∝ Δxᵢ*f^2(x)/(|f(x)|*reweight) = |f(x)|/prop/reweight
 
-                        Dist.accumulate!(var, pos + offset, config.absWeight / prop / config.reweight[config.curr])
-                        # Dist.accumulate!(var, pos + offset, config.absWeight)
-                    end
+                    Dist.accumulate!(var, pos + offset, config.absWeight / prop / config.reweight[config.curr])
+                    # Dist.accumulate!(var, pos + offset, config.absWeight)
                 end
             end
             ##############################################################################
 
-            # if config.curr == config.norm # the last diagram is for normalization
-            #     config.normalization += 1.0 / config.reweight[config.norm]
-            # else
             measure(config)
-            # end
             config.normalization += prop / config.absWeight / config.reweight[config.curr]
             # push!(kwargs[:mem], (config.var[1][1], prop, config.absWeight))
         end
