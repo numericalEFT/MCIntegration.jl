@@ -7,10 +7,10 @@ np = pyimport("numpy")
 function f1(x)
     return log(x[1]) / sqrt(x[1])
 end
-X = Continuous(0.0, 1.0, alpha=1.5, grid=collect(LinRange(0.0, 1.0, 1024)), adapt=true)
+X = Continuous(0.0, 1.0, alpha=3.0, grid=collect(LinRange(0.0, 1.0, 1024)), adapt=true)
 result = integrate(c -> log(c.var[1][1]) / sqrt(c.var[1][1]);
     neval=1e5,
-    var=(X,), dof=[[1,],], niter=10, print=0, solver=:MC)
+    var=(X,), dof=[[1,],], niter=10, print=0, solver=:MCMC)
 
 grid = X.grid
 println("first 10 grid: ", grid[1:10])

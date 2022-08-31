@@ -58,7 +58,7 @@ end
 mutable struct Continuous{G} <: Variable
     data::Vector{Float64}
     gidx::Vector{Int}
-    prop::Vector{Float64} # probability of the given variable
+    prop::Vector{Float64} # probability of the given variable. For the vegas map, = dy/dx = 1/N/Δxᵢ = inverse of the Jacobian
     lower::Float64
     range::Float64
     offset::Int
