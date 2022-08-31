@@ -1,4 +1,5 @@
 # AdaptiveMap is used by Integrator
+# TODO: under construction!
 """ 
 Adaptive map ``y->x(y)`` for multidimensional ``y`` and ``x``.
 

@@ -1,6 +1,11 @@
 function markovchain_montecarlo(config::Configuration, integrand::Function, neval, print, save, timer; measurefreq=2, measure::Function=simple_measure, kwargs...)
     ##############  initialization  ################################
     # don't forget to initialize the diagram weight
+
+    for var in config.var
+        Dist.initialize!(var, config)
+    end
+
     weight = integrand(config)
     setweight!(config, weight)
     config.absWeight = abs(integrand(config))
@@ -8,8 +13,8 @@ function markovchain_montecarlo(config::Configuration, integrand::Function, neva
 
     # updates = [changeIntegrand,] # TODO: sample changeVariable more often
     # updates = [changeIntegrand, swapVariable,] # TODO: sample changeVariable more often
-    updates = [changeIntegrand, swapVariable, changeVariable] # TODO: sample changeVariable more often
-    # updates = [swapVariable, changeVariable] # TODO: sample changeVariable more often
+    # updates = [changeIntegrand, swapVariable, changeVariable] # TODO: sample changeVariable more often
+    updates = [swapVariable, changeVariable] # TODO: sample changeVariable more often
     for i = 2:length(config.var)*2
         push!(updates, changeVariable)
     end
@@ -25,26 +30,29 @@ function markovchain_montecarlo(config::Configuration, integrand::Function, neva
         config.visited[config.curr] += 1
         _update = rand(config.rng, updates) # randomly select an update
         _update(config, integrand)
-        # push!(kwargs[:mem], config.var[1][1])
         # if i % 10 == 0 && i >= neval / 100
         if i % measurefreq == 0 && i >= neval / 100
 
-            ######## accumulate variable #################
+            ######## accumulate variable and calculate variable probability #################
+            prop = 1.0
             if config.curr != config.norm
                 for (vi, var) in enumerate(config.var)
                     offset = var.offset
                     for pos = 1:config.dof[config.curr][vi]
                         Dist.accumulate!(var, pos + offset)
+                        prop *= var.prop[pos+offset]
                     end
                 end
             end
-            ###############################################
+            ##############################################################################
 
-            if config.curr == config.norm # the last diagram is for normalization
-                config.normalization += 1.0 / config.reweight[config.norm]
-            else
-                measure(config)
-            end
+            # if config.curr == config.norm # the last diagram is for normalization
+            #     config.normalization += 1.0 / config.reweight[config.norm]
+            # else
+            measure(config)
+            # end
+            config.normalization += prop / config.absWeight / config.reweight[config.curr]
+            # push!(kwargs[:mem], (config.var[1][1], prop, config.absWeight))
         end
         if i % 1000 == 0
             for t in timer

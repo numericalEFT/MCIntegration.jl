@@ -491,7 +491,8 @@ Propose to generate new (uniform) variable randomly in [T.lower, T.lower+T.range
     T[idx] = x
     T.gidx[idx] = iy
     # Jacobian dx/dy = (x[i+1]-x[i])*N, where dy=1/N
-    return (N * (T.grid[iy+1] - T.grid[iy]))
+    T.prop[idx] = 1.0 / (N * (T.grid[iy+1] - T.grid[iy]))
+    return 1.0 / T.prop[idx]
 end
 @inline createRollback!(T::Continuous, idx::Int, config) = nothing
 
@@ -525,6 +526,7 @@ Propose to shift an existing variable to a new one, both in [T.lower, T.lower+T.
     (idx >= length(T.data) - 1) && error("$idx overflow!")
     T[end] = T[idx]
     T.gidx[end] = T.gidx[idx]
+    T.prop[end] = T.prop[idx]
     currIdx = T.gidx[idx]
 
     N = length(T.grid) - 1
@@ -549,19 +551,23 @@ Propose to shift an existing variable to a new one, both in [T.lower, T.lower+T.
     x = T.grid[iy] + dy * (T.grid[iy+1] - T.grid[iy])
     T[idx] = x
     T.gidx[idx] = iy
-    return (T.grid[iy+1] - T.grid[iy]) / (T.grid[currIdx+1] - T.grid[currIdx])
+    prop_ratio = (T.grid[currIdx+1] - T.grid[currIdx]) / (T.grid[iy+1] - T.grid[iy])
+    T.prop[idx] *= prop_ratio
+    return 1.0 / prop_ratio
 end
 
 @inline function shiftRollback!(T::Continuous, idx::Int, config)
     (idx >= length(T.data) - 1) && error("$idx overflow!")
     T[idx] = T[end]
     T.gidx[idx] = T.gidx[end]
+    T.prop[idx] = T.prop[end]
 end
 
 @inline function swap!(T::Continuous, idx1::Int, idx2::Int, config)
     ((idx1 >= length(T.data) - 1) || (idx2 >= length(T.data) - 1)) && error("$idx1 or $idx2 overflow!")
     T[idx1], T[idx2] = T[idx2], T[idx1]
     T.gidx[idx1], T.gidx[idx2] = T.gidx[idx2], T.gidx[idx1]
+    T.prop[idx1], T.prop[idx2] = T.prop[idx2], T.prop[idx1]
     return 1.0
 end
 
@@ -569,6 +575,7 @@ end
     ((idx1 >= length(T.data) - 1) || (idx2 >= length(T.data) - 1)) && error("$idx1 or $idx2 overflow!")
     T[idx1], T[idx2] = T[idx2], T[idx1]
     T.gidx[idx1], T.gidx[idx2] = T.gidx[idx2], T.gidx[idx1]
+    T.prop[idx1], T.prop[idx2] = T.prop[idx2], T.prop[idx1]
 end
 
 ############## version with histogram  #####################

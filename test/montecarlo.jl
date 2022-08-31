@@ -13,22 +13,22 @@ function Sphere1(neval)
     end
 end
 
-function Sphere2(totalstep)
-    function integrand(config)
-        X = config.var[1]
-        if (X[1][1]^2 + X[1][2]^2 < 1.0)
-            return 1.0
-        else
-            return 0.0
-        end
-    end
+# function Sphere2(totalstep)
+#     function integrand(config)
+#         X = config.var[1]
+#         if (X[1][1]^2 + X[1][2]^2 < 1.0)
+#             return 1.0
+#         else
+#             return 0.0
+#         end
+#     end
 
-    T = Dist.TauPair(1.0, 1.0 / 2.0)
-    dof = [[1,],] # number of T variable for the normalization and the integrand
-    config = Configuration(var=(T,), dof=dof)
-    @inferred integrand(config) #make sure the type is inferred for the integrand function
-    return integrate(integrand, config=config, neval=totalstep, block=64, print=-1)
-end
+#     T = Dist.TauPair(1.0, 1.0 / 2.0)
+#     dof = [[1,],] # number of T variable for the normalization and the integrand
+#     config = Configuration(var=(T,), dof=dof)
+#     @inferred integrand(config) #make sure the type is inferred for the integrand function
+#     return integrate(integrand, config=config, neval=totalstep, block=64, print=-1)
+# end
 
 function Sphere3(totalstep; offset=0)
     function integrand(config)
@@ -205,9 +205,9 @@ end
     neval = 1000_000
 
     check(Sphere1(neval), π / 4.0)
-    check(Sphere2(neval), π / 4.0)
+    # check(Sphere2(neval), π / 4.0)
     check(Sphere3(neval), [π / 4.0, 4.0 * π / 3.0 / 8])
-    check(TestDiscrete(neval), 6.0)
+    # check(TestDiscrete(neval), 6.0)
     check(TestSingular1(neval), -4.0)
     check(TestSingular2(neval), 1.3932)
 

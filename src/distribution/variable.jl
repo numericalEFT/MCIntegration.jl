@@ -58,6 +58,7 @@ end
 mutable struct Continuous{G} <: Variable
     data::Vector{Float64}
     gidx::Vector{Int}
+    prop::Vector{Float64} # probability of the given variable
     lower::Float64
     range::Float64
     offset::Int
@@ -72,15 +73,13 @@ mutable struct Continuous{G} <: Variable
         @assert upper > lower + 2 * eps(1.0)
         t = LinRange(lower + (upper - lower) / size, upper - (upper - lower) / size, size) #avoid duplication
         gidx = [locate(grid, t[i]) for i = 1:size]
+        prop = ones(size)
 
         N = length(grid) - 1
         inc = [grid[i+1] - grid[i] for i in 1:N]
-        histogram = ones(N)
+        histogram = ones(N) * 1e-10
 
-        var = new{G}(t, gidx, lower, upper - lower, offset, grid, inc, histogram, alpha, adapt)
-
-        train!(var)
-
+        var = new{G}(t, gidx, prop, lower, upper - lower, offset, grid, inc, histogram, alpha, adapt)
         return var
     end
 end
@@ -98,6 +97,7 @@ function accumulate!(T::Continuous, idx::Int, weight=1.0)
         T.histogram[T.gidx[idx]] += weight
     end
 end
+
 
 """
 Vegas adaptive map
@@ -238,6 +238,12 @@ train!(Var::Variable) = nothing
 # addStatistics!(target::Variable, income::Variable) = nothing
 clearStatistics!(T::Variable) = fill!(T.histogram, 1.0e-10)
 addStatistics!(target::Variable, income::Variable) = (target.histogram .+= income.histogram)
+
+function initialize!(T::Variable, config)
+    for i = 1:length(T.data)-2
+        create!(T, i, config)
+    end
+end
 
 Base.getindex(Var::Variable, i::Int) = Var.data[i]
 function Base.setindex!(Var::Variable, v, i::Int)
