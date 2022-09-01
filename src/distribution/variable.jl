@@ -260,6 +260,27 @@ function probability(config, curr=config.curr)
     return prop
 end
 
+function delta_probability(config, curr=config.curr; new)
+    prob = 1.0
+    currdof, newdof = config.dof[curr], config.dof[new]
+    for (vi, var) in enumerate(config.var)
+        offset = config.var[vi].offset
+        if (currdof[vi] < newdof[vi]) # more degrees of freedom
+            for pos = currdof[vi]+1:newdof[vi]
+                prob /= var.prop[pos+offset]
+            end
+        elseif (currdof[vi] > newdof[vi]) # less degrees of freedom
+            for pos = newdof[vi]+1:currdof[vi]
+                prob *= var.prop[pos+offset]
+            end
+        end
+    end
+    if prob < TINY
+        @warn "probability is either too small or negative : $(prob)"
+    end
+    return prob
+end
+
 Base.getindex(Var::Variable, i::Int) = Var.data[i]
 function Base.setindex!(Var::Variable, v, i::Int)
     Var.data[i] = v

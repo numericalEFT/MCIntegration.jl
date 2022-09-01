@@ -7,15 +7,14 @@ function markovchain_montecarlo(config::Configuration, integrand::Function, neva
         end
 
         weights = integrand(config)
-        # config.absWeight = abs(weights[config.curr])
         config.probability = abs(weights[config.curr]) / Dist.probability(config, config.curr) * config.reweight[config.curr]
-        config.weights = weights
-        # config.relativeWeight .= weights / config.probability
-        if abs(weights[config.curr]) > TINY
+        # config.probability = abs(weights[config.curr]) * config.reweight[config.curr]
+        setWeight!(config, weights)
+        if abs(config.weights[config.curr]) > TINY
             break
         end
     end
-    @assert abs(weights[config.curr]) > TINY "Cannot find the variables that makes the $(config.curr) integrand >1e-10"
+    @assert abs(config.weights[config.curr]) > TINY "Cannot find the variables that makes the $(config.curr) integrand >1e-10"
 
 
     # updates = [changeIntegrand,] # TODO: sample changeVariable more often
@@ -55,7 +54,8 @@ function markovchain_montecarlo(config::Configuration, integrand::Function, neva
 
                         # the following accumulator has a similar performance
                         # this is because that with an optimial grid, |f(x)| ~ prop
-                        # Dist.accumulate!(var, pos + offset, 1.0/reweight)
+                        # Dist.accumulate!(var, pos + offset, 1.0/ reweight
+                        # Dist.accumulate!(var, pos + offset, 1.0)
                     end
                 end
             end
@@ -63,7 +63,12 @@ function markovchain_montecarlo(config::Configuration, integrand::Function, neva
             ##############################################################################
 
             measure(config)
-            config.normalization += 1.0 / config.probability
+            # config.normalization += 1.0 / config.probability
+            # prop = Dist.probability(config, config.curr)
+            prob = Dist.delta_probability(config, config.curr; new=config.norm)
+            # prob2 = Dist.probability(config, config.curr)
+            # @assert abs(prob - prob2) < 1e-10 "probability is not correct $prob vs $prob2"
+            config.normalization += prob / config.probability
             # push!(kwargs[:mem], (config.var[1][1], prop, config.absWeight))
         end
         if i % 1000 == 0

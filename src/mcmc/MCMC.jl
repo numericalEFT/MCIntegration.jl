@@ -6,6 +6,7 @@ import ..Configuration
 import ..MPIreduceConfig!
 import ..addConfig!
 import ..clearStatistics!
+import ..setWeight!
 
 import ..TINY
 
