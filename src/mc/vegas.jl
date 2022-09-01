@@ -9,7 +9,9 @@ function montecarlo(config::Configuration, integrand::Function, neval, print, sa
 
         weights = integrand(config)
         config.probability = abs(weights[config.curr]) / Dist.probability(config, config.curr) * config.reweight[config.curr]
-        config.weights = weights
+        for i in eachindex(config.weights)
+            config.weights[i] = weights[i]
+        end
         if abs(weights[config.curr]) > TINY
             break
         end
@@ -35,7 +37,10 @@ function montecarlo(config::Configuration, integrand::Function, neval, print, sa
         end
         # sampler may want to reject, then prop has already been set to zero
         weights = integrand(config)
-        config.observable += weights * prop
+
+        for i in eachindex(config.weights)
+            config.observable[i] += weights[i] * prop
+        end
         config.normalization += 1.0 #should be 1!
         # push!(mem, weight * prop)
 
