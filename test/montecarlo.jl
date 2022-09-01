@@ -97,7 +97,7 @@ end
     println("Singular1")
     res = TestSingular1(neval, :MC)
     check(res, -4.0)
-    @test res.stdev[1] < 0.0004 #make there is no regression 
+    @test res.stdev[1] < 0.0004 #make there is no regression, vegas typically gives accuracy ~0.0002 with 1e5x10 evaluations
     println("Singular2")
     check(TestSingular2(neval, :MC), 1.3932)
 
