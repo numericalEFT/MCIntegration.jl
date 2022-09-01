@@ -74,17 +74,19 @@ It will first print the configuration from the last iteration, then print the we
 function report(result::Result, pick::Union{Function,AbstractVector}=obs -> real(first(obs)), name=nothing; verbose=0)
     # summary(result.config)
 
-    if pick isa Function
-        pick = [pick,]
-    else
-        @assert eltype(pick) <: Function "pick must be either a function or a vector of functions!"
-    end
+    # if pick isa Function
+    #     pick = [pick,]
+    # else
+    #     @assert eltype(pick) <: Function "pick must be either a function or a vector of functions!"
+    # end
 
     if isnothing(name) == false
         name = collect(name)
     end
 
-    for (i, p) in enumerate(pick)
+    for i in eachindex(result.mean)
+        # for (i, p) in enumerate(pick)
+        p = pick
         info = isnothing(name) ? "$i" : "$(name[i])"
         if verbose >= 0
             barbar = "==================================     Integral $info    =============================================="
@@ -93,25 +95,23 @@ function report(result::Result, pick::Union{Function,AbstractVector}=obs -> real
             println(yellow(@sprintf("%6s %-36s %-36s %16s", "iter", "         integral", "        wgt average", "chi2/dof")))
             println(bar)
             for iter in 1:result.dof+1
-                m0, e0 = p(result.iterations[iter][1]), p(result.iterations[iter][2])
-                m, e, chi2 = average(result.iterations, iter)
-                # println(size(m))
-                # println(m)
-                # println("testing: ", p(m))
-                m, e, chi2 = p(m), p(e), p(chi2)
-                # println(size(m))
+                m0, e0 = p(result.iterations[iter][1][i]), p(result.iterations[iter][2][i])
+                m, e, chi2 = average(result.iterations, iter, i)
+                m, e, chi2 = p(m[i]), p(e[i]), p(chi2[i])
                 println(@sprintf("%6s %-36s %-36s %16.4f", iter, tostring(m0, e0), tostring(m, e), iter == 1 ? 0.0 : chi2 / (iter - 1)))
             end
             println(bar)
-        end
-        m, e, chi2 = p(result.mean), p(result.stdev), p(result.chi2)
-        if result.dof == 0
-            println(green("Integral $info = $m ± $e\n"))
         else
-            println(green("Integral $info = $m ± $e   (chi2/dof = $(round(chi2/result.dof, sigdigits=3)))\n"))
+            m, e, chi2 = p(result.mean[i]), p(result.stdev[i]), p(result.chi2[i])
+            if result.dof == 0
+                println(green("Integral $info = $m ± $e"))
+            else
+                println(green("Integral $info = $m ± $e   (chi2/dof = $(round(chi2/result.dof, sigdigits=3)))"))
+            end
         end
         # println()
     end
+    # end
 end
 
 """
@@ -124,7 +124,7 @@ average the history[1:max]. Return the mean, standard deviation and chi2 of the 
 - `history`: a list of tuples, such as [(data, error, Configuration), ...]
 - `max`: the number of data to average over
 """
-function average(history, max=length(history))
+function average(history, max=length(history), idx=1)
     @assert max > 0
     if max == 1
         return history[1][1], history[1][2], zero(history[1][1])

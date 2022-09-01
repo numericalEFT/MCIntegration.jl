@@ -198,6 +198,21 @@ function clearStatistics!(config)
     end
 end
 
+function initialize!(config, integrand)
+    for var in config.var
+        Dist.initialize!(var, config)
+    end
+
+    weights = integrand(config)
+    # config.probability = abs(weights[config.curr]) / Dist.probability(config, config.curr) * config.reweight[config.curr]
+    if config.curr == config.norm
+        config.probability = config.reweight[config.curr]
+    else
+        config.probability = abs(weights[config.curr]) * config.reweight[config.curr]
+    end
+    setWeight!(config, weights)
+end
+
 function setWeight!(config, weights)
     # weights can be a number of a vector of numbers
     # this function copy weights to a vector config.weights

@@ -2,18 +2,7 @@ function markovchain_montecarlo(config::Configuration, integrand::Function, neva
     ##############  initialization  ################################
     # don't forget to initialize the diagram weight
     for i in 1:10000
-        for var in config.var
-            Dist.initialize!(var, config)
-        end
-
-        weights = integrand(config)
-        # config.probability = abs(weights[config.curr]) / Dist.probability(config, config.curr) * config.reweight[config.curr]
-        if config.curr == config.norm
-            config.probability = config.reweight[config.curr]
-        else
-            config.probability = abs(weights[config.curr]) * config.reweight[config.curr]
-        end
-        setWeight!(config, weights)
+        initialize!(config, integrand)
         if (config.curr == config.norm) || abs(config.weights[config.curr]) > TINY
             break
         end
@@ -57,12 +46,12 @@ function markovchain_montecarlo(config::Configuration, integrand::Function, neva
                         # where  Δxᵢ ∝ 1/prop ∝ Jacobian for the vegas map
                         # since the current weight is sampled with the probability density ∝ |f(x)|*reweight
                         # the estimator ∝ Δxᵢ*f^2(x)/(|f(x)|*reweight) = |f(x)|/prop/reweight
-                        Dist.accumulate!(var, pos + offset, f2 / config.probability)
+                        # Dist.accumulate!(var, pos + offset, f2 / config.probability)
 
                         # the following accumulator has a similar performance
                         # this is because that with an optimial grid, |f(x)| ~ prop
                         # Dist.accumulate!(var, pos + offset, 1.0/ reweight
-                        # Dist.accumulate!(var, pos + offset, 1.0)
+                        Dist.accumulate!(var, pos + offset, 1.0 / config.reweight[config.curr])
                     end
                 end
             end

@@ -17,6 +17,9 @@ function changeIntegrand(config, integrand)
 
     prop *= Dist.delta_probability(config, curr; new=new)
 
+    # p1 = Dist.probability(config, curr)
+    # p2 = Dist.probability(config, new)
+    # @assert abs(p2 / p1 - prop) < 1e-10 "$p1   $p2   $prop"
     # config.curr = new
     weights = integrand(config)
     # newProbability = (new == config.norm) ? config.reweight[new] : abs(weights[new]) / Dist.probability(config, new) * config.reweight[new]
@@ -98,7 +101,8 @@ function swapVariable(config, integrand)
     end
 
     weights = integrand(config)
-    newProbability = (curr == config.norm) ? config.reweight[curr] : abs(weights[curr]) / Dist.probability(config, curr) * config.reweight[curr]
+    # newProbability = (curr == config.norm) ? config.reweight[curr] : abs(weights[curr]) / Dist.probability(config, curr) * config.reweight[curr]
+    newProbability = (curr == config.norm) ? config.reweight[curr] : abs(weights[curr]) * config.reweight[curr]
     R = prop * newProbability / currProbability
 
     config.propose[2, curr, vi] += 1.0

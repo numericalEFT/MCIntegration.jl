@@ -157,7 +157,7 @@ function integrate(integrand::Function;
             push!(results, (mean, std, summedConfig))
 
             ################### self-learning ##########################################
-            (solver == :MCMC) && MCMC.doReweight!(summedConfig, alpha)
+            # (solver == :MCMC) && MCMC.doReweight!(summedConfig, alpha)
         end
 
         ######################## syncronize between works ##############################
@@ -168,7 +168,10 @@ function integrate(integrand::Function;
         config.reweight = MPI.bcast(summedConfig.reweight, root, comm) # broadcast reweight factors to all workers
         for vi in 1:length(config.var)
             config.var[vi].histogram = MPI.bcast(summedConfig.var[vi].histogram, root, comm)
-            adapt && Dist.train!(config.var[vi])
+            if adapt
+                Dist.train!(config.var[vi])
+                initialize!(config, integrand)
+            end
         end
         ################################################################################
         if MPI.Comm_rank(comm) == root
