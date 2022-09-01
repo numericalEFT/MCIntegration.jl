@@ -12,8 +12,8 @@ function markovchain_montecarlo(config::Configuration, integrand::Function, neva
 
     # updates = [changeIntegrand,] # TODO: sample changeVariable more often
     # updates = [changeIntegrand, swapVariable,] # TODO: sample changeVariable more often
-    # updates = [changeIntegrand, swapVariable, changeVariable] # TODO: sample changeVariable more often
-    updates = [swapVariable, changeVariable] # TODO: sample changeVariable more often
+    updates = [changeIntegrand, swapVariable, changeVariable] # TODO: sample changeVariable more often
+    # updates = [swapVariable, changeVariable] # TODO: sample changeVariable more often
     # for i = 2:length(config.var)*2
     #     push!(updates, changeVariable)
     # end
@@ -66,6 +66,7 @@ function markovchain_montecarlo(config::Configuration, integrand::Function, neva
             # prob2 = Dist.probability(config, config.curr)
             # @assert abs(prob - prob2) < 1e-10 "probability is not correct $prob vs $prob2"
             config.normalization += prob / config.probability
+            # config.normalization += 1.0 / config.probability
             # push!(kwargs[:mem], (config.var[1][1], prop, config.absWeight))
         end
         if i % 1000 == 0
@@ -85,6 +86,7 @@ function simple_measure(config)
         end
         prob = Dist.delta_probability(config, config.curr; new=i)
         config.observable[i] += config.weights[i] / config.probability * prob
+        # config.observable[i] += config.weights[i] / config.probability
     end
 
     # if (config.observable isa AbstractVector) && (eltype(config.observable) <: Number)

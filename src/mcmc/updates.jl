@@ -49,7 +49,7 @@ function changeVariable(config, integrand)
     currdof = config.dof[1]
     vi = rand(config.rng, 1:length(currdof)) # update the variable type of the index vi
     var = config.var[vi]
-    (currdof[vi] <= 0) && return # return if the var has zero degree of freedom
+    # (currdof[vi] <= 0) && return # return if the var has zero degree of freedom
     idx = var.offset + rand(config.rng, 1:currdof[vi]) # randomly choose one var to update
 
     # oldvar = copy(var[idx])
@@ -66,7 +66,11 @@ function changeVariable(config, integrand)
     # newProbability = (curr == config.norm) ? config.reweight[curr] : abs(weights[curr]) / Dist.probability(config, curr) * config.reweight[curr]
     newProbability = (curr == config.norm) ? config.reweight[curr] : abs(weights[curr]) * config.reweight[curr]
 
-    R = prop * newProbability / currProbability
+    if idx > config.dof[curr][vi] + var.offset
+        R = 1.0
+    else
+        R = prop * newProbability / currProbability
+    end
     # R = newProbability / currProbability
     # println(prop, ", ", newProbability, ", ", currProbability, ", ", R)
 

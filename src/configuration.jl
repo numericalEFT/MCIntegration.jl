@@ -208,6 +208,7 @@ function initialize!(config, integrand)
     if config.curr == config.norm
         config.probability = config.reweight[config.curr]
     else
+        # config.probability = abs(weights[config.curr]) * config.reweight[config.curr] / Dist.probability(config, config.curr)
         config.probability = abs(weights[config.curr]) * config.reweight[config.curr]
     end
     setWeight!(config, weights)

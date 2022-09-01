@@ -35,7 +35,6 @@ function montecarlo(config::Configuration, integrand::Function, neval, print, sa
                 prop *= Dist.create!(var, idx + var.offset, config)
             end
         end
-        # sampler may want to reject, then prop has already been set to zero
         weights = integrand(config)
 
         for i in eachindex(config.weights)
