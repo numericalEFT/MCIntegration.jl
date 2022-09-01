@@ -15,9 +15,12 @@ function changeIntegrand(config, integrand)
         return
     end
 
-    config.curr = new
+    prop *= Dist.delta_probability(config, curr; new=new)
+
+    # config.curr = new
     weights = integrand(config)
-    newProbability = (new == config.norm) ? config.reweight[new] : abs(weights[new]) / Dist.probability(config, new) * config.reweight[new]
+    # newProbability = (new == config.norm) ? config.reweight[new] : abs(weights[new]) / Dist.probability(config, new) * config.reweight[new]
+    newProbability = (new == config.norm) ? config.reweight[new] : abs(weights[new]) * config.reweight[new]
     # R = prop * newAbsWeight * config.reweight[new] / currAbsWeight / config.reweight[curr]
     R = prop * newProbability / currProbability
 
@@ -25,8 +28,10 @@ function changeIntegrand(config, integrand)
     if rand(config.rng) < R  # accept the change
         config.accept[1, curr, new] += 1.0
         setWeight!(config, weights)
-    else # reject the change
-        config.curr = curr # reset the current diagram index
+        config.probability = newProbability
+        config.curr = new
+        # else # reject the change
+        #     config.curr = curr # reset the current diagram index
     end
     return
 end

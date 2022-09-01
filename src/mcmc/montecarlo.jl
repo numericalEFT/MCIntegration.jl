@@ -7,20 +7,24 @@ function markovchain_montecarlo(config::Configuration, integrand::Function, neva
         end
 
         weights = integrand(config)
-        config.probability = abs(weights[config.curr]) / Dist.probability(config, config.curr) * config.reweight[config.curr]
-        # config.probability = abs(weights[config.curr]) * config.reweight[config.curr]
+        # config.probability = abs(weights[config.curr]) / Dist.probability(config, config.curr) * config.reweight[config.curr]
+        if config.curr == config.norm
+            config.probability = config.reweight[config.curr]
+        else
+            config.probability = abs(weights[config.curr]) * config.reweight[config.curr]
+        end
         setWeight!(config, weights)
-        if abs(config.weights[config.curr]) > TINY
+        if (config.curr == config.norm) || abs(config.weights[config.curr]) > TINY
             break
         end
     end
-    @assert abs(config.weights[config.curr]) > TINY "Cannot find the variables that makes the $(config.curr) integrand >1e-10"
+    @assert (config.curr == config.norm) || abs(config.weights[config.curr]) > TINY "Cannot find the variables that makes the $(config.curr) integrand >1e-10"
 
 
     # updates = [changeIntegrand,] # TODO: sample changeVariable more often
     # updates = [changeIntegrand, swapVariable,] # TODO: sample changeVariable more often
-    # updates = [changeIntegrand, swapVariable, changeVariable] # TODO: sample changeVariable more often
-    updates = [swapVariable, changeVariable] # TODO: sample changeVariable more often
+    updates = [changeIntegrand, swapVariable, changeVariable] # TODO: sample changeVariable more often
+    # updates = [swapVariable, changeVariable] # TODO: sample changeVariable more often
     # for i = 2:length(config.var)*2
     #     push!(updates, changeVariable)
     # end
@@ -41,8 +45,11 @@ function markovchain_montecarlo(config::Configuration, integrand::Function, neva
 
             ######## accumulate variable and calculate variable probability #################
             if config.curr != config.norm
+                # for i in eachindex(config.dof)
+
                 prop = Dist.probability(config, config.curr)
                 f2 = (abs(config.weights[config.curr]))^2 / prop
+
                 for (vi, var) in enumerate(config.var)
                     offset = var.offset
                     for pos = 1:config.dof[config.curr][vi]
@@ -59,6 +66,7 @@ function markovchain_montecarlo(config::Configuration, integrand::Function, neva
                     end
                 end
             end
+            # end
             # end
             ##############################################################################
 
@@ -82,13 +90,22 @@ function markovchain_montecarlo(config::Configuration, integrand::Function, neva
 end
 
 function simple_measure(config)
-    if (config.observable isa AbstractVector) && (eltype(config.observable) <: Number)
-        config.observable .+= config.weights / config.probability
-    elseif config.observable isa Number
-        config.observable += config.weights / config.probability
-    else
-        error("simple_measure only works with observable of the AbstractVector of Number or Number types!")
+    for i in eachindex(config.dof)
+        if i == config.norm
+            continue
+        end
+        prob = Dist.delta_probability(config, config.curr; new=i)
+        config.observable[i] += config.weights[i] / config.probability * prob
     end
+
+    # if (config.observable isa AbstractVector) && (eltype(config.observable) <: Number)
+    #     # for 
+    #     config.observable .+= config.weights / config.probability
+    # elseif config.observable isa Number
+    #     config.observable += config.weights / config.probability
+    # else
+    #     error("simple_measure only works with observable of the AbstractVector of Number or Number types!")
+    # end
 end
 
 function doReweight!(config, alpha)

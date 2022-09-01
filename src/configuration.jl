@@ -188,7 +188,7 @@ function clearStatistics!(config)
         config.observable = zero(config.observable)
     end
     config.neval = 0
-    config.curr = 1
+    # config.curr = 1
     config.normalization = 1.0e-10
     fill!(config.visited, 1.0e-8)
     fill!(config.propose, 1.0e-8)
