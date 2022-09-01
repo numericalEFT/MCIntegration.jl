@@ -86,7 +86,7 @@ function TestComplex2(totalstep, alg)
 end
 
 @testset "MonteCarlo Sampler" begin
-    neval = 1000_000
+    neval = 1000_00
 
     println("Sphere1")
     check(Sphere1(neval, :MC), π / 4.0)
@@ -95,7 +95,9 @@ end
     # check(Sphere3(neval), [π / 4.0, 4.0 * π / 3.0 / 8])
     # check(TestDiscrete(neval), 6.0)
     println("Singular1")
-    check(TestSingular1(neval, :MC), -4.0)
+    res = TestSingular1(neval, :MC)
+    check(res, -4.0)
+    @test res.stdev[1] < 0.0004 #make there is no regression 
     println("Singular2")
     check(TestSingular2(neval, :MC), 1.3932)
 
