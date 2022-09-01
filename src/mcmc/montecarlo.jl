@@ -2,13 +2,19 @@ function markovchain_montecarlo(config::Configuration, integrand::Function, neva
     ##############  initialization  ################################
     # don't forget to initialize the diagram weight
 
-    for var in config.var
-        Dist.initialize!(var, config)
-    end
+    for i in 1:10000
+        for var in config.var
+            Dist.initialize!(var, config)
+        end
 
-    weight = integrand(config)
-    setweight!(config, weight)
-    config.absWeight = abs(integrand(config))
+        weight = integrand(config)
+        setweight!(config, weight)
+        config.absWeight = abs(integrand(config))
+        if config.absWeight > 1e-10
+            break
+        end
+    end
+    @assert config.absWeight > 1e-10 "Cannot find the variables that makes the $(config.curr) integrand >1e-10"
 
 
     # updates = [changeIntegrand,] # TODO: sample changeVariable more often
@@ -38,7 +44,6 @@ function markovchain_montecarlo(config::Configuration, integrand::Function, neva
             for (vi, var) in enumerate(config.var)
                 offset = var.offset
                 for pos = 1:config.dof[config.curr][vi]
-                    # Dist.accumulate!(var, pos + offset, 1.0)
                     # Dist.accumulate!(var, pos + offset, config.absWeight)
                     prop *= var.prop[pos+offset]
                 end
@@ -53,6 +58,10 @@ function markovchain_montecarlo(config::Configuration, integrand::Function, neva
 
                     Dist.accumulate!(var, pos + offset, config.absWeight / prop / config.reweight[config.curr])
                     # Dist.accumulate!(var, pos + offset, config.absWeight)
+
+                    # the following accumulator has a similar performance
+                    # this is because that with an optimial grid, |f(x)| ~ prop
+                    # Dist.accumulate!(var, pos + offset, 1.0/reweight)
                 end
             end
             ##############################################################################
