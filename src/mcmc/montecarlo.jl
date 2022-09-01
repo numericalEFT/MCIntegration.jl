@@ -7,8 +7,8 @@ function markovchain_montecarlo(config::Configuration, integrand::Function, neva
         end
 
         weights = integrand(config)
-        setweight!(config, weights)
         config.absWeight = abs(weights[config.curr])
+        config.relativeWeight .= weights / config.reweight[config.curr] / config.absWeight
         if config.absWeight > 1e-10
             break
         end
@@ -20,9 +20,9 @@ function markovchain_montecarlo(config::Configuration, integrand::Function, neva
     # updates = [changeIntegrand, swapVariable,] # TODO: sample changeVariable more often
     updates = [changeIntegrand, swapVariable, changeVariable] # TODO: sample changeVariable more often
     # updates = [swapVariable, changeVariable] # TODO: sample changeVariable more often
-    for i = 2:length(config.var)*2
-        push!(updates, changeVariable)
-    end
+    # for i = 2:length(config.var)*2
+    #     push!(updates, changeVariable)
+    # end
 
     ########### MC simulation ##################################
     # if (print > 0)
@@ -46,18 +46,20 @@ function markovchain_montecarlo(config::Configuration, integrand::Function, neva
                     prop *= var.prop[pos+offset]
                 end
             end
-            for (vi, var) in enumerate(config.var)
-                offset = var.offset
-                for pos = 1:config.dof[config.curr][vi]
-                    # need to make sure Δxᵢ*∫_xᵢ^xᵢ₊₁ dx f^2(x)dx is a constant
-                    # where  Δxᵢ ∝ 1/prop ∝ Jacobian for the vegas map
-                    # since the current weight is sampled with the probability density ∝ |f(x)|*reweight
-                    # the estimator ∝ Δxᵢ*f^2(x)/(|f(x)|*reweight) = |f(x)|/prop/reweight
-                    Dist.accumulate!(var, pos + offset, config.absWeight / prop / config.reweight[config.curr])
+            if config.curr != config.norm
+                for (vi, var) in enumerate(config.var)
+                    offset = var.offset
+                    for pos = 1:config.dof[config.curr][vi]
+                        # need to make sure Δxᵢ*∫_xᵢ^xᵢ₊₁ dx f^2(x)dx is a constant
+                        # where  Δxᵢ ∝ 1/prop ∝ Jacobian for the vegas map
+                        # since the current weight is sampled with the probability density ∝ |f(x)|*reweight
+                        # the estimator ∝ Δxᵢ*f^2(x)/(|f(x)|*reweight) = |f(x)|/prop/reweight
+                        Dist.accumulate!(var, pos + offset, config.absWeight / prop / config.reweight[config.curr])
 
-                    # the following accumulator has a similar performance
-                    # this is because that with an optimial grid, |f(x)| ~ prop
-                    # Dist.accumulate!(var, pos + offset, 1.0/reweight)
+                        # the following accumulator has a similar performance
+                        # this is because that with an optimial grid, |f(x)| ~ prop
+                        # Dist.accumulate!(var, pos + offset, 1.0/reweight)
+                    end
                 end
             end
             ##############################################################################

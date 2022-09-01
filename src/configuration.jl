@@ -51,6 +51,7 @@ mutable struct Configuration{V,P,O,T}
     ############# current state ######################
     neval::Int64 # number of evaluations performed up to now
     curr::Int # index of current integrand
+    norm::Int # index of the normalization diagram
     normalization::Float64 # normalization factor for observables
     relativeWeight::Vector{T} # reweighted weight of the current integrand
     absWeight::Float64 # the absweight of the current diagrams. Store it for fast updates
@@ -93,7 +94,7 @@ function Configuration(;
     type=Float64, # type of the integrand
     obs::AbstractVector=zeros(type, length(dof)),
     para=nothing,
-    reweight::Vector{Float64}=ones(length(dof)),
+    reweight::Vector{Float64}=ones(length(dof) + 1),
     reweight_goal::Union{Vector{Float64},Nothing}=nothing,
     seed::Int=rand(Random.RandomDevice(), 1:1000000),
     neighbor::Union{Vector{Vector{Int}},Vector{Tuple{Int,Int}},Nothing}=nothing,
@@ -112,9 +113,10 @@ function Configuration(;
     else
         error("Configuration.dof should be with a type of Vector{Vector{Int}} or Vector{Tuple{Int, ..., Int}} to avoid mistakes. Now get $(typeof(dof))")
     end
+    push!(dof, zeros(Int, length(var))) # add the degrees of freedom for the normalization diagram
 
     Nd = length(dof) # number of integrands + renormalization diagram
-    @assert Nd >= 1 "At least one integrand is required."
+    @assert Nd > 1 "At least one integrand is required."
     # make sure dof has the correct size that matches var and neighbor
     for nv in dof
         @assert length(nv) == Nv "Each element of `dof` should have the same dimension as `var`"
@@ -154,11 +156,12 @@ function Configuration(;
     reweight .*= reweight_goal
     reweight /= sum(reweight) # normalize the reweight factors
 
+    norm = Nd # set the normalization diagram to be the last one
     # a small initial absweight makes the initial configuaration quickly updated,
     # so that no error is caused even if the intial absweight is wrong, 
     absweight = 1.0e-10
     normalization = 1.0e-10
-    relativeWeight = [1.0 / reweight[i] for i in 1:Nd]
+    relativeWeight = [1.0 / reweight[i] for i in 1:Nd-1]
 
     # visited[end] is for the normalization diagram
     visited = zeros(Float64, Nd) .+ 1.0e-8  # add a small initial value to avoid Inf when inverted
@@ -171,13 +174,8 @@ function Configuration(;
     return Configuration{V,typeof(para),typeof(obs),eltype(obs)}(seed, MersenneTwister(seed), para, var,  # static parameters
         collect(neighbor), collect(dof), obs, collect(reweight), collect(reweight_goal),
         visited, # integrand properties
-        0, curr, normalization, relativeWeight, absweight, propose, accept  # current MC state
+        0, curr, norm, normalization, relativeWeight, absweight, propose, accept  # current MC state
     )
-end
-
-function setweight!(config, weights)
-    @. config.relativeWeight .= weights ./ config.reweight
-    config.relativeWeight /= config.absWeight
 end
 
 function clearStatistics!(config)
@@ -250,21 +248,40 @@ function report(config::Configuration, total_neval=nothing)
 
     totalproposed = 0.0
     println(yellow(@sprintf("%-20s %12s %12s %12s", "ChangeIntegrand", "Proposed", "Accepted", "Ratio  ")))
-    for idx = 1:Nd
+    for n in neighbor[Nd]
+        @printf(
+            "Norm -> %2d:           %11.6f%% %11.6f%% %12.6f\n",
+            n,
+            propose[1, Nd, n] / neval * 100.0,
+            accept[1, Nd, n] / neval * 100.0,
+            accept[1, Nd, n] / propose[1, Nd, n]
+        )
+        totalproposed += propose[1, Nd, n]
+    end
+    for idx = 1:Nd-1
         for n in neighbor[idx]
-            @printf("  %d -> %2d:            %11.6f%% %11.6f%% %12.6f\n",
-                idx, n,
-                propose[1, idx, n] / neval * 100.0,
-                accept[1, idx, n] / neval * 100.0,
-                accept[1, idx, n] / propose[1, idx, n]
-            )
+            if n == Nd  # normalization diagram
+                @printf("  %d ->Norm:           %11.6f%% %11.6f%% %12.6f\n",
+                    idx,
+                    propose[1, idx, n] / neval * 100.0,
+                    accept[1, idx, n] / neval * 100.0,
+                    accept[1, idx, n] / propose[1, idx, n]
+                )
+            else
+                @printf("  %d -> %2d:            %11.6f%% %11.6f%% %12.6f\n",
+                    idx, n,
+                    propose[1, idx, n] / neval * 100.0,
+                    accept[1, idx, n] / neval * 100.0,
+                    accept[1, idx, n] / propose[1, idx, n]
+                )
+            end
             totalproposed += propose[1, idx, n]
         end
     end
     println(bar)
 
     println(yellow(@sprintf("%-20s %12s %12s %12s", "ChangeVariable", "Proposed", "Accepted", "Ratio  ")))
-    for idx = 1:Nd # normalization diagram don't have variable to change
+    for idx = 1:Nd-1 # normalization diagram don't have variable to change
         for (vi, var) in enumerate(var)
             typestr = "$(typeof(var))"
             typestr = split(typestr, ".")[end]

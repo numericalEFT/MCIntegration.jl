@@ -4,7 +4,6 @@ import ..Result
 import ..report
 import ..Configuration
 import ..MPIreduceConfig!
-import ..setweight!
 import ..addConfig!
 import ..clearStatistics!
 
