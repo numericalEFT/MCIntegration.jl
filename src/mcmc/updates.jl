@@ -15,12 +15,15 @@ function changeIntegrand(config, integrand)
         return
     end
 
-    prop /= Dist.delta_probability(config, curr; new=new)
+    prop *= Dist.delta_probability(config, curr; new=new)
 
+    ############## the following are consistent  #############################
+    # prop *= Dist.delta_probability(config, curr; new=new)
     # p1 = Dist.probability(config, curr)
     # p2 = Dist.probability(config, new)
-    # @assert abs(p2 / p1 - prop) < 1e-10 "$p1   $p2   $prop"
-    # config.curr = new
+    # @assert abs(p1 / p2 - prop) < 1e-10 "$p1   $p2   $prop"
+    ######################################################################
+
     weights = integrand(config)
     # newProbability = (new == config.norm) ? config.reweight[new] : abs(weights[new]) / Dist.probability(config, new) * config.reweight[new]
     newProbability = (new == config.norm) ? config.reweight[new] : abs(weights[new]) * config.reweight[new]
