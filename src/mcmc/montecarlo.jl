@@ -1,15 +1,14 @@
 function markovchain_montecarlo(config::Configuration, integrand::Function, neval, print, save, timer; measurefreq=2, measure::Function=simple_measure, kwargs...)
     ##############  initialization  ################################
     # don't forget to initialize the diagram weight
-
     for i in 1:10000
         for var in config.var
             Dist.initialize!(var, config)
         end
 
-        weight = integrand(config)
-        setweight!(config, weight)
-        config.absWeight = abs(integrand(config))
+        weights = integrand(config)
+        setweight!(config, weights)
+        config.absWeight = abs(weights[config.curr])
         if config.absWeight > 1e-10
             break
         end
@@ -19,8 +18,8 @@ function markovchain_montecarlo(config::Configuration, integrand::Function, neva
 
     # updates = [changeIntegrand,] # TODO: sample changeVariable more often
     # updates = [changeIntegrand, swapVariable,] # TODO: sample changeVariable more often
-    # updates = [changeIntegrand, swapVariable, changeVariable] # TODO: sample changeVariable more often
-    updates = [swapVariable, changeVariable] # TODO: sample changeVariable more often
+    updates = [changeIntegrand, swapVariable, changeVariable] # TODO: sample changeVariable more often
+    # updates = [swapVariable, changeVariable] # TODO: sample changeVariable more often
     for i = 2:length(config.var)*2
         push!(updates, changeVariable)
     end
@@ -44,7 +43,6 @@ function markovchain_montecarlo(config::Configuration, integrand::Function, neva
             for (vi, var) in enumerate(config.var)
                 offset = var.offset
                 for pos = 1:config.dof[config.curr][vi]
-                    # Dist.accumulate!(var, pos + offset, config.absWeight)
                     prop *= var.prop[pos+offset]
                 end
             end
@@ -55,9 +53,7 @@ function markovchain_montecarlo(config::Configuration, integrand::Function, neva
                     # where  Δxᵢ ∝ 1/prop ∝ Jacobian for the vegas map
                     # since the current weight is sampled with the probability density ∝ |f(x)|*reweight
                     # the estimator ∝ Δxᵢ*f^2(x)/(|f(x)|*reweight) = |f(x)|/prop/reweight
-
                     Dist.accumulate!(var, pos + offset, config.absWeight / prop / config.reweight[config.curr])
-                    # Dist.accumulate!(var, pos + offset, config.absWeight)
 
                     # the following accumulator has a similar performance
                     # this is because that with an optimial grid, |f(x)| ~ prop
@@ -77,16 +73,12 @@ function markovchain_montecarlo(config::Configuration, integrand::Function, neva
         end
     end
 
-    # if (print > 0)
-    #     println(green("Seed $(config.seed) End Simulation. Cost $(time() - startTime) seconds."))
-    # end
-
     return config
 end
 
 function simple_measure(config)
     if (config.observable isa AbstractVector) && (eltype(config.observable) <: Number)
-        config.observable[config.curr] += config.relativeWeight
+        config.observable .+= config.relativeWeight
     elseif config.observable isa Number
         config.observable += config.relativeWeight
     else

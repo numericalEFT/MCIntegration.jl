@@ -52,7 +52,7 @@ mutable struct Configuration{V,P,O,T}
     neval::Int64 # number of evaluations performed up to now
     curr::Int # index of current integrand
     normalization::Float64 # normalization factor for observables
-    relativeWeight::T # reweighted weight of the current integrand
+    relativeWeight::Vector{T} # reweighted weight of the current integrand
     absWeight::Float64 # the absweight of the current diagrams. Store it for fast updates
 
     propose::Array{Float64,3} # updates index, integrand index, integrand index
@@ -90,7 +90,8 @@ By default, it will be set to 0.0 if there is only one integrand (e.g., length(d
 function Configuration(;
     var::V=(Continuous(0.0, 1.0),),
     dof::AbstractVector=[ones(Int, length(var)),],
-    obs::Union{Number,AbstractArray}=length(dof) == 1 ? 0.0 : zeros(length(dof)),
+    type=Float64, # type of the integrand
+    obs::AbstractVector=zeros(type, length(dof)),
     para=nothing,
     reweight::Vector{Float64}=ones(length(dof)),
     reweight_goal::Union{Vector{Float64},Nothing}=nothing,
@@ -157,6 +158,7 @@ function Configuration(;
     # so that no error is caused even if the intial absweight is wrong, 
     absweight = 1.0e-10
     normalization = 1.0e-10
+    relativeWeight = [1.0 / reweight[i] for i in 1:Nd]
 
     # visited[end] is for the normalization diagram
     visited = zeros(Float64, Nd) .+ 1.0e-8  # add a small initial value to avoid Inf when inverted
@@ -169,12 +171,13 @@ function Configuration(;
     return Configuration{V,typeof(para),typeof(obs),eltype(obs)}(seed, MersenneTwister(seed), para, var,  # static parameters
         collect(neighbor), collect(dof), obs, collect(reweight), collect(reweight_goal),
         visited, # integrand properties
-        0, curr, normalization, 1.0 / reweight[curr], absweight, propose, accept  # current MC state
+        0, curr, normalization, relativeWeight, absweight, propose, accept  # current MC state
     )
 end
 
-function setweight!(config, weight)
-    config.relativeWeight = weight / abs(weight) / config.reweight[config.curr]
+function setweight!(config, weights)
+    @. config.relativeWeight .= weights ./ config.reweight
+    config.relativeWeight /= config.absWeight
 end
 
 function clearStatistics!(config)

@@ -184,20 +184,18 @@ function TestSingular2(totalstep)
 end
 
 function TestComplex1(totalstep)
-    return integrate(neval=totalstep, print=-1, obs=0.0im) do config
+    return integrate(neval=totalstep, print=-1, type=ComplexF64) do config
         x = config.var[1]
         return x[1] + x[1]^2 * 1im
     end
 end
 
 function TestComplex2(totalstep)
-    return integrate(dof=[[1,], [1,]], neval=totalstep, print=-1, obs=[0.0im, 0.0im]) do config
+    return integrate(dof=[[1,], [1,]], neval=totalstep, print=-1, type=ComplexF64) do config
         x = config.var[1]
-        if config.curr == 1
-            return x[1] + 0.0im
-        else
-            return x[1]^2 * 1im
-        end
+        #return a (real, complex) 
+        #the code should handle real -> complex conversion
+        return x[1], x[1]^2 * 1im
     end
 end
 
@@ -205,10 +203,10 @@ end
     neval = 1000_000
 
     println("Sphere1")
-    check(Sphere1(neval), π / 4.0)
+    # check(Sphere1(neval), π / 4.0)
     # check(Sphere2(neval), π / 4.0)
     println("Sphere3")
-    check(Sphere3(neval), [π / 4.0, 4.0 * π / 3.0 / 8])
+    # check(Sphere3(neval), [π / 4.0, 4.0 * π / 3.0 / 8])
     # check(TestDiscrete(neval), 6.0)
     println("Singular1")
     check(TestSingular1(neval), -4.0)
