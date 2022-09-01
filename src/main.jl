@@ -53,6 +53,8 @@ function integrate(integrand::Function;
     if isnothing(config)
         config = Configuration(; kwargs...)
     end
+    weights = integrand(config)
+    @assert length(weights) == length(config.dof) - 1 "There should be $(length(config.dof)-1) integrands, got $(length(weights))"
 
     if alpha > 1.0
         @warn(red("learning rate alpha should be less than 1.0"))

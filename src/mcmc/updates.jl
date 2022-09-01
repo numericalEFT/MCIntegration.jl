@@ -15,7 +15,7 @@ function changeIntegrand(config, integrand)
         return
     end
 
-    prop *= Dist.delta_probability(config, curr; new=new)
+    prop /= Dist.delta_probability(config, curr; new=new)
 
     # p1 = Dist.probability(config, curr)
     # p2 = Dist.probability(config, new)

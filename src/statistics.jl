@@ -85,7 +85,6 @@ function report(result::Result, pick::Union{Function,AbstractVector}=obs -> real
     end
 
     for i in eachindex(result.mean)
-        # for (i, p) in enumerate(pick)
         p = pick
         info = isnothing(name) ? "$i" : "$(name[i])"
         if verbose >= 0
