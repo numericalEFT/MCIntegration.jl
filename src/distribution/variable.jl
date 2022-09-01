@@ -245,6 +245,21 @@ function initialize!(T::Variable, config)
     end
 end
 
+function probability(config, curr=config.curr)
+    prop = 1.0
+    dof = config.dof[curr]
+    for (vi, var) in enumerate(config.var)
+        offset = var.offset
+        for pos = 1:dof[vi]
+            prop *= var.prop[pos+offset]
+        end
+    end
+    if prop < TINY
+        @warn "probability is either too small or negative : $(prop)"
+    end
+    return prop
+end
+
 Base.getindex(Var::Variable, i::Int) = Var.data[i]
 function Base.setindex!(Var::Variable, v, i::Int)
     Var.data[i] = v

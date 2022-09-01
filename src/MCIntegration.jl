@@ -4,7 +4,9 @@ using Printf, Dates
 using Random
 using Graphs
 using ProgressMeter
+
 const RNG = Random.GLOBAL_RNG
+const TINY = 1e-10
 
 include("utility/utility.jl")
 using .MCUtility

@@ -1,9 +1,20 @@
 function montecarlo(config::Configuration, integrand::Function, neval, print, save, timer; kwargs...)
     ##############  initialization  ################################
     # don't forget to initialize the diagram weight
-    weight = integrand(config)
-    setweight!(config, weight)
-    config.absWeight = abs(integrand(config))
+
+    for i in 1:10000
+        for var in config.var
+            Dist.initialize!(var, config)
+        end
+
+        weights = integrand(config)
+        config.probability = abs(weights[config.curr]) / Dist.probability(config, config.curr) * config.reweight[config.curr]
+        config.weights = weights
+        if abs(weights[config.curr]) > TINY
+            break
+        end
+    end
+    @assert abs(config.weights[config.curr]) > TINY "Cannot find the variables that makes the $(config.curr) integrand >1e-10"
 
     ########### MC simulation ##################################
     startTime = time()
@@ -23,8 +34,8 @@ function montecarlo(config::Configuration, integrand::Function, neval, print, sa
             end
         end
         # sampler may want to reject, then prop has already been set to zero
-        weight = integrand(config)
-        config.observable += weight * prop
+        weights = integrand(config)
+        config.observable += weights * prop
         config.normalization += 1.0 #should be 1!
         # push!(mem, weight * prop)
 
@@ -32,7 +43,7 @@ function montecarlo(config::Configuration, integrand::Function, neval, print, sa
         for (vi, var) in enumerate(config.var)
             offset = var.offset
             for pos = 1:config.dof[curr][vi]
-                Dist.accumulate!(var, pos + offset, (abs(weight)^2 * prop^2))
+                Dist.accumulate!(var, pos + offset, (abs(weights[config.curr])^2 * prop^2))
                 # Dist.accumulate!(var, pos + offset, (abs(weight) * prop))
                 # Dist.accumulate!(var, pos + offset, 1.0)
             end

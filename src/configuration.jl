@@ -54,7 +54,9 @@ mutable struct Configuration{V,P,O,T}
     norm::Int # index of the normalization diagram
     normalization::Float64 # normalization factor for observables
     relativeWeight::Vector{T} # reweighted weight of the current integrand
+    weights::Vector{T} # weight of each integrand in the current state
     absWeight::Float64 # the absweight of the current diagrams. Store it for fast updates
+    probability::Float64 # probablity of the current state
 
     propose::Array{Float64,3} # updates index, integrand index, integrand index
     accept::Array{Float64,3} # updates index, integrand index, integrand index 
@@ -161,7 +163,8 @@ function Configuration(;
     # so that no error is caused even if the intial absweight is wrong, 
     absweight = 1.0e-10
     normalization = 1.0e-10
-    relativeWeight = [1.0 / reweight[i] for i in 1:Nd-1]
+    relativeWeight = [1.0 for i in 1:Nd-1]
+    weights = [1.0 for i in 1:Nd-1]
 
     # visited[end] is for the normalization diagram
     visited = zeros(Float64, Nd) .+ 1.0e-8  # add a small initial value to avoid Inf when inverted
@@ -174,7 +177,7 @@ function Configuration(;
     return Configuration{V,typeof(para),typeof(obs),eltype(obs)}(seed, MersenneTwister(seed), para, var,  # static parameters
         collect(neighbor), collect(dof), obs, collect(reweight), collect(reweight_goal),
         visited, # integrand properties
-        0, curr, norm, normalization, relativeWeight, absweight, propose, accept  # current MC state
+        0, curr, norm, normalization, relativeWeight, weights, absweight, 1.0, propose, accept  # current MC state
     )
 end
 

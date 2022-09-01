@@ -1,5 +1,6 @@
 module Dist
 using StaticArrays
+import ..TINY
 
 abstract type AdaptiveMap end
 abstract type Variable end

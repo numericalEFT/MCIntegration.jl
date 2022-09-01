@@ -7,19 +7,21 @@ function markovchain_montecarlo(config::Configuration, integrand::Function, neva
         end
 
         weights = integrand(config)
-        config.absWeight = abs(weights[config.curr])
-        config.relativeWeight .= weights / config.reweight[config.curr] / config.absWeight
-        if config.absWeight > 1e-10
+        # config.absWeight = abs(weights[config.curr])
+        config.probability = abs(weights[config.curr]) / Dist.probability(config, config.curr) * config.reweight[config.curr]
+        config.weights = weights
+        # config.relativeWeight .= weights / config.probability
+        if abs(weights[config.curr]) > TINY
             break
         end
     end
-    @assert config.absWeight > 1e-10 "Cannot find the variables that makes the $(config.curr) integrand >1e-10"
+    @assert abs(weights[config.curr]) > TINY "Cannot find the variables that makes the $(config.curr) integrand >1e-10"
 
 
     # updates = [changeIntegrand,] # TODO: sample changeVariable more often
     # updates = [changeIntegrand, swapVariable,] # TODO: sample changeVariable more often
-    updates = [changeIntegrand, swapVariable, changeVariable] # TODO: sample changeVariable more often
-    # updates = [swapVariable, changeVariable] # TODO: sample changeVariable more often
+    # updates = [changeIntegrand, swapVariable, changeVariable] # TODO: sample changeVariable more often
+    updates = [swapVariable, changeVariable] # TODO: sample changeVariable more often
     # for i = 2:length(config.var)*2
     #     push!(updates, changeVariable)
     # end
@@ -39,14 +41,9 @@ function markovchain_montecarlo(config::Configuration, integrand::Function, neva
         if i % measurefreq == 0 && i >= neval / 100
 
             ######## accumulate variable and calculate variable probability #################
-            prop = 1.0
-            for (vi, var) in enumerate(config.var)
-                offset = var.offset
-                for pos = 1:config.dof[config.curr][vi]
-                    prop *= var.prop[pos+offset]
-                end
-            end
             if config.curr != config.norm
+                prop = Dist.probability(config, config.curr)
+                f2 = (abs(config.weights[config.curr]))^2 / prop
                 for (vi, var) in enumerate(config.var)
                     offset = var.offset
                     for pos = 1:config.dof[config.curr][vi]
@@ -54,7 +51,7 @@ function markovchain_montecarlo(config::Configuration, integrand::Function, neva
                         # where  Δxᵢ ∝ 1/prop ∝ Jacobian for the vegas map
                         # since the current weight is sampled with the probability density ∝ |f(x)|*reweight
                         # the estimator ∝ Δxᵢ*f^2(x)/(|f(x)|*reweight) = |f(x)|/prop/reweight
-                        Dist.accumulate!(var, pos + offset, config.absWeight / prop / config.reweight[config.curr])
+                        Dist.accumulate!(var, pos + offset, f2 / config.probability)
 
                         # the following accumulator has a similar performance
                         # this is because that with an optimial grid, |f(x)| ~ prop
@@ -62,10 +59,11 @@ function markovchain_montecarlo(config::Configuration, integrand::Function, neva
                     end
                 end
             end
+            # end
             ##############################################################################
 
             measure(config)
-            config.normalization += prop / config.absWeight / config.reweight[config.curr]
+            config.normalization += 1.0 / config.probability
             # push!(kwargs[:mem], (config.var[1][1], prop, config.absWeight))
         end
         if i % 1000 == 0
@@ -80,9 +78,9 @@ end
 
 function simple_measure(config)
     if (config.observable isa AbstractVector) && (eltype(config.observable) <: Number)
-        config.observable .+= config.relativeWeight
+        config.observable .+= config.weights / config.probability
     elseif config.observable isa Number
-        config.observable += config.relativeWeight
+        config.observable += config.weights / config.probability
     else
         error("simple_measure only works with observable of the AbstractVector of Number or Number types!")
     end

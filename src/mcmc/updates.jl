@@ -8,11 +8,24 @@ function changeIntegrand(config, integrand)
     currdof, newdof = config.dof[curr], config.dof[new]
 
     currAbsWeight = config.absWeight
+    currProbability = config.probability
 
     # propose probability caused by the selection of neighbors
     prop = length(config.neighbor[curr]) / length(config.neighbor[new])
 
-    # # create/remove variables if there are more/less degrees of freedom
+    # create/remove variables if there are more/less degrees of freedom
+    # for vi = 1:length(config.var)
+    #     offset = config.var[vi].offset
+    #     if (currdof[vi] < newdof[vi]) # more degrees of freedom
+    #         for pos = currdof[vi]+1:newdof[vi]
+    #             prop /= config.var[vi].prop[pos+offset]
+    #         end
+    #     elseif (currdof[vi] > newdof[vi]) # less degrees of freedom
+    #         for pos = newdof[vi]+1:currdof[vi]
+    #             prop *= config.var[vi].prop[pos+offset]
+    #         end
+    #     end
+    # end
     # for vi = 1:length(config.var)
     #     offset = config.var[vi].offset
     #     if (currdof[vi] < newdof[vi]) # more degrees of freedom
@@ -34,13 +47,15 @@ function changeIntegrand(config, integrand)
     config.curr = new
     weights = integrand(config)
     newAbsWeight = (new == config.norm) ? 1.0 : abs(weights[new])
-    R = prop * newAbsWeight * config.reweight[new] / currAbsWeight / config.reweight[curr]
+    newProbability = (new == config.norm) ? config.reweight[new] : abs(weights[new]) / Dist.probability(config, new) * config.reweight[new]
+    # R = prop * newAbsWeight * config.reweight[new] / currAbsWeight / config.reweight[curr]
+    R = prop * newProbability / currProbability
 
     config.propose[1, curr, new] += 1.0
     if rand(config.rng) < R  # accept the change
         config.accept[1, curr, new] += 1.0
         config.absWeight = newAbsWeight
-        config.relativeWeight .= weights / config.reweight[config.curr] / config.absWeight
+        config.weights = weights
     else # reject the change
         config.curr = curr # reset the current diagram index
         ############ Redo changes to config.var #############
@@ -72,6 +87,7 @@ function changeVariable(config, integrand)
 
     # oldvar = copy(var[idx])
     currAbsWeight = config.absWeight
+    currProbability = config.probability
 
     prop = Dist.shift!(var, idx, config)
 
@@ -82,9 +98,11 @@ function changeVariable(config, integrand)
 
     weights = integrand(config)
     newAbsWeight = (curr == config.norm) ? 1.0 : abs(weights[curr])
-    currAbsWeight = config.absWeight
+    newProbability = (curr == config.norm) ? config.reweight[curr] : abs(weights[curr]) / Dist.probability(config, curr) * config.reweight[curr]
 
-    R = prop * newAbsWeight / currAbsWeight
+    # R = prop * newAbsWeight / currAbsWeight
+    R = prop * newProbability / currProbability
+    # R = newProbability / currProbability
 
     # curr == 2 && println("propose, $curr: old: $oldvar --> new: $(var[idx]), with R $newAbsWeight / $currAbsWeight * $prop = $R")
     config.propose[2, curr, vi] += 1.0
@@ -92,7 +110,8 @@ function changeVariable(config, integrand)
         # curr == 2 && println("accept, $curr")
         config.accept[2, curr, vi] += 1.0
         config.absWeight = newAbsWeight
-        config.relativeWeight .= weights / config.reweight[curr] / config.absWeight
+        config.weights = weights
+        # config.relativeWeight .= weights / newProbability
     else
         Dist.shiftRollback!(var, idx, config)
     end
@@ -111,6 +130,7 @@ function swapVariable(config, integrand)
     (idx1 == idx2) && return
 
     currAbsWeight = config.absWeight
+    currProbability = config.probability
 
     prop = Dist.swap!(var, idx1, idx2, config)
 
@@ -121,14 +141,15 @@ function swapVariable(config, integrand)
 
     weights = integrand(config)
     newAbsWeight = (curr == config.norm) ? 1.0 : abs(weights[curr])
-    currAbsWeight = config.absWeight
+    newProbability = (curr == config.norm) ? config.reweight[curr] : abs(weights[curr]) / Dist.probability(config, curr) * config.reweight[curr]
     R = prop * newAbsWeight / currAbsWeight
 
     config.propose[2, curr, vi] += 1.0
     if rand(config.rng) < R
         config.accept[2, curr, vi] += 1.0
         config.absWeight = newAbsWeight
-        config.relativeWeight .= weights / config.reweight[curr] / config.absWeight
+        config.weights = weights
+        # config.relativeWeight .= weights / newProbability
     else
         Dist.swapRollback!(var, idx1, idx2, config)
     end
