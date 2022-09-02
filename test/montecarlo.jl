@@ -108,3 +108,27 @@ end
     check_complex(TestComplex2(neval, :MC), [0.5, 1.0 / 3 * 1im])
 
 end
+
+@testset "Markov-Chain Vegas" begin
+    neval = 1000_00
+
+    # println("Sphere1")
+    # check(Sphere1(neval, :MCMC), π / 4.0)
+    # check(Sphere2(neval), π / 4.0)
+    # println("Sphere2")
+    # check(Sphere3(neval), [π / 4.0, 4.0 * π / 3.0 / 8])
+    # check(TestDiscrete(neval), 6.0)
+    println("Singular1")
+    res = TestSingular1(neval, :MCMC)
+    check(res, -4.0)
+    # @test res.stdev[1] < 0.0004 #make there is no regression, vegas typically gives accuracy ~0.0002 with 1e5x10 evaluations
+    println("Singular2")
+    check(TestSingular2(neval, :MCMC), 1.3932)
+
+    neval = 1000_00
+    println("Complex1")
+    check_complex(TestComplex1(neval, :MCMC), 0.5 + 1.0 / 3 * 1im)
+    println("Complex2")
+    check_complex(TestComplex2(neval, :MCMC), [0.5, 1.0 / 3 * 1im])
+
+end

@@ -1,3 +1,24 @@
+"""
+This algorithm combines Vegas with Markov-chain Monte Carlo.
+For multiple integrands invoves multiple variables, it finds the best distribution
+ansatz to fit them all together. In additional to the original integral, it also 
+introduces a normalization integral with integrand ~ 1.
+
+Assume f_0(x) and g_0(y) are the ansatz from the Vegas map for x and y, and we want
+to calculate the integral f_1(x) and f_2(x, y)
+
+Then the following distributions are sampled with Markov-chain Monte Carlo:
+p_0(x, y) = f_0(x) * g_0(y) #normalization
+p_1(x, y) = f_1(x) * g_0(y) #integrand 1 
+p_2(x, y) = f_2(x, y)
+NOTE: All three integral are measured at each Markov-chain Monte Carlo step!
+
+The efficiency is significantly improved compared to the old DiagMC algorithm.
+It is a few times slower than the Vegas algorithm at low dimensions.
+However, the biggest problem is that the algorithm can fail if the integrand
+exactly vanishes in some regime (e.g. circle area x^2+y^2<0).
+"""
+
 function markovchain_montecarlo(config::Configuration, integrand::Function, neval, print, save, timer; measurefreq=2, measure::Function=simple_measure, kwargs...)
     ##############  initialization  ################################
     # don't forget to initialize the diagram weight
@@ -12,11 +33,12 @@ function markovchain_montecarlo(config::Configuration, integrand::Function, neva
 
     # updates = [changeIntegrand,] # TODO: sample changeVariable more often
     # updates = [changeIntegrand, swapVariable,] # TODO: sample changeVariable more often
-    updates = [changeIntegrand, swapVariable, changeVariable] # TODO: sample changeVariable more often
-    # updates = [swapVariable, changeVariable] # TODO: sample changeVariable more often
-    # for i = 2:length(config.var)*2
-    #     push!(updates, changeVariable)
-    # end
+    # updates = [changeIntegrand, swapVariable, changeVariable] # TODO: sample changeVariable more often
+    updates = [changeIntegrand, changeVariable] # TODO: sample changeVariable more often
+    # updates = [changeVariable,] # TODO: sample changeVariable more often
+    for i = 2:length(config.var)*2
+        push!(updates, changeVariable)
+    end
 
     ########### MC simulation ##################################
     # if (print > 0)

@@ -8,3 +8,9 @@
     @test Dist.locate(grid, 0.2) == 2
     @test Dist.locate(grid, 0.31) == 3
 end
+
+@testset "Other" begin
+    # 3 integrals, 4 variables
+    dof = [[1, 2, 3, 5], [3, 1, 2, 7], [2, 4, 1, 2]]
+    MCIntegration._maxdof(dof) == [3, 4, 3, 7]
+end

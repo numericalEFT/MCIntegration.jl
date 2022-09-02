@@ -43,6 +43,7 @@ mutable struct Configuration{V,P,O,T}
     ########### integrand properties ##############
     neighbor::Vector{Vector{Int}}
     dof::Vector{Vector{Int}} # degrees of freedom
+    maxdof::Vector{Int} # max degrees of freedom of all integrands, length(maxdof) = length(var)
     observable::O  # observables for each integrand
     reweight::Vector{Float64}
     reweight_goal::Vector{Float64}
@@ -117,6 +118,7 @@ function Configuration(;
     end
     push!(dof, zeros(Int, length(var))) # add the degrees of freedom for the normalization diagram
 
+
     Nd = length(dof) # number of integrands + renormalization diagram
     @assert Nd > 1 "At least one integrand is required."
     # make sure dof has the correct size that matches var and neighbor
@@ -175,10 +177,19 @@ function Configuration(;
     accept = zeros(Float64, (2, Nd, max(Nd, Nv)))
 
     return Configuration{V,typeof(para),typeof(obs),eltype(obs)}(seed, MersenneTwister(seed), para, var,  # static parameters
-        collect(neighbor), collect(dof), obs, collect(reweight), collect(reweight_goal),
+        collect(neighbor), collect(dof), _maxdof(dof), obs, collect(reweight), collect(reweight_goal),
         visited, # integrand properties
         0, curr, norm, normalization, relativeWeight, weights, absweight, 1.0, propose, accept  # current MC state
     )
+end
+
+function _maxdof(dof)
+    dof = collect(dof)
+    maxdof = zeros(Int, length(dof[1]))
+    for i in eachindex(maxdof)
+        maxdof[i] = maximum([dof[j][i] for j in eachindex(dof)])
+    end
+    return maxdof
 end
 
 function clearStatistics!(config)
