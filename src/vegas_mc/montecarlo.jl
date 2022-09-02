@@ -19,11 +19,13 @@ However, the biggest problem is that the algorithm can fail if the integrand
 exactly vanishes in some regime (e.g. circle area x^2+y^2<0).
 """
 
-function montecarlo(config::Configuration, integrand::Function, neval, userdata, print, save, timer; measurefreq=2, measure::Function=simple_measure, kwargs...)
+function montecarlo(config::Configuration, integrand::Function, neval, userdata, print, save, timer;
+    measurefreq=2, measure::Union{Nothing,Function}=nothing,
+    kwargs...)
     ##############  initialization  ################################
     # don't forget to initialize the diagram weight
     for i in 1:10000
-        initialize!(config, integrand)
+        initialize!(config, integrand, userdata)
         if (config.curr == config.norm) || abs(config.weights[config.curr]) > TINY
             break
         end
@@ -50,13 +52,12 @@ function montecarlo(config::Configuration, integrand::Function, neval, userdata,
         config.neval += 1
         config.visited[config.curr] += 1
         _update = rand(config.rng, updates) # randomly select an update
-        _update(config, integrand)
+        _update(config, integrand, userdata)
         # if i % 10 == 0 && i >= neval / 100
         if i % measurefreq == 0 && i >= neval / 100
 
             ######## accumulate variable and calculate variable probability #################
             if config.curr != config.norm
-                # for i in eachindex(config.dof)
 
                 prop = Dist.probability(config, config.curr)
                 f2 = (abs(config.weights[config.curr]))^2 / prop
@@ -77,24 +78,26 @@ function montecarlo(config::Configuration, integrand::Function, neval, userdata,
                     end
                 end
             end
-            # end
-            # end
             ##############################################################################
 
-            if (i % measurefreq == 0)
-
-                for i in eachindex(integrands)
+            if isnothing(measure)
+                for i in eachindex(config.weights)
+                    prob = Dist.delta_probability(config, config.curr; new=i)
+                    config.observable[i] += config.weights[i] * prob / config.probability
+                end
+            else
+                for i in eachindex(config.weights)
                     prob = Dist.delta_probability(config, config.curr; new=i)
                     config.relativeWeights[i] = config.weights[i] * prob / config.probability
                 end
                 if isnothing(userdata)
                     measure(config.observable, config.relativeWeights)
                 else
-                    measure(config.observable, config.relativeWeights, prob; userdata=userdata)
+                    measure(config.observable, config.relativeWeights; userdata=userdata)
                 end
-                prob = Dist.delta_probability(config, config.curr; new=config.norm)
-                config.normalization += prob / config.probability
             end
+            prob = Dist.delta_probability(config, config.curr; new=config.norm)
+            config.normalization += prob / config.probability
         end
         if i % 1000 == 0
             for t in timer
@@ -106,7 +109,7 @@ function montecarlo(config::Configuration, integrand::Function, neval, userdata,
     return config
 end
 
-@inline function integrand_wrap(config, _integrand; userdata)
+@inline function integrand_wrap(config, _integrand, userdata)
     if !isnothing(userdata)
         return _integrand(config.var...; userdata=userdata)
     else
@@ -131,6 +134,31 @@ function simple_measure(config, integrands, factor)
     #     error("simple_measure only works with observable of the AbstractVector of Number or Number types!")
     # end
 end
+
+function initialize!(config, integrand, userdata)
+    for var in config.var
+        Dist.initialize!(var, config)
+    end
+
+    weights = integrand_wrap(config, integrand, userdata)
+    # config.probability = abs(weights[config.curr]) / Dist.probability(config, config.curr) * config.reweight[config.curr]
+    if config.curr == config.norm
+        config.probability = config.reweight[config.curr]
+    else
+        # config.probability = abs(weights[config.curr]) * config.reweight[config.curr] / Dist.probability(config, config.curr)
+        config.probability = abs(weights[config.curr]) * config.reweight[config.curr]
+    end
+    setWeight!(config, weights)
+end
+
+function setWeight!(config, weights)
+    # weights can be a number of a vector of numbers
+    # this function copy weights to a vector config.weights
+    for i in eachindex(config.weights)
+        config.weights[i] = weights[i]
+    end
+end
+
 
 function doReweight!(config, alpha)
     avgstep = sum(config.visited)
