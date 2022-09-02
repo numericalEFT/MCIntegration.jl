@@ -107,8 +107,8 @@ function integrate(integrand::Function;
             # reset!(config, config.reweight) # reset configuration, keep the previous reweight factors
             clearStatistics!(config) # reset statistics
 
-            if solver == :MCMC
-                config = MCMC.markovchain_montecarlo(config, integrand, nevalperblock, print, save, timer; kwargs...)
+            if solver == :vegasmc || solver == :Vegasmc || solver == :VEGASMC
+                config = VegasMC.montecarlo(config, integrand, nevalperblock, print, save, timer; kwargs...)
             elseif solver == :VEGAS || solver == :vegas || solver == :Vegas
                 config = Vegas.montecarlo(config, integrand, nevalperblock, print, save, timer; kwargs...)
             else

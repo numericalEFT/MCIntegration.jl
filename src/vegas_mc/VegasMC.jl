@@ -1,4 +1,4 @@
-module MCMC
+module VegasMC
 
 import ..Result
 import ..report

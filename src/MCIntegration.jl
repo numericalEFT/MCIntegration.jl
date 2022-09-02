@@ -22,9 +22,9 @@ export Result
 include("configuration.jl")
 export Configuration
 
-include("mcmc/MCMC.jl")
-using .MCMC
-export MCMC
+include("vegas_mc/VegasMC.jl")
+using .VegasMC
+export VegasMC
 
 include("vegas/Vegas.jl")
 using .Vegas

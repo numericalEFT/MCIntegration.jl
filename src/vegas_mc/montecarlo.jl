@@ -19,7 +19,7 @@ However, the biggest problem is that the algorithm can fail if the integrand
 exactly vanishes in some regime (e.g. circle area x^2+y^2<0).
 """
 
-function markovchain_montecarlo(config::Configuration, integrand::Function, neval, print, save, timer; measurefreq=2, measure::Function=simple_measure, kwargs...)
+function montecarlo(config::Configuration, integrand::Function, neval, print, save, timer; measurefreq=2, measure::Function=simple_measure, kwargs...)
     ##############  initialization  ################################
     # don't forget to initialize the diagram weight
     for i in 1:10000

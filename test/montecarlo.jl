@@ -43,6 +43,27 @@ function Sphere2(totalstep; offset=0)
     return integrate(integrand, measure=measure, config=config, neval=totalstep, block=64, print=-1)
 end
 
+function Sphere3(totalstep, alg; offset=0)
+    function integrand(config)
+        @assert config.curr == 1 || config.curr == 2 "$(config.curr) is not a valid integrand"
+        X = config.var[1]
+        i1 = (X[1+offset]^2 + X[2+offset]^2 < 1.0) ? 1.0 : 0.0
+        i2 = (X[1+offset]^2 + X[2+offset]^2 + X[3+offset]^2 < 1.0) ? 1.0 : 0.0
+        return i1, i2
+    end
+
+    function measure(config, integrands, jac)
+        config.observable[1] += integrands[1] * jac
+        config.observable[2] += integrands[2] * jac
+    end
+
+    T = Continuous(0.0, 1.0; offset=offset)
+    dof = [[2,], [3,]] # number of T variable for the normalization and the integrand
+    config = Configuration(var=(T,), dof=dof, obs=[0.0, 0.0]; neighbor=[(1, 3), (1, 2)])
+    @inferred integrand(config) #make sure the type is inferred for the integrand function
+    return integrate(integrand, measure=measure, config=config, neval=totalstep, block=64, print=-1, solver=alg)
+end
+
 function TestDiscrete(totalstep, alg)
     function integrand(config)
         x = config.var[1][1]
@@ -88,11 +109,11 @@ end
 @testset "Vegas Sampler" begin
     neval = 1000_00
 
-    println("Sphere1")
+    println("Sphere 2D")
     check(Sphere1(neval, :vegas), π / 4.0)
     # check(Sphere2(neval), π / 4.0)
-    println("Sphere2")
-    # check(Sphere3(neval), [π / 4.0, 4.0 * π / 3.0 / 8])
+    println("Sphere 2D + 3D")
+    check(Sphere3(neval, :vegas), [π / 4.0, 4.0 * π / 3.0 / 8])
     println("Discrete")
     check(TestDiscrete(neval, :vegas), 6.0)
     println("Singular1")
@@ -113,24 +134,25 @@ end
 @testset "Markov-Chain Vegas" begin
     neval = 1000_00
 
+    # TODO: so far vegas MC doesn't work with Sphere1 and Sphere2. These integrals vanishes in some regimes, making the measurement of the normalization integral unreliable.
     # println("Sphere1")
     # check(Sphere1(neval, :MCMC), π / 4.0)
     # check(Sphere2(neval), π / 4.0)
     # println("Sphere2")
     # check(Sphere3(neval), [π / 4.0, 4.0 * π / 3.0 / 8])
     println("Discrete")
-    check(TestDiscrete(neval, :MCMC), 6.0)
+    check(TestDiscrete(neval, :vegasmc), 6.0)
     println("Singular1")
-    res = TestSingular1(neval, :MCMC)
+    res = TestSingular1(neval, :vegasmc)
     check(res, -4.0)
     # @test res.stdev[1] < 0.0004 #make there is no regression, vegas typically gives accuracy ~0.0002 with 1e5x10 evaluations
     println("Singular2")
-    check(TestSingular2(neval, :MCMC), 1.3932)
+    check(TestSingular2(neval, :vegasmc), 1.3932)
 
     neval = 1000_00
     println("Complex1")
-    check_complex(TestComplex1(neval, :MCMC), 0.5 + 1.0 / 3 * 1im)
+    check_complex(TestComplex1(neval, :vegasmc), 0.5 + 1.0 / 3 * 1im)
     println("Complex2")
-    check_complex(TestComplex2(neval, :MCMC), [0.5, 1.0 / 3 * 1im])
+    check_complex(TestComplex2(neval, :vegasmc), [0.5, 1.0 / 3 * 1im])
 
 end
