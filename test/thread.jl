@@ -11,5 +11,7 @@
         check(result, 1 / (1 + i))
         result = integrate(X -> (X[1])^i; var=(Continuous(0.0, 1.0),), dof=[[1,],], print=-1, solver=:vegasmc)
         check(result, 1 / (1 + i))
+        result = integrate(X -> (X[1])^i; var=(Continuous(0.0, 1.0),), dof=[[1,],], print=-1, solver=:mcmc)
+        check(result, 1 / (1 + i))
     end
 end

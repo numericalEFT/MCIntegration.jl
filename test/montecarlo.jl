@@ -96,6 +96,7 @@ end
 
 @testset "MCMC Sampler" begin
     neval = 1000_00
+    println("MCMC tests")
 
     println("Sphere 2D")
     check(Sphere1(neval, :mcmc), π / 4.0)
@@ -121,6 +122,7 @@ end
 
 @testset "Vegas Sampler" begin
     neval = 2000_00
+    println("Vegas tests")
 
     println("Sphere 2D")
     check(Sphere1(neval, :vegas), π / 4.0)
@@ -147,6 +149,7 @@ end
 
 @testset "Markov-Chain Vegas" begin
     neval = 1000_00
+    println("MC Vegas tests")
 
     # TODO: so far vegas MC doesn't work with Sphere1 and Sphere2. These integrals vanishes in some regimes, making the measurement of the normalization integral unreliable.
     # println("Sphere1")

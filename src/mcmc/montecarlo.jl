@@ -2,9 +2,18 @@ function montecarlo(config::Configuration, integrand::Function, neval, userdata,
     measurefreq=2, measure::Union{Nothing,Function}=nothing, kwargs...)
     ##############  initialization  ################################
     # don't forget to initialize the diagram weight
-    weight = config.curr == config.norm ? 1.0 : integrand_wrap(config, integrand, userdata)
-    setweight!(config, weight)
-    config.absWeight = abs(weight)
+
+    for i in 1:10000
+        initialize!(config, integrand, userdata)
+        if (config.curr == config.norm) || abs(config.absWeight) > TINY
+            break
+        end
+    end
+    @assert (config.curr == config.norm) || abs(config.absWeight) > TINY "Cannot find the variables that makes the $(config.curr) integrand >1e-10"
+
+    # weight = config.curr == config.norm ? 1.0 : integrand_wrap(config, integrand, userdata)
+    # setweight!(config, weight)
+    # config.absWeight = abs(weight)
 
 
     # updates = [changeIntegrand,] # TODO: sample changeVariable more often
@@ -68,6 +77,7 @@ function montecarlo(config::Configuration, integrand::Function, neval, userdata,
     return config
 end
 
+
 @inline function integrand_wrap(config, _integrand, userdata, signal=nothing)
     if length(config.dof) - 1 == 1 # there is only one integral (plus a normalization integral)
         if !isnothing(userdata) && !isnothing(signal)
@@ -92,6 +102,15 @@ end
     end
 end
 
+function initialize!(config, integrand, userdata)
+    for var in config.var
+        Dist.initialize!(var, config)
+    end
+
+    weight = config.curr == config.norm ? 1.0 : integrand_wrap(config, integrand, userdata)
+    setweight!(config, weight)
+    config.absWeight = abs(weight)
+end
 
 function setweight!(config, weight)
     config.relativeWeight = weight / abs(weight) / config.reweight[config.curr]
