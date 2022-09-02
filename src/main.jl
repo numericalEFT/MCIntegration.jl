@@ -19,19 +19,20 @@
 
  # Arguments
 
-- `integrand`: function call to evaluate the integrand. It should accept an argument of the type [`Configuration`](@ref), and return a weight. 
-   Internally, MC only samples the absolute value of the weight. Therefore, it is also important to define Main.abs for the weight if its type is user-defined. 
-- `config`: [`Configuration`](@ref) object to perform the MC integration. If `nothing`, it attempts to create a new one with Configuration(; kwargs...).
-- `measure`: function call to measure. It should accept an argument the type [`Configuration`](@ref). Then you can accumulate the measurements with Configuration.obs. 
-   If every integral is expected to be a float number, you can use MCIntegration.simple_measure as the default.
-- `neval`: number of evaluations of the integrand per iteration. 
-- `niter`: number of iterations. The reweight factor and the variables will be self-adapted after each iteration. 
-- `block`: Number of blocks. Each block will be evaluated by about neval/block times. Each block is assumed to be statistically independent, and will be used to estimate the error. 
-   In MPI mode, the blocks are distributed among the workers. If the numebr of workers N is larger than block, then block will be set to be N.
-- `alpha`: Learning rate of the reweight factor after each iteraction. Note that alpha <=1, where alpha = 0 means no reweighting.  
-- `print`: -1 to not print anything, 0 to print minimal information, >0 to print summary for every `print` seconds
-- `printio`: `io` to print the information
-- `kwargs`: keyword arguments. If `config` is `nothing`, you may need to provide arguments for the `Configuration` constructor, check [`Configuration`](@ref) docs for more details.
+- `integrand`:Function call to evaluate the integrand. It should accept an argument of the type [`Configuration`](@ref), and return a weight. 
+              Internally, MC only samples the absolute value of the weight. Therefore, it is also important to define Main.abs for the weight if its type is user-defined. 
+- `config`:   [`Configuration`](@ref) object to perform the MC integration. If `nothing`, it attempts to create a new one with Configuration(; kwargs...).
+- `measure`:  Function call to measure. It should accept an argument the type [`Configuration`](@ref). Then you can accumulate the measurements with Configuration.obs. 
+              If every integral is expected to be a float number, you can use MCIntegration.simple_measure as the default.
+- `neval`:    Number of evaluations of the integrand per iteration. 
+- `niter`:    Number of iterations. The reweight factor and the variables will be self-adapted after each iteration. 
+- `block`:    Number of blocks. Each block will be evaluated by about neval/block times. Each block is assumed to be statistically independent, and will be used to estimate the error. 
+              In MPI mode, the blocks are distributed among the workers. If the numebr of workers N is larger than block, then block will be set to be N.
+- `alpha`:    Learning rate of the reweight factor after each iteraction. Note that alpha <=1, where alpha = 0 means no reweighting.  
+- `print`:    -1 to not print anything, 0 to print minimal information, >0 to print summary for every `print` seconds
+- `printio`:  `io` to print the information
+- `userdata`: User data you want to pass to the integrand and the measurement
+- `kwargs`:   Keyword arguments. If `config` is `nothing`, you may need to provide arguments for the `Configuration` constructor, check [`Configuration`](@ref) docs for more details.
 
 # Examples
 ```julia-repl
@@ -48,13 +49,14 @@ function integrate(integrand::Function;
     print=0, printio=stdout, save=0, saveio=nothing, timer=[],
     alpha=1.0, # learning rate of the reweight factor, only used in MCMC solver
     adapt=true, # whether to adapt the grid and the reweight factor
+    userdata=nothing, # user data
     kwargs...
 )
     if isnothing(config)
         config = Configuration(; kwargs...)
     end
-    weights = integrand(config)
-    @assert length(weights) == length(config.dof) - 1 "There should be $(length(config.dof)-1) integrands, got $(length(weights))"
+    # weights = integrand(config, _integrand)
+    # @assert length(weights) == length(config.dof) - 1 "There should be $(length(config.dof)-1) integrands, got $(length(weights))"
 
     if alpha > 1.0
         @warn(red("learning rate alpha should be less than 1.0"))
@@ -108,9 +110,9 @@ function integrate(integrand::Function;
             clearStatistics!(config) # reset statistics
 
             if solver == :vegasmc || solver == :Vegasmc || solver == :VEGASMC
-                config = VegasMC.montecarlo(config, integrand, nevalperblock, print, save, timer; kwargs...)
+                config = VegasMC.montecarlo(config, integrand, nevalperblock, userdata, print, save, timer; kwargs...)
             elseif solver == :VEGAS || solver == :vegas || solver == :Vegas
-                config = Vegas.montecarlo(config, integrand, nevalperblock, print, save, timer; kwargs...)
+                config = Vegas.montecarlo(config, integrand, nevalperblock, userdata, print, save, timer; kwargs...)
             else
                 error("Solver $solver is not supported!")
             end
@@ -172,7 +174,9 @@ function integrate(integrand::Function;
             config.var[vi].histogram = MPI.bcast(summedConfig.var[vi].histogram, root, comm)
             if adapt
                 Dist.train!(config.var[vi])
-                initialize!(config, integrand)
+                for var in config.var
+                    Dist.initialize!(var, config)
+                end
             end
         end
         ################################################################################

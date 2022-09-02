@@ -22,6 +22,10 @@ export Result
 include("configuration.jl")
 export Configuration
 
+include("main.jl")
+export integrate
+export report
+
 include("vegas_mc/VegasMC.jl")
 using .VegasMC
 export VegasMC
@@ -29,9 +33,5 @@ export VegasMC
 include("vegas/Vegas.jl")
 using .Vegas
 export Vegas
-
-include("main.jl")
-export integrate
-export report
 
 end

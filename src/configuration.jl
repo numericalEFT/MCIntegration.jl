@@ -33,11 +33,10 @@
     Their shapes are (number of updates X integrand number X max(integrand number, variable number).
     The last index will waste some memory, but the dimension is small anyway.
 """
-mutable struct Configuration{V,P,O,T}
+mutable struct Configuration{V,O,T}
     ########### static parameters ###################
     seed::Int # seed to initialize random numebr generator, also serves as the unique pid of the configuration
     rng::MersenneTwister # random number generator seeded by seed
-    para::P
     var::V
 
     ########### integrand properties ##############
@@ -97,7 +96,6 @@ function Configuration(;
     dof::AbstractVector=[ones(Int, length(var)),],
     type=Float64,  # type of the integrand
     obs::AbstractVector=zeros(type, length(dof)),
-    para=nothing,
     reweight::Vector{Float64}=ones(length(dof) + 1),
     reweight_goal::Union{Vector{Float64},Nothing}=nothing,
     seed::Int=rand(Random.RandomDevice(), 1:1000000),
@@ -179,7 +177,7 @@ function Configuration(;
     propose = zeros(Float64, (2, Nd, max(Nd, Nv))) .+ 1.0e-8 # add a small initial value to avoid Inf when inverted
     accept = zeros(Float64, (2, Nd, max(Nd, Nv)))
 
-    return Configuration{V,typeof(para),typeof(obs),type}(seed, MersenneTwister(seed), para, var,  # static parameters
+    return Configuration{V,typeof(obs),type}(seed, MersenneTwister(seed), var,  # static parameters
         collect(neighbor), collect(dof), _maxdof(dof), obs, collect(reweight), collect(reweight_goal),
         visited, # integrand properties
         0, curr, norm, normalization, relativeWeight, relativeWeights, weights, absweight, 1.0, propose, accept  # current MC state

@@ -19,7 +19,7 @@ However, the biggest problem is that the algorithm can fail if the integrand
 exactly vanishes in some regime (e.g. circle area x^2+y^2<0).
 """
 
-function montecarlo(config::Configuration, integrand::Function, neval, print, save, timer; measurefreq=2, measure::Function=simple_measure, kwargs...)
+function montecarlo(config::Configuration, integrand::Function, neval, userdata, print, save, timer; measurefreq=2, measure::Function=simple_measure, kwargs...)
     ##############  initialization  ################################
     # don't forget to initialize the diagram weight
     for i in 1:10000
@@ -81,15 +81,20 @@ function montecarlo(config::Configuration, integrand::Function, neval, print, sa
             # end
             ##############################################################################
 
-            measure(config)
-            # config.normalization += 1.0 / config.probability
-            # prop = Dist.probability(config, config.curr)
-            prob = Dist.delta_probability(config, config.curr; new=config.norm)
-            # prob2 = Dist.probability(config, config.curr)
-            # @assert abs(prob - prob2) < 1e-10 "probability is not correct $prob vs $prob2"
-            config.normalization += prob / config.probability
-            # config.normalization += 1.0 / config.probability
-            # push!(kwargs[:mem], (config.var[1][1], prop, config.absWeight))
+            if (i % measurefreq == 0)
+
+                for i in eachindex(integrands)
+                    prob = Dist.delta_probability(config, config.curr; new=i)
+                    config.relativeWeights[i] = config.weights[i] * prob / config.probability
+                end
+                if isnothing(userdata)
+                    measure(config.observable, config.relativeWeights)
+                else
+                    measure(config.observable, config.relativeWeights, prob; userdata=userdata)
+                end
+                prob = Dist.delta_probability(config, config.curr; new=config.norm)
+                config.normalization += prob / config.probability
+            end
         end
         if i % 1000 == 0
             for t in timer
@@ -101,14 +106,20 @@ function montecarlo(config::Configuration, integrand::Function, neval, print, sa
     return config
 end
 
-function simple_measure(config)
-    for i in eachindex(config.dof)
-        if i == config.norm
-            continue
-        end
-        prob = Dist.delta_probability(config, config.curr; new=i)
-        config.observable[i] += config.weights[i] / config.probability * prob
+@inline function integrand_wrap(config, _integrand; userdata)
+    if !isnothing(userdata)
+        return _integrand(config.var...; userdata=userdata)
+    else
+        return _integrand(config.var...)
+    end
+end
+
+function simple_measure(config, integrands, factor)
+    for i in eachindex(integrands)
+        # prob = Dist.delta_probability(config, config.curr; new=i)
+        # config.observable[i] += config.weights[i] / config.probability * prob
         # config.observable[i] += config.weights[i] / config.probability
+        config.observable[i] += integrands[i] * factor
     end
 
     # if (config.observable isa AbstractVector) && (eltype(config.observable) <: Number)

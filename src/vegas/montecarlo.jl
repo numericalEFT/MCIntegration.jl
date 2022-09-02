@@ -1,29 +1,28 @@
-function montecarlo(config::Configuration, integrand::Function,
-    neval, print, save, timer;
-    measure::Function=simple_measure, measurefreq=1, kwargs...)
+function montecarlo(config::Configuration, integrand::Function, neval, userdata=nothing,
+    print=0, save=0, timer=[];
+    measure::Union{Nothing,Function}=nothing, measurefreq=1, kwargs...)
+
     ##############  initialization  ################################
     # don't forget to initialize the diagram weight
-
-    # initialize variables
-    # for var in config.var
-    #     Dist.initialize!(var, config)
-    # end
     # Vegas doesn't need initialization
-    for i in 1:10000
-        for var in config.var
-            Dist.initialize!(var, config)
-        end
-
-        weights = integrand(config)
-        config.probability = abs(weights[config.curr]) / Dist.probability(config, config.curr) * config.reweight[config.curr]
-        for i in eachindex(config.weights)
-            config.weights[i] = weights[i]
-        end
-        if abs(weights[config.curr]) > TINY
-            break
-        end
+    for var in config.var
+        Dist.initialize!(var, config)
     end
-    @assert abs(config.weights[config.curr]) > TINY "Cannot find the variables that makes the $(config.curr) integrand >1e-10"
+    # for i in 1:10000
+    #     for var in config.var
+    #         Dist.initialize!(var, config)
+    #     end
+
+    #     weights = integrand_wrap(config, integrand; userdata=userdata)
+    #     config.probability = abs(weights[config.curr]) / Dist.probability(config, config.curr) * config.reweight[config.curr]
+    #     for i in eachindex(config.weights)
+    #         config.weights[i] = weights[i]
+    #     end
+    #     if abs(weights[config.curr]) > TINY
+    #         break
+    #     end
+    # end
+    # @assert abs(config.weights[config.curr]) > TINY "Cannot find the variables that makes the $(config.curr) integrand >1e-10"
 
     ########### MC simulation ##################################
     startTime = time()
@@ -40,11 +39,26 @@ function montecarlo(config::Configuration, integrand::Function,
                 jac *= Dist.create!(var, idx + var.offset, config)
             end
         end
-        weights = integrand(config)
-        if i % measurefreq == 0
-            measure(config, weights, jac)
-            config.normalization += 1.0 #should be 1!
+        weights = integrand_wrap(config, integrand; userdata=userdata)
+
+
+        if (i % measurefreq == 0)
+            if isnothing(measure)
+                for i in eachindex(weights)
+                    config.observable[i] += weights[i] * jac
+                end
+            else
+                for i in eachindex(weights)
+                    config.relativeWeights[i] = weights[i] * jac
+                end
+                if isnothing(userdata)
+                    measure(config.observable, config.relativeWeights)
+                else
+                    measure(config.observable, config.relativeWeights; userdata=userdata)
+                end
+            end
             # push!(mem, weight * prop)
+            config.normalization += 1.0 #should be 1!
         end
 
         ######## accumulate variable #################
@@ -64,8 +78,10 @@ function montecarlo(config::Configuration, integrand::Function,
     return config
 end
 
-@inline function simple_measure(config, integrands, jac)
-    for i in eachindex(integrands)
-        config.observable[i] += integrands[i] * jac
+@inline function integrand_wrap(config, _integrand; userdata)
+    if !isnothing(userdata)
+        return _integrand(config.var...; userdata=userdata)
+    else
+        return _integrand(config.var...)
     end
 end
