@@ -26,9 +26,9 @@ include("mcmc/MCMC.jl")
 using .MCMC
 export MCMC
 
-include("mc/MC.jl")
-using .MC
-export MC
+include("vegas/Vegas.jl")
+using .Vegas
+export Vegas
 
 include("main.jl")
 export integrate

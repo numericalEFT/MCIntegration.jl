@@ -1,4 +1,6 @@
-function montecarlo(config::Configuration, integrand::Function, neval, print, save, timer; kwargs...)
+function montecarlo(config::Configuration, integrand::Function,
+    neval, print, save, timer;
+    measure::Function=simple_measure, measurefreq=1, kwargs...)
     ##############  initialization  ################################
     # don't forget to initialize the diagram weight
 
@@ -25,35 +27,45 @@ function montecarlo(config::Configuration, integrand::Function, neval, print, sa
     for i = 1:neval
         config.neval += 1
 
-        curr = 1 # only calculate the first the integral
-        currdof = config.dof[curr]
+        maxdof = config.maxdof
         prop = 1.0
-        for vi in eachindex(currdof)
-            (currdof[vi] <= 0) && continue # return if the var has zero degree of freedom
+        for vi in eachindex(maxdof)
+            (maxdof[vi] <= 0) && continue # return if the var has zero degree of freedom
             var = config.var[vi]
-            for idx in 1:currdof[vi]
+            for idx in 1:maxdof[vi]
                 prop *= Dist.create!(var, idx + var.offset, config)
             end
         end
         weights = integrand(config)
-
         for i in eachindex(config.weights)
-            config.observable[i] += weights[i] * prop
+            config.relativeWeight[i] = weights[i] * prop
         end
-        config.normalization += 1.0 #should be 1!
-        # push!(mem, weight * prop)
+
+        if i % measurefreq == 0
+            measure(config)
+            config.normalization += 1.0 #should be 1!
+            # push!(mem, weight * prop)
+        end
 
         ######## accumulate variable #################
         for (vi, var) in enumerate(config.var)
             offset = var.offset
-            for pos = 1:config.dof[curr][vi]
-                Dist.accumulate!(var, pos + offset, (abs(weights[config.curr])^2 * prop^2))
-                # Dist.accumulate!(var, pos + offset, (abs(weight) * prop))
-                # Dist.accumulate!(var, pos + offset, 1.0)
+            for idx in eachindex(weights)
+                for pos = 1:config.dof[idx][vi]
+                    Dist.accumulate!(var, pos + offset, (abs(weights[idx])^2 * prop^2))
+                    # Dist.accumulate!(var, pos + offset, (abs(weight) * prop))
+                    # Dist.accumulate!(var, pos + offset, 1.0)
+                end
             end
         end
         ###############################################
     end
 
     return config
+end
+
+function simple_measure(config)
+    for i in eachindex(config.weights)
+        config.observable[i] += config.relativeWeight[i]
+    end
 end

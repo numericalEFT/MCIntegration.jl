@@ -166,7 +166,7 @@ mutable struct Discrete <: Variable
         prop = similar(d)
         @assert upper >= lower
         histogram = ones(upper - lower + 1)
-        newVar = new(d, prop, lower, upper, upper - lower + 1, offset, histogram, [], [], alpha, adapt)
+        newVar = new(d, lower, upper, prop, upper - lower + 1, offset, histogram, [], [], alpha, adapt)
         train!(newVar)
         return newVar
     end
@@ -180,10 +180,10 @@ function Base.show(io::IO, var::Discrete)
     )
 end
 
-function accumulate!(T::Discrete, idx::Int)
+function accumulate!(T::Discrete, idx::Int, weight=1.0)
     if T.adapt
         gidx = T[idx] - T.lower + 1
-        T.histogram[gidx] += 1
+        T.histogram[gidx] += weight
     end
 end
 function train!(T::Discrete)

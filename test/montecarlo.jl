@@ -43,7 +43,7 @@ function Sphere2(totalstep; offset=0)
     return integrate(integrand, measure=measure, config=config, neval=totalstep, block=64, print=-1)
 end
 
-function TestDiscrete(totalstep)
+function TestDiscrete(totalstep, alg)
     function integrand(config)
         x = config.var[1][1]
         return x
@@ -53,7 +53,7 @@ function TestDiscrete(totalstep)
     dof = [[1,],] # number of X variable of the integrand
     config = Configuration(var=(X,), dof=dof)
     @inferred integrand(config) #make sure the type is inferred for the integrand function
-    return integrate(integrand; config=config, neval=totalstep, niter=10, block=64, print=-1)
+    return integrate(integrand; config=config, neval=totalstep, niter=10, block=64, print=-1, solver=alg)
 end
 
 function TestSingular1(totalstep, alg)
@@ -85,27 +85,28 @@ function TestComplex2(totalstep, alg)
     end
 end
 
-@testset "MonteCarlo Sampler" begin
+@testset "Vegas Sampler" begin
     neval = 1000_00
 
     println("Sphere1")
-    check(Sphere1(neval, :MC), π / 4.0)
+    check(Sphere1(neval, :vegas), π / 4.0)
     # check(Sphere2(neval), π / 4.0)
     println("Sphere2")
     # check(Sphere3(neval), [π / 4.0, 4.0 * π / 3.0 / 8])
-    # check(TestDiscrete(neval), 6.0)
+    println("Discrete")
+    check(TestDiscrete(neval, :vegas), 6.0)
     println("Singular1")
-    res = TestSingular1(neval, :MC)
+    res = TestSingular1(neval, :vegas)
     check(res, -4.0)
     @test res.stdev[1] < 0.0004 #make there is no regression, vegas typically gives accuracy ~0.0002 with 1e5x10 evaluations
     println("Singular2")
-    check(TestSingular2(neval, :MC), 1.3932)
+    check(TestSingular2(neval, :vegas), 1.3932)
 
     neval = 1000_00
     println("Complex1")
-    check_complex(TestComplex1(neval, :MC), 0.5 + 1.0 / 3 * 1im)
+    check_complex(TestComplex1(neval, :vegas), 0.5 + 1.0 / 3 * 1im)
     println("Complex2")
-    check_complex(TestComplex2(neval, :MC), [0.5, 1.0 / 3 * 1im])
+    check_complex(TestComplex2(neval, :vegas), [0.5, 1.0 / 3 * 1im])
 
 end
 
@@ -117,7 +118,8 @@ end
     # check(Sphere2(neval), π / 4.0)
     # println("Sphere2")
     # check(Sphere3(neval), [π / 4.0, 4.0 * π / 3.0 / 8])
-    # check(TestDiscrete(neval), 6.0)
+    println("Discrete")
+    check(TestDiscrete(neval, :MCMC), 6.0)
     println("Singular1")
     res = TestSingular1(neval, :MCMC)
     check(res, -4.0)

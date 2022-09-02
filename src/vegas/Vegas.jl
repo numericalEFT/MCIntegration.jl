@@ -1,4 +1,4 @@
-module MC
+module Vegas
 
 import ..Result
 import ..report
@@ -13,6 +13,6 @@ import ..Variable
 
 using ..MCUtility
 
-include("vegas.jl")
+include("montecarlo.jl")
 
 end
