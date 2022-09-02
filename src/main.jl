@@ -41,7 +41,7 @@ Integral 1 = 0.6830078240204353 ± 0.014960689298028415   (chi2/dof = 1.46)
 ```
 """
 function integrate(integrand::Function;
-    solver::Symbol=:MCMC, # :MCMC or :MC
+    solver::Symbol=:mcmc, # :mcmc, :vegas, or :vegasmc
     config::Union{Configuration,Nothing}=nothing,
     neval=1e4, # number of evaluations
     niter=10, # number of iterations
@@ -109,10 +109,12 @@ function integrate(integrand::Function;
             # reset!(config, config.reweight) # reset configuration, keep the previous reweight factors
             clearStatistics!(config) # reset statistics
 
-            if solver == :vegasmc || solver == :Vegasmc || solver == :VEGASMC
+            if solver == :vegasmc
                 config = VegasMC.montecarlo(config, integrand, nevalperblock, userdata, print, save, timer; kwargs...)
-            elseif solver == :VEGAS || solver == :vegas || solver == :Vegas
+            elseif solver == :vegas
                 config = Vegas.montecarlo(config, integrand, nevalperblock, userdata, print, save, timer; kwargs...)
+            elseif solver == :mcmc
+                config = MCMC.montecarlo(config, integrand, nevalperblock, userdata, print, save, timer; kwargs...)
             else
                 error("Solver $solver is not supported!")
             end
@@ -161,7 +163,7 @@ function integrate(integrand::Function;
             push!(results, (mean, std, summedConfig))
 
             ################### self-learning ##########################################
-            (solver == :MCMC) && MCMC.doReweight!(summedConfig, alpha)
+            (solver == :mcmc || solver == :vegamc) && MCMC.doReweight!(summedConfig, alpha)
         end
 
         ######################## syncronize between works ##############################

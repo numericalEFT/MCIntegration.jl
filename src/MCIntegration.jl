@@ -34,4 +34,9 @@ include("vegas/Vegas.jl")
 using .Vegas
 export Vegas
 
+include("MCMC/MCMC.jl")
+using .MCMC
+export MCMC
+
+
 end

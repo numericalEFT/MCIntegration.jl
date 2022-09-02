@@ -3,7 +3,7 @@ Demostrate do syntax for Monte Carlo simulation.
 """
 function Sphere1(neval, alg)
     X = Continuous(0.0, 1.0)
-    integrate(var=(X,), dof=[[2,],], neval=neval, block=64, print=-1, solver=alg) do X
+    integrate(var=(X,), dof=[[2,],], neval=neval, print=-1, solver=alg) do X
         if (X[1]^2 + X[2]^2 < 1.0)
             return 1.0
         else
@@ -13,33 +13,24 @@ function Sphere1(neval, alg)
 end
 
 function Sphere2(totalstep; offset=0)
-    function integrand(config)
-        @assert config.curr == 1 || config.curr == 2 "$(config.curr) is not a valid integrand"
-        X = config.var[1]
-        if config.curr == 1
-            if (X[1+offset]^2 + X[2+offset]^2 < 1.0)
-                return 1.0
-            else
-                return 0.0
-            end
+    function integrand(X; idx)
+        @assert idx == 1 || idx == 2 "$(idx) is not a valid integrand"
+        if idx == 1
+            return (X[1+offset]^2 + X[2+offset]^2 < 1.0) ? 1.0 : 0.0
         else
-            if (X[1+offset]^2 + X[2+offset]^2 + X[3+offset]^2 < 1.0)
-                return 1.0
-            else
-                return 0.0
-            end
+            return (X[1+offset]^2 + X[2+offset]^2 + X[3+offset]^2 < 1.0) ? 1.0 : 0.0
         end
     end
 
-    function measure(config)
-        config.observable[config.curr] += config.relativeWeight
+    function measure(obs, relativeWeight; idx)
+        obs[idx] += relativeWeight
     end
 
     T = Continuous(0.0, 1.0; offset=offset)
     dof = [[2,], [3,]] # number of T variable for the normalization and the integrand
     config = Configuration(var=(T,), dof=dof, obs=[0.0, 0.0]; neighbor=[(1, 3), (1, 2)])
-    @inferred integrand(config) #make sure the type is inferred for the integrand function
-    return integrate(integrand, measure=measure, config=config, neval=totalstep, block=64, print=-1)
+    # @inferred integrand(config) #make sure the type is inferred for the integrand function
+    return integrate(integrand, measure=measure, config=config, neval=totalstep, print=-1, solver=:mcmc)
 end
 
 function Sphere3(totalstep, alg; offset=0)
@@ -58,14 +49,14 @@ function Sphere3(totalstep, alg; offset=0)
     dof = [[2,], [3,]] # number of T variable for the normalization and the integrand
     config = Configuration(var=(T,), dof=dof, obs=[0.0, 0.0]; neighbor=[(1, 3), (1, 2)])
     # @inferred integrand(config) #make sure the type is inferred for the integrand function
-    return integrate(integrand, measure=measure, config=config, neval=totalstep, block=64, print=-1, solver=alg)
+    return integrate(integrand, measure=measure, config=config, neval=totalstep, print=-1, solver=alg)
 end
 
 function TestDiscrete(totalstep, alg)
     X = Discrete(1, 3, adapt=true)
     dof = [[1,],] # number of X variable of the integrand
     config = Configuration(var=(X,), dof=dof)
-    return integrate(X -> X[1]; config=config, neval=totalstep, niter=10, block=64, print=-1, solver=alg)
+    return integrate(X -> X[1]; config=config, neval=totalstep, niter=10, print=-1, solver=alg)
 end
 
 function TestSingular1(totalstep, alg)
@@ -94,8 +85,42 @@ function TestComplex2(totalstep, alg)
     end
 end
 
-@testset "Vegas Sampler" begin
+function TestComplex2_MCMC(totalstep)
+    function integrand(x; idx)
+        #return a tuple (real, complex) 
+        #the code should handle real -> complex conversion
+        return idx == 1 ? x[1] : (x[1]^2 * 1im)
+    end
+    return integrate(integrand; dof=[[1,], [1,]], neval=totalstep, print=-1, type=ComplexF64, solver=:mcmc)
+end
+
+@testset "MCMC Sampler" begin
     neval = 1000_00
+
+    println("Sphere 2D")
+    check(Sphere1(neval, :mcmc), π / 4.0)
+    println("Sphere 2D + 3D")
+    check(Sphere2(neval), [π / 4.0, 4.0 * π / 3.0 / 8])
+    println("Discrete")
+    check(TestDiscrete(neval, :mcmc), 6.0)
+    println("Singular1")
+    res = TestSingular1(neval, :mcmc)
+    println(res)
+    # check(res, -4.0)
+    # @test res.stdev[1] < 0.0004 #make there is no regression, vegas typically gives accuracy ~0.0002 with 1e5x10 evaluations
+    println("Singular2")
+    check(TestSingular2(neval, :mcmc), 1.3932)
+
+    neval = 1000_00
+    println("Complex1")
+    check_complex(TestComplex1(neval, :mcmc), 0.5 + 1.0 / 3 * 1im)
+    println("Complex2")
+    check_complex(TestComplex2_MCMC(neval), [0.5, 1.0 / 3 * 1im])
+
+end
+
+@testset "Vegas Sampler" begin
+    neval = 2000_00
 
     println("Sphere 2D")
     check(Sphere1(neval, :vegas), π / 4.0)
@@ -106,12 +131,13 @@ end
     check(TestDiscrete(neval, :vegas), 6.0)
     println("Singular1")
     res = TestSingular1(neval, :vegas)
+    println(res)
     check(res, -4.0)
     @test res.stdev[1] < 0.0004 #make there is no regression, vegas typically gives accuracy ~0.0002 with 1e5x10 evaluations
     println("Singular2")
     check(TestSingular2(neval, :vegas), 1.3932)
 
-    neval = 1000_00
+    neval = 2000_00
     println("Complex1")
     check_complex(TestComplex1(neval, :vegas), 0.5 + 1.0 / 3 * 1im)
     println("Complex2")
