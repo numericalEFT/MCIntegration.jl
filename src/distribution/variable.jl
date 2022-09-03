@@ -6,6 +6,7 @@ mutable struct FermiK{D} <: Variable
     δk::Float64
     maxK::Float64
     offset::Int
+    prob::Vector{Float64}
     histogram::Vector{Float64}
     function FermiK(dim, kF, δk, maxK, size=MaxOrder; offset=0)
         @assert offset + 1 < size
@@ -13,7 +14,8 @@ mutable struct FermiK{D} <: Variable
         # k0 = MVector{dim,Float64}([kF for i = 1:dim])
         # k0 = @SVector [kF for i = 1:dim]
         # k = [k0 for i = 1:size]
-        return new{dim}(k, kF, δk, maxK, offset, [0.0,])
+        prob = ones(size)
+        return new{dim}(k, kF, δk, maxK, offset, prob, [0.0,])
     end
 end
 

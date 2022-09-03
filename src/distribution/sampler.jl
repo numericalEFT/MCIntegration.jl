@@ -123,14 +123,18 @@ function create!(K::FermiK{D}, idx::Int, config) where {D}
         K.data[1, idx] = Kamp * cos(ϕ) * sin(θ)
         K.data[2, idx] = Kamp * sin(ϕ) * sin(θ)
         K.data[3, idx] = Kamp * cos(θ)
-        return 2 * K.δk * 2π * π * (sin(θ) * Kamp^2)
+        prop = 2 * K.δk * 2π * π * (sin(θ) * Kamp^2)
+        K.prob[idx] = 1.0 / prop
+        return prop
         # prop density of KAmp in [Kf-dK, Kf+dK), prop density of Phi
         # prop density of Theta, Jacobian
     else  # DIM==2
         # K[idx] = @SVector [Kamp * cos(ϕ), Kamp * sin(ϕ)]
         K.data[1, idx] = Kamp * cos(ϕ)
         K.data[2, idx] = Kamp * sin(ϕ)
-        return 2 * K.δk * 2π * Kamp
+        prop = 2 * K.δk * 2π * Kamp
+        K.prob[idx] = 1.0 / prop
+        return prop
         # prop density of KAmp in [Kf-dK, Kf+dK), prop density of Phi, Jacobian
     end
 end
@@ -165,9 +169,13 @@ function remove!(K::FermiK{D}, idx::Int, config) where {D}
     if D == 3 # dimension 3
         sinθ = sqrt(oldK[1]^2 + oldK[2]^2) / Kamp
         sinθ < 1.0e-15 && return 0.0
-        return 1.0 / (2 * K.δk * 2π * π * sinθ * Kamp^2)
+        prop = 1.0 / (2 * K.δk * 2π * π * sinθ * Kamp^2)
+        K.prob[idx] = 1.0 / prop
+        return prop
     else  # DIM==2
-        return 1.0 / (2 * K.δk * 2π * Kamp)
+        prop = 1.0 / (2 * K.δk * 2π * Kamp)
+        K.prob[idx] = 1.0 / prop
+        return prop
     end
 end
 
@@ -182,6 +190,7 @@ function shift!(K::FermiK{D}, idx::Int, config) where {D}
     @assert idx > K.offset
     (idx >= length(K.data) - 1) && error("$idx overflow!")
     K[end] = K[idx]  # save current K
+    K.prob[end] = K.prob[idx]
 
     rng = config.rng
     x = rand(rng)
@@ -189,7 +198,9 @@ function shift!(K::FermiK{D}, idx::Int, config) where {D}
         λ = 1.5
         ratio = 1.0 / λ + rand(rng) * (λ - 1.0 / λ)
         K[idx] *= ratio
-        return (D == 2) ? 1.0 : ratio
+        prop = (D == 2) ? 1.0 : ratio
+        K.prob /= prop
+        return prop
     elseif x < 2.0 / 3
         ϕ = rand(rng) * 2π
         if (D == 3)
@@ -228,10 +239,12 @@ end
 function shiftRollback!(K::FermiK{D}, idx::Int, config) where {D}
     (idx >= length(K.data) - 1) && error("$idx overflow!")
     K[idx] = K[end]
+    K.prob[idx] = K.prob[end]
 end
 
 @inline function swap!(K::FermiK{D}, idx1::Int, idx2::Int, config) where {D}
     ((idx1 >= length(K.data) - 1) || (idx2 >= length(K.data) - 1)) && error("$idx1 or $idx2 overflow!")
+    K.prob[idx1], K.prob[idx2] = K.prob[idx2], K.prob[idx1]
     if D == 2
         K.data[1, idx1], K.data[1, idx2] = K.data[1, idx2], K.data[1, idx1]
         K.data[2, idx1], K.data[2, idx2] = K.data[2, idx2], K.data[2, idx1]
@@ -247,6 +260,7 @@ end
 
 @inline function swapRollback!(K::FermiK{D}, idx1::Int, idx2::Int, config) where {D}
     ((idx1 >= length(K.data) - 1) || (idx2 >= length(K.data) - 1)) && error("$idx1 or $idx2 overflow!")
+    K.prob[idx1], K.prob[idx2] = K.prob[idx2], K.prob[idx1]
     if D == 2
         K.data[1, idx1], K.data[1, idx2] = K.data[1, idx2], K.data[1, idx1]
         K.data[2, idx1], K.data[2, idx2] = K.data[2, idx2], K.data[2, idx1]

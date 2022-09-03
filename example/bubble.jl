@@ -7,7 +7,7 @@ using Lehmann
 using MCIntegration
 # using ProfileView
 
-const Steps = 1e7
+const Steps = 1e6
 
 # include("parameter.jl")
 beta = 25.0
@@ -45,7 +45,7 @@ end
 function measure(obs, weight; userdata)
     # @assert idx == 1 "$(idx) is not a valid integrand"
     para, Ext = userdata
-    obs[Ext[1]] += weight
+    obs[Ext[1]] += weight[1]
 end
 
 function run(steps)
@@ -63,7 +63,7 @@ function run(steps)
 
     # config = MCIntegration.Configuration(var=(T, K, Ext), dof=dof, obs=obs, para=para)
     result = MCIntegration.integrate(integrand; measure=measure, userdata=(para, Ext),
-        var=(T, K, Ext), dof=dof, obs=obs, solver=:mcmc,
+        var=(T, K, Ext), dof=dof, obs=obs, solver=:vegas,
         neval=steps, print=0, block=16)
 
     if isnothing(result) == false
