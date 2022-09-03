@@ -3,13 +3,9 @@ Demostrate do syntax for Monte Carlo simulation.
 """
 function Sphere1(neval, alg)
     X = Continuous(0.0, 1.0)
-    integrate(var=(X,), dof=[[2,],], neval=neval, print=-1, solver=alg) do X, config
-        if (X[1]^2 + X[2]^2 < 1.0)
-            return 1.0
-        else
-            return 0.0
-        end
-    end
+    f(x, c) = (X[1]^2 + X[2]^2 < 1.0) ? 1.0 : 0.0
+    f(idx, x, c) = f(x, c)
+    return integrate(f; var=(X,), dof=[[2,],], neval=neval, print=-1, solver=alg)
 end
 
 function Sphere2(totalstep, alg; offset=0)
@@ -46,25 +42,35 @@ function TestDiscrete(totalstep, alg)
     X = Discrete(1, 3, adapt=true)
     dof = [[1,],] # number of X variable of the integrand
     config = Configuration(var=(X,), dof=dof)
-    return integrate((X, c) -> X[1]; config=config, neval=totalstep, niter=10, print=-1, solver=alg)
+    f(x, c) = x[1]
+    f(idx, x, c) = f(x, c)
+    return integrate(f; config=config, neval=totalstep, niter=10, print=-1, solver=alg)
 end
 
 function TestSingular1(totalstep, alg)
     #log(x)/sqrt(x), singular in x->0
-    return integrate((X, c) -> log(X[1]) / sqrt(X[1]); neval=totalstep, print=-1, solver=alg)
+    f(X, c) = log(X[1]) / sqrt(X[1])
+    f(idx, X, c) = f(X, c)
+    return integrate(f; neval=totalstep, print=-1, solver=alg)
 end
 
 function TestSingular2(totalstep, alg)
     #1/(1-cos(x)*cos(y)*cos(z))
-    return integrate(var=(Continuous(0.0, 1π),), dof=[[3,],], neval=totalstep, print=-1, solver=alg) do x, c
-        return 1.0 / (1.0 - cos(x[1]) * cos(x[2]) * cos(x[3])) / π^3
+    if alg == :mcmc
+        return integrate(var=(Continuous(0.0, 1π),), dof=[[3,],], neval=totalstep, print=-1, solver=alg) do idx, x, c
+            return 1.0 / (1.0 - cos(x[1]) * cos(x[2]) * cos(x[3])) / π^3
+        end
+    else
+        return integrate(var=(Continuous(0.0, 1π),), dof=[[3,],], neval=totalstep, print=-1, solver=alg) do x, c
+            return 1.0 / (1.0 - cos(x[1]) * cos(x[2]) * cos(x[3])) / π^3
+        end
     end
 end
 
 function TestComplex1(totalstep, alg)
-    return integrate(neval=totalstep, print=-1, type=ComplexF64, solver=alg) do x, c
-        return x[1] + x[1]^2 * 1im
-    end
+    f(x, c) = x[1] + x[1]^2 * 1im
+    f(idx, x, c) = f(x, c)
+    integrate(f; neval=totalstep, print=-1, type=ComplexF64, solver=alg)
 end
 
 function TestComplex2(totalstep, alg)

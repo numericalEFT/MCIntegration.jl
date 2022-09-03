@@ -58,11 +58,7 @@ function montecarlo(config::Configuration, integrand::Function, neval,
                 if isnothing(measure)
                     config.observable[curr] += relativeWeight
                 else
-                    if config.N == 1
-                        measure(config.observable, relativeWeight, config)
-                    else
-                        measure(config.curr, config.observable, relativeWeight, config)
-                    end
+                    measure(config.curr, config.observable, relativeWeight, config)
                 end
             end
         end
@@ -81,11 +77,7 @@ function montecarlo(config::Configuration, integrand::Function, neval,
 end
 
 @inline function integrand_wrap(new, config, _integrand)
-    if config.N == 1
-        return _integrand(config.var..., config)
-    else
-        return _integrand(new, config.var..., config)
-    end
+    return _integrand(new, config.var..., config)
 end
 
 function initialize!(config, integrand)
