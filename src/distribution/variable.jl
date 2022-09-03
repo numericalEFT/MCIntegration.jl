@@ -107,6 +107,9 @@ Vegas adaptive map
 """
 function train!(T::Continuous)
     # println("hist:", T.histogram[1:10])
+    if T.adapt == false
+        return
+    end
     distribution = smooth(T.histogram, 6.0)
     distribution = rescale(distribution, T.alpha)
     newgrid = similar(T.grid)
@@ -166,11 +169,24 @@ mutable struct Discrete <: Variable
         @assert offset + 1 < size
         size = size + 1 # need one more element as cache for the swap operation
         d = collect(Iterators.take(Iterators.cycle(lower:upper), size)) #avoid dulication
-        prob = similar(d)
+
         @assert upper >= lower
         histogram = ones(upper - lower + 1)
-        newVar = new(d, lower, upper, prob, upper - lower + 1, offset, histogram, [], [], alpha, adapt)
-        train!(newVar)
+        # newVar = new(d, lower, upper, prob, upper - lower + 1, offset, histogram, [], [], alpha, adapt)
+        # train!(newVar)
+        distribution = deepcopy(histogram) #very important, makesure histogram is not the same array as the distribution
+        distribution ./= sum(distribution)
+        accumulation = [sum(distribution[1:i]) for i in 1:length(distribution)]
+        accumulation = [0.0, accumulation...] # start with 0.0 and end with 1.0
+        @assert (accumulation[1] ≈ 0.0) && (accumulation[end] ≈ 1.0) "$(accumulation)"
+        prob = ones(length(d))
+        prob /= sum(prob)
+
+        newVar = new(d, lower, upper, prob, upper - lower + 1, offset, histogram,
+            accumulation, distribution, alpha, adapt)
+
+        @assert !(newVar.distribution === newVar.histogram) "histogram and distribution must be different array!"
+        clearStatistics!(newVar)
         return newVar
     end
 end
@@ -190,6 +206,9 @@ function accumulate!(T::Discrete, idx::Int, weight=1.0)
     end
 end
 function train!(T::Discrete)
+    # if T.adapt == false
+    #     return
+    # end
     distribution = deepcopy(T.histogram)
     distribution = rescale(distribution, T.alpha)
     distribution ./= sum(distribution)
@@ -197,6 +216,7 @@ function train!(T::Discrete)
     T.accumulation = [0.0, accumulation...] # start with 0.0 and end with 1.0
     T.distribution = distribution
     @assert (T.accumulation[1] ≈ 0.0) && (T.accumulation[end] ≈ 1.0) "$(T.accumulation)"
+    @assert !(T.distribution === T.histogram) "histogram and distribution must be different array!"
     clearStatistics!(T)
 end
 
