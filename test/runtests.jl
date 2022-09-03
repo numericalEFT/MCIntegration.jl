@@ -22,8 +22,12 @@ end
 
 # @testset "MCIntegration.jl" begin
 # Write your tests here.
-include("utility.jl")
-include("montecarlo.jl")
-include("thread.jl")
-include("bubble.jl")
+if isempty(ARGS)
+    include("utility.jl")
+    include("montecarlo.jl")
+    include("thread.jl")
+    include("bubble.jl")
+else
+    include(ARGS[1])
+end
 # end
