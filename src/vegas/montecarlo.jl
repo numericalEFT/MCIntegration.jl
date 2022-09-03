@@ -3,26 +3,11 @@ function montecarlo(config::Configuration, integrand::Function, neval, userdata=
     measure::Union{Nothing,Function}=nothing, measurefreq=1, kwargs...)
 
     ##############  initialization  ################################
-    # don't forget to initialize the diagram weight
-    # Vegas doesn't need initialization
+    # don't forget to initialize the variables 
     for var in config.var
         Dist.initialize!(var, config)
     end
-    # for i in 1:10000
-    #     for var in config.var
-    #         Dist.initialize!(var, config)
-    #     end
-
-    #     weights = integrand_wrap(config, integrand; userdata=userdata)
-    #     config.probability = abs(weights[config.curr]) / Dist.probability(config, config.curr) * config.reweight[config.curr]
-    #     for i in eachindex(config.weights)
-    #         config.weights[i] = weights[i]
-    #     end
-    #     if abs(weights[config.curr]) > TINY
-    #         break
-    #     end
-    # end
-    # @assert abs(config.weights[config.curr]) > TINY "Cannot find the variables that makes the $(config.curr) integrand >1e-10"
+    # Vegas doesn't need to initialize the weights
 
     ########### MC simulation ##################################
     startTime = time()
@@ -39,8 +24,7 @@ function montecarlo(config::Configuration, integrand::Function, neval, userdata=
                 jac *= Dist.create!(var, idx + var.offset, config)
             end
         end
-        weights = integrand_wrap(config, integrand; userdata=userdata)
-
+        weights = integrand_wrap(config, integrand, userdata)
 
         if (i % measurefreq == 0)
             if isnothing(measure)
@@ -78,7 +62,7 @@ function montecarlo(config::Configuration, integrand::Function, neval, userdata=
     return config
 end
 
-@inline function integrand_wrap(config, _integrand; userdata)
+@inline function integrand_wrap(config, _integrand, userdata)
     if !isnothing(userdata)
         return _integrand(config.var...; userdata=userdata)
     else

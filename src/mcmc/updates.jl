@@ -4,7 +4,7 @@ function changeIntegrand(config::Configuration{V,O,T}, integrand, userdata) wher
 
     curr = config.curr
     new = rand(config.rng, config.neighbor[curr]) # jump to a randomly picked neighboring integrand
-    # (new == curr) && return
+    (new == curr) && return
 
     currdof, newdof = config.dof[curr], config.dof[new]
 
