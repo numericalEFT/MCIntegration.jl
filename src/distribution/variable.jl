@@ -172,8 +172,6 @@ mutable struct Discrete <: Variable
 
         @assert upper >= lower
         histogram = ones(upper - lower + 1)
-        # newVar = new(d, lower, upper, prob, upper - lower + 1, offset, histogram, [], [], alpha, adapt)
-        # train!(newVar)
         distribution = deepcopy(histogram) #very important, makesure histogram is not the same array as the distribution
         distribution ./= sum(distribution)
         accumulation = [sum(distribution[1:i]) for i in 1:length(distribution)]
@@ -206,9 +204,9 @@ function accumulate!(T::Discrete, idx::Int, weight=1.0)
     end
 end
 function train!(T::Discrete)
-    # if T.adapt == false
-    #     return
-    # end
+    if T.adapt == false
+        return
+    end
     distribution = deepcopy(T.histogram)
     distribution = rescale(distribution, T.alpha)
     distribution ./= sum(distribution)
