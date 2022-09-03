@@ -4,19 +4,17 @@ using PythonCall
 Vegas = pyimport("vegas")
 np = pyimport("numpy")
 
-function f1(c)
-    X = c.var[1][1]
-    return X
+function f1(X)
+    return X[1]
 end
-function f2(c)
-    X = c.var[1][1]
-    return X^2
+function f2(X)
+    return X[1]^2
 end
 
 X1 = Continuous(0.0, 1.0, alpha=3.0, grid=collect(LinRange(0.0, 1.0, 1024)), adapt=true)
 res1 = integrate(f1;
     neval=1e5,
-    var=(X,), dof=[[1,],], niter=10, print=0, solver=:MC)
+    var=(X1,), dof=[[1,],], niter=10, print=0, solver=:vegas)
 
 grid1 = X1.grid
 println("first 10 grid: ", grid[1:10])
