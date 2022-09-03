@@ -41,7 +41,8 @@ end
 
 function tostring(mval, merr; pm="±")
     # println(mval, ", ", merr)
-    if isfinite(mval) && isfinite(merr)
+
+    if mval isa Real && merr isa Real && isfinite(mval) && isfinite(merr)
         return @sprintf("%16.8g %s %.8g", mval, pm, merr)
     else
         return "$mval $pm $merr"

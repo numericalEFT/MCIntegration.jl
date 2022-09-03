@@ -261,7 +261,7 @@ clearStatistics!(T::Variable) = fill!(T.histogram, 1.0e-10)
 addStatistics!(target::Variable, income::Variable) = (target.histogram .+= income.histogram)
 
 function initialize!(T::Variable, config)
-    for i = 1:length(T)-2
+    for i = 1+T.offset:length(T)-2
         create!(T, i, config)
     end
 end

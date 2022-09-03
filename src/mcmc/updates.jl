@@ -32,10 +32,11 @@ function changeIntegrand(config::Configuration{V,P,O,T}, integrand) where {V,P,O
         return
     end
 
-    # placeholder for the new weight. If the new integrand is norm, then we don't need to calculate this weight
-    # another choice is to use config.weights[curr] as the placeholder for the new weight
-    # then you need to remember to reset it to the current weight if the update is rejected
-    # Note that usually more than 90% of the updates are rejected, so it's better to keep track of the new weight instead
+    # config will be passed to user-defined integrand
+    # the first parameter of the integrand function will be set idx = new
+    # in case the user wants to explictly use config.curr instead of the idx parameter
+    # let's make config.curr the same as idx, a.k.a. new
+    config.curr = new
 
     # if new == config.norm, then newWeight will not be used, 
     # but still needs to be set to zero(T) so that newWeight is type stable
@@ -46,10 +47,6 @@ function changeIntegrand(config::Configuration{V,P,O,T}, integrand) where {V,P,O
                      config.reweight[new] :
                      abs(newWeight) * config.reweight[new]
 
-    # # config.curr = new
-    # # weight = (new == config.norm ? 1.0 : integrand_wrap(config, integrand, userdata))
-    # newAbsWeight = abs(weight)
-    # R = prop * newAbsWeight * config.reweight[new] / currAbsWeight / config.reweight[curr]
     R = prop * newProbability / currProbability
 
     config.propose[1, curr, new] += 1.0
@@ -58,13 +55,11 @@ function changeIntegrand(config::Configuration{V,P,O,T}, integrand) where {V,P,O
         if new != config.norm
             config.weights[new] = newWeight
         end
-        config.curr = new
         config.probability = newProbability
         # config.absWeight = newAbsWeight
         # setweight!(config, weight)
     else # reject the change
-        # config.curr = curr # reset the current diagram index
-        # config.absWeight = currAbsWeight
+        config.curr = curr # reset the current diagram index
 
         ############ Redo changes to config.var #############
         for vi = 1:length(config.var)
