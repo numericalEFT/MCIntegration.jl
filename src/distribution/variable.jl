@@ -59,7 +59,7 @@ end
 mutable struct Continuous{G} <: Variable
     data::Vector{Float64}
     gidx::Vector{Int}
-    prop::Vector{Float64} # probability of the given variable. For the vegas map, = dy/dx = 1/N/Δxᵢ = inverse of the Jacobian
+    prob::Vector{Float64} # probability of the given variable. For the vegas map, = dy/dx = 1/N/Δxᵢ = inverse of the Jacobian
     lower::Float64
     range::Float64
     offset::Int
@@ -74,13 +74,13 @@ mutable struct Continuous{G} <: Variable
         @assert upper > lower + 2 * eps(1.0)
         t = LinRange(lower + (upper - lower) / size, upper - (upper - lower) / size, size) #avoid duplication
         gidx = [locate(grid, t[i]) for i = 1:size]
-        prop = ones(size)
+        prob = ones(size)
 
         N = length(grid) - 1
         inc = [grid[i+1] - grid[i] for i in 1:N]
         histogram = ones(N) * 1e-10
 
-        var = new{G}(t, gidx, prop, lower, upper - lower, offset, grid, inc, histogram, alpha, adapt)
+        var = new{G}(t, gidx, prob, lower, upper - lower, offset, grid, inc, histogram, alpha, adapt)
         return var
     end
 end
@@ -149,7 +149,7 @@ mutable struct Discrete <: Variable
     data::Vector{Int}
     lower::Int
     upper::Int
-    prop::Vector{Float64}
+    prob::Vector{Float64}
     size::Int
     offset::Int
     histogram::Vector{Float64}
@@ -164,10 +164,10 @@ mutable struct Discrete <: Variable
         @assert offset + 1 < size
         size = size + 1 # need one more element as cache for the swap operation
         d = collect(Iterators.take(Iterators.cycle(lower:upper), size)) #avoid dulication
-        prop = similar(d)
+        prob = similar(d)
         @assert upper >= lower
         histogram = ones(upper - lower + 1)
-        newVar = new(d, lower, upper, prop, upper - lower + 1, offset, histogram, [], [], alpha, adapt)
+        newVar = new(d, lower, upper, prob, upper - lower + 1, offset, histogram, [], [], alpha, adapt)
         train!(newVar)
         return newVar
     end
@@ -247,18 +247,18 @@ function initialize!(T::Variable, config)
 end
 
 function probability(config, curr=config.curr)
-    prop = 1.0
+    prob = 1.0
     dof = config.dof[curr]
     for (vi, var) in enumerate(config.var)
         offset = var.offset
         for pos = 1:dof[vi]
-            prop *= var.prop[pos+offset]
+            prob *= var.prob[pos+offset]
         end
     end
-    if prop < TINY
-        @warn "probability is either too small or negative : $(prop)"
+    if prob < TINY
+        @warn "probability is either too small or negative : $(prob)"
     end
-    return prop
+    return prob
 end
 
 function delta_probability(config, curr=config.curr; new)
@@ -268,11 +268,11 @@ function delta_probability(config, curr=config.curr; new)
         offset = config.var[vi].offset
         if (currdof[vi] < newdof[vi]) # more degrees of freedom
             for pos = currdof[vi]+1:newdof[vi]
-                prob /= var.prop[pos+offset]
+                prob /= var.prob[pos+offset]
             end
         elseif (currdof[vi] > newdof[vi]) # less degrees of freedom
             for pos = newdof[vi]+1:currdof[vi]
-                prob *= var.prop[pos+offset]
+                prob *= var.prob[pos+offset]
             end
         end
     end

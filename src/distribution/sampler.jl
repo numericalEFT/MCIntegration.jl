@@ -16,7 +16,7 @@ Propose to generate new index (uniformly) randomly in [1, size]
     gidx = locate(d.accumulation, rand(config.rng))
     d[idx] = d.lower + gidx - 1
     # @assert d[idx] >= d.lower && d[idx] <= d.upper "$gidx"
-    d.prop[idx] = d.distribution[gidx]
+    d.prob[idx] = d.distribution[gidx]
     return 1.0 / d.distribution[gidx]
 end
 
@@ -57,20 +57,20 @@ Propose to shift the old index in [1, size] to a new index
     # d[idx] = rand(config.rng, d.lower:d.upper)
 
     d[end] = d[idx]
-    d.prop[end] = d.prop[idx]
+    d.prob[end] = d.prob[idx]
     currIdx = d[idx] - d.lower + 1
     gidx = locate(d.accumulation, rand(config.rng))
     d[idx] = d.lower + gidx - 1
     # @assert d[idx] >= d.lower && d[idx] <= d.upper "$gidx"
     ratio = d.distribution[gidx] / d.distribution[currIdx]
-    d.prop[idx] *= ratio
+    d.prob[idx] *= ratio
     return 1.0 / ratio
 end
 
 @inline function shiftRollback!(d::Discrete, idx::Int, config)
     (idx >= length(d.data) - 1) && error("$idx overflow!")
     d[idx] = d[end]
-    d.prop[idx] = d.prop[end]
+    d.prob[idx] = d.prob[end]
 end
 
 """
@@ -82,14 +82,14 @@ end
 @inline function swap!(d::Discrete, idx1::Int, idx2::Int, config)
     ((idx1 >= length(d.data) - 1) || (idx2 >= length(d.data) - 1)) && error("$idx overflow!")
     d[idx1], d[idx2] = d[idx2], d[idx1]
-    d.prop[idx1], d.prop[idx2] = d.prop[idx2], d.prop[idx1]
+    d.prob[idx1], d.prob[idx2] = d.prob[idx2], d.prob[idx1]
     return 1.0
 end
 
 @inline function swapRollback!(d::Discrete, idx1::Int, idx2::Int, config)
     ((idx1 >= length(d.data) - 1) || (idx2 >= length(d.data) - 1)) && error("$idx overflow!")
     d[idx1], d[idx2] = d[idx2], d[idx1]
-    d.prop[idx1], d.prop[idx2] = d.prop[idx2], d.prop[idx1]
+    d.prob[idx1], d.prob[idx2] = d.prob[idx2], d.prob[idx1]
 end
 
 
@@ -278,8 +278,8 @@ Propose to generate new (uniform) variable randomly in [T.lower, T.lower+T.range
     T[idx] = x
     T.gidx[idx] = iy
     # Jacobian dx/dy = (x[i+1]-x[i])*N, where dy=1/N
-    T.prop[idx] = 1.0 / (N * (T.grid[iy+1] - T.grid[iy]))
-    return 1.0 / T.prop[idx]
+    T.prob[idx] = 1.0 / (N * (T.grid[iy+1] - T.grid[iy]))
+    return 1.0 / T.prob[idx]
 end
 @inline createRollback!(T::Continuous, idx::Int, config) = nothing
 
@@ -313,7 +313,7 @@ Propose to shift an existing variable to a new one, both in [T.lower, T.lower+T.
     (idx >= length(T.data) - 1) && error("$idx overflow!")
     T[end] = T[idx]
     T.gidx[end] = T.gidx[idx]
-    T.prop[end] = T.prop[idx]
+    T.prob[end] = T.prob[idx]
     currIdx = T.gidx[idx]
 
     N = length(T.grid) - 1
@@ -338,23 +338,23 @@ Propose to shift an existing variable to a new one, both in [T.lower, T.lower+T.
     x = T.grid[iy] + dy * (T.grid[iy+1] - T.grid[iy])
     T[idx] = x
     T.gidx[idx] = iy
-    prop_ratio = (T.grid[currIdx+1] - T.grid[currIdx]) / (T.grid[iy+1] - T.grid[iy])
-    T.prop[idx] *= prop_ratio
-    return 1.0 / prop_ratio
+    prob_ratio = (T.grid[currIdx+1] - T.grid[currIdx]) / (T.grid[iy+1] - T.grid[iy])
+    T.prob[idx] *= prob_ratio
+    return 1.0 / prob_ratio
 end
 
 @inline function shiftRollback!(T::Continuous, idx::Int, config)
     (idx >= length(T.data) - 1) && error("$idx overflow!")
     T[idx] = T[end]
     T.gidx[idx] = T.gidx[end]
-    T.prop[idx] = T.prop[end]
+    T.prob[idx] = T.prob[end]
 end
 
 @inline function swap!(T::Continuous, idx1::Int, idx2::Int, config)
     ((idx1 >= length(T.data) - 1) || (idx2 >= length(T.data) - 1)) && error("$idx1 or $idx2 overflow!")
     T[idx1], T[idx2] = T[idx2], T[idx1]
     T.gidx[idx1], T.gidx[idx2] = T.gidx[idx2], T.gidx[idx1]
-    T.prop[idx1], T.prop[idx2] = T.prop[idx2], T.prop[idx1]
+    T.prob[idx1], T.prob[idx2] = T.prob[idx2], T.prob[idx1]
     return 1.0
 end
 
@@ -362,7 +362,7 @@ end
     ((idx1 >= length(T.data) - 1) || (idx2 >= length(T.data) - 1)) && error("$idx1 or $idx2 overflow!")
     T[idx1], T[idx2] = T[idx2], T[idx1]
     T.gidx[idx1], T.gidx[idx2] = T.gidx[idx2], T.gidx[idx1]
-    T.prop[idx1], T.prop[idx2] = T.prop[idx2], T.prop[idx1]
+    T.prob[idx1], T.prob[idx2] = T.prob[idx2], T.prob[idx1]
 end
 
 ############## version with histogram  #####################
