@@ -27,7 +27,7 @@ function Sphere2(totalstep; offset=0)
     end
 
     T = Continuous(0.0, 1.0; offset=offset)
-    dof = [[2,], [3,]] # number of T variable for the normalization and the integrand
+    dof = [2 3] # a 1x2 matrix, each row is the number of dof for each integrand
     config = Configuration(var=(T,), dof=dof, obs=[0.0, 0.0]; neighbor=[(1, 3), (1, 2)])
     # @inferred integrand(config) #make sure the type is inferred for the integrand function
     return integrate(integrand, measure=measure, config=config, neval=totalstep, print=-1, solver=:mcmc)

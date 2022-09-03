@@ -50,7 +50,7 @@ mutable struct Configuration{V,O,T}
     visited::Vector{Float64}
 
     ############# current state ######################
-    neval::Int64 # number of evaluations performed up to now
+    neval::Int # MC steps
     curr::Int # index of current integrand
     norm::Int # index of the normalization diagram
     normalization::Float64 # normalization factor for observables
@@ -60,6 +60,12 @@ mutable struct Configuration{V,O,T}
 
     propose::Array{Float64,3} # updates index, integrand index, integrand index
     accept::Array{Float64,3} # updates index, integrand index, integrand index 
+end
+
+function Base.show(io::IO, config::Configuration)
+    print(io,
+        "Configuration for $(config.N) integrands involves $(length(config.var)) types of variables.\nNumber of variables for each integrand: $(config.dof[1:end-1]).\n"
+    )
 end
 
 """
@@ -91,39 +97,91 @@ By default, it will be set to 0.0 if there is only one integrand (e.g., length(d
     Only highly correlated integrands are not highly correlated should be defined as neighbors. Otherwise, most of the updates between the neighboring integrands will be rejected and wasted.
 """
 function Configuration(;
-    var::V=(Continuous(0.0, 1.0),),
-    dof::AbstractVector=[ones(Int, length(var)),],
+    var::Union{Variable,AbstractVector,Tuple}=(Continuous(0.0, 1.0),),
+    dof::Union{Int,AbstractVector,AbstractMatrix}=[ones(Int, length(var)),],
     type=Float64,  # type of the integrand
     obs::AbstractVector=zeros(type, length(dof)),
     reweight::Vector{Float64}=ones(length(dof) + 1),
     reweight_goal::Union{Vector{Float64},Nothing}=nothing,
     seed::Int=rand(Random.RandomDevice(), 1:1000000),
     neighbor::Union{Vector{Vector{Int}},Vector{Tuple{Int,Int}},Nothing}=nothing,
-    curr::Int=1, # index of the current integrand
+    idx::Int=1, # index of the current integrand
     kwargs...
-) where {V}
-    @assert V <: Tuple{Vararg{Variable}} || V <: Tuple{Variable} "Configuration.var must be a tuple of Variable to maximize efficiency. Now get $(typeof(V))"
+)
+    if var isa Variable
+        var = (var,)
+    elseif var isa AbstractVector
+        var = (v for v in var)
+    end
+    @assert (var isa Tuple{Vararg{Variable}}) || (var isa Tuple{Variable}) "Failed to convet Configuration.var to a tuple of Variable to maximize efficiency. Now get $(typeof(V))"
+
     Nv = length(var) # number of variables
 
     ################# integrand initialization #########################
-    # add normalization diagram to dof
-    if eltype(dof) <: Tuple{Vararg{Any}}
-        dof = [collect(d) for d in dof]
-    elseif eltype(dof) <: AbstractVector
-        dof = deepcopy(dof) # don't modify the input dof
+    if dof isa Int  #one integral with one variable
+        @assert length(var) == 1 "Only one type of variable is allowed when dof is an integer"
+        dof = [[dof,],]
+    elseif (dof isa AbstractVector) && eltype(dof) <: Int #one integral with multiple variables
+        dof = [deepcopy(dof),]
+    elseif dof isa AbstractMatrix #each column is a dof for one integral
+        dof = [dof[:, i] for i in 1:size(dof)[2]]
     else
-        error("Configuration.dof should be with a type of Vector{Vector{Int}} or Vector{Tuple{Int, ..., Int}} to avoid mistakes. Now get $(typeof(dof))")
+        if eltype(dof) <: Tuple{Vararg{Any}}
+            dof = [collect(d) for d in dof]
+        elseif eltype(dof) <: AbstractVector
+            dof = deepcopy(dof) # don't modify the input dof
+        else
+            error("Configuration.dof should be a Vector{Vector{Int}} or Vector{Tuple{Int, ..., Int}} to avoid mistakes. Now get $(typeof(dof))")
+        end
     end
+    # add normalization diagram to dof
     push!(dof, zeros(Int, length(var))) # add the degrees of freedom for the normalization diagram
-
 
     Nd = length(dof) # number of integrands + renormalization diagram
     @assert Nd > 1 "At least one integrand is required."
     # make sure dof has the correct size that matches var and neighbor
-    for nv in dof
-        @assert length(nv) == Nv "Each element of `dof` should have the same dimension as `var`"
+    @assert all(nv -> length(nv) == Nv, dof) "Each element of `dof` should have the same dimension as `var`"
+
+    neighbor = _neighbor(neighbor, Nd)
+
+    if isnothing(reweight_goal)
+        reweight_goal = ones(Nd)
+    else
+        reweight_goal = collect(reweight_goal)
+        reweight = reweight_goal # reweight will be overwritten if reweight_goal is set
+        @assert Nd == length(reweight_goal) "Wrong reweight_goal vector size! Note that the last element in reweight vector is for the normalization diagram."
+        @assert all(x -> x > 0, reweight_goal) "All reweight_goal factors should be positive."
     end
 
+    reweight = collect(reweight)
+    reweight /= sum(reweight) # normalize the reweight factors
+    @assert Nd == length(reweight) "Wrong reweight vector size! Note that the last element in reweight vector is for the normalization diagram."
+    @assert all(x -> x > 0, reweight) "All reweight factors should be positive."
+
+    norm = Nd # set the normalization diagram to be the last one
+    probability = 1e-10 # a small initial probability makes the initial configuaration quickly updated,
+    # so that no error is caused even if the intial absweight is wrong, 
+    normalization = 1.0e-10
+
+    relativeWeights = [zero(type) for i in 1:Nd-1]
+    weights = [zero(type) for i in 1:Nd-1]
+
+    # visited[end] is for the normalization diagram
+    visited = zeros(Float64, Nd) .+ 1.0e-8  # add a small initial value to avoid Inf when inverted
+
+    # propose and accept shape: number of updates X integrand number X max(integrand number, variable number)
+    # the last index will waste some memory, but the dimension is small anyway
+    propose = zeros(Float64, (2, Nd, max(Nd, Nv))) .+ 1.0e-8 # add a small initial value to avoid Inf when inverted
+    accept = zeros(Float64, (2, Nd, max(Nd, Nv)))
+
+    return Configuration{typeof(var),typeof(obs),type}(
+        seed, MersenneTwister(seed), var,  # static parameters
+        Nd - 1, neighbor, dof, _maxdof(dof), obs, reweight, reweight_goal, visited, # integrand properties
+        0, idx, norm, normalization, relativeWeights, weights, probability, propose, accept  # current MC state
+    )
+end
+
+function _neighbor(neighbor, Nd)
     if isnothing(neighbor)
         # By default, only the order-1 and order+1 diagrams are considered to be the neighbors
         # Nd is the normalization diagram, by default, it only connects to the first diagram
@@ -145,40 +203,10 @@ function Configuration(;
         @assert is_connected(g) "The neighbor graph is not connected."
         neighbor = [neighbors(g, ver) for ver in vertices(g)]
     end
-    @assert typeof(neighbor) == Vector{Vector{Int}} "Configuration.neighbor should be with a type of Vector{Vector{Int}} to avoid mistakes. Now get $(typeof(neighbor))"
+    neighbor = collect(neighbor)
+    @assert neighbor isa Vector{Vector{Int}} "Configuration.neighbor should be with a type of Vector{Vector{Int}} to avoid mistakes. Now get $(typeof(neighbor))"
     @assert Nd == length(neighbor) "$Nd elements are expected for neighbor=$neighbor"
-    @assert Nd == length(reweight) "reweight vector size is wrong! Note that the last element in reweight vector is for the normalization diagram."
-    @assert all(x -> x > 0, reweight) "All reweight factors should be positive."
-
-    if isnothing(reweight_goal)
-        reweight_goal = ones(Nd)
-    end
-    @assert Nd == length(reweight_goal) "reweight_goal vector size is wrong! Note that the last element in reweight vector is for the normalization diagram."
-    @assert all(x -> x > 0, reweight_goal) "All reweight_goal factors should be positive."
-    reweight .*= reweight_goal
-    reweight /= sum(reweight) # normalize the reweight factors
-
-    norm = Nd # set the normalization diagram to be the last one
-    # a small initial absweight makes the initial configuaration quickly updated,
-    # so that no error is caused even if the intial absweight is wrong, 
-    normalization = 1.0e-10
-
-    relativeWeights = [zero(type) for i in 1:Nd-1]
-    weights = [zero(type) for i in 1:Nd-1]
-
-    # visited[end] is for the normalization diagram
-    visited = zeros(Float64, Nd) .+ 1.0e-8  # add a small initial value to avoid Inf when inverted
-
-    # propose and accept shape: number of updates X integrand number X max(integrand number, variable number)
-    # the last index will waste some memory, but the dimension is small anyway
-    propose = zeros(Float64, (2, Nd, max(Nd, Nv))) .+ 1.0e-8 # add a small initial value to avoid Inf when inverted
-    accept = zeros(Float64, (2, Nd, max(Nd, Nv)))
-
-    return Configuration{V,typeof(obs),type}(seed, MersenneTwister(seed), var,  # static parameters
-        Nd - 1, collect(neighbor), collect(dof), _maxdof(dof), obs,
-        collect(reweight), collect(reweight_goal), visited, # integrand properties
-        0, curr, norm, normalization, relativeWeights, weights, 1.0, propose, accept  # current MC state
-    )
+    return neighbor
 end
 
 function _maxdof(dof)
@@ -197,7 +225,6 @@ function clearStatistics!(config)
         config.observable = zero(config.observable)
     end
     config.neval = 0
-    # config.curr = 1
     config.normalization = 1.0e-10
     fill!(config.visited, 1.0e-8)
     fill!(config.propose, 1.0e-8)
