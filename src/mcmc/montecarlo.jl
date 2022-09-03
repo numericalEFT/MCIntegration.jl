@@ -5,11 +5,11 @@ function montecarlo(config::Configuration, integrand::Function, neval, userdata,
 
     for i in 1:10000
         initialize!(config, integrand, userdata)
-        if (config.curr == config.norm) || abs(config.absWeight) > TINY
+        if (config.curr == config.norm) || config.probability > TINY
             break
         end
     end
-    @assert (config.curr == config.norm) || abs(config.absWeight) > TINY "Cannot find the variables that makes the $(config.curr) integrand >1e-10"
+    @assert (config.curr == config.norm) || config.probability > TINY "Cannot find the variables that makes the $(config.curr) integrand >1e-10"
 
     # weight = config.curr == config.norm ? 1.0 : integrand_wrap(config, integrand, userdata)
     # setweight!(config, weight)
@@ -52,13 +52,15 @@ function montecarlo(config::Configuration, integrand::Function, neval, userdata,
             if config.curr == config.norm # the last diagram is for normalization
                 config.normalization += 1.0 / config.reweight[config.norm]
             else
+                curr = config.curr
+                relativeWeight = config.weights[curr] / config.probability
                 if isnothing(measure)
-                    config.observable[config.curr] += config.relativeWeight
+                    config.observable[curr] += relativeWeight
                 else
                     if isnothing(userdata)
-                        measure(config.observable, config.relativeWeight; idx=config.curr)
+                        measure(config.observable, relativeWeight; idx=curr)
                     else
-                        measure(config.observable, config.relativeWeight; idx=config.curr, userdata=userdata)
+                        measure(config.observable, relativeWeight; idx=curr, userdata=userdata)
                     end
                 end
             end
@@ -78,7 +80,7 @@ function montecarlo(config::Configuration, integrand::Function, neval, userdata,
 end
 
 
-@inline function integrand_wrap(config, _integrand, userdata, signal=nothing)
+@inline function integrand_wrap(config, curr, _integrand, userdata, signal=nothing)
     if length(config.dof) - 1 == 1 # there is only one integral (plus a normalization integral)
         if !isnothing(userdata) && !isnothing(signal)
             return _integrand(config.var...; userdata=userdata, signal=signal)
@@ -91,13 +93,13 @@ end
         end
     else
         if !isnothing(userdata) && !isnothing(signal)
-            return _integrand(config.var...; userdata=userdata, idx=config.curr, signal=signal)
+            return _integrand(config.var...; userdata=userdata, idx=curr, signal=signal)
         elseif !isnothing(userdata)
-            return _integrand(config.var...; userdata=userdata, idx=config.curr)
+            return _integrand(config.var...; userdata=userdata, idx=curr)
         elseif !isnothing(signal)
-            return _integrand(config.var...; signal=signal, idx=config.curr)
+            return _integrand(config.var...; signal=signal, idx=curr)
         else
-            return _integrand(config.var...; idx=config.curr)
+            return _integrand(config.var...; idx=curr)
         end
     end
 end
@@ -106,15 +108,21 @@ function initialize!(config, integrand, userdata)
     for var in config.var
         Dist.initialize!(var, config)
     end
+    curr = config.curr
+    if curr != config.norm
+        config.weights[curr] = integrand_wrap(config, curr, integrand, userdata)
+        config.probability = abs(config.weights[curr]) * config.reweight[curr]
+    else
+        config.probability = config.reweight[curr]
+    end
 
-    weight = config.curr == config.norm ? 1.0 : integrand_wrap(config, integrand, userdata)
-    setweight!(config, weight)
-    config.absWeight = abs(weight)
+    # setweight!(config, weight)
+    # config.absWeight = abs(weight)
 end
 
-function setweight!(config, weight)
-    config.relativeWeight = weight / abs(weight) / config.reweight[config.curr]
-end
+# function setweight!(config, weight)
+#     config.relativeWeight = weight / abs(weight) / config.reweight[config.curr]
+# end
 
 
 function doReweight!(config, alpha)

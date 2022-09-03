@@ -40,6 +40,7 @@ mutable struct Configuration{V,O,T}
     var::V
 
     ########### integrand properties ##############
+    N::Int # number of integrands (does not include the normalization diagram)
     neighbor::Vector{Vector{Int}}
     dof::Vector{Vector{Int}} # degrees of freedom
     maxdof::Vector{Int} # max degrees of freedom of all integrands, length(maxdof) = length(var)
@@ -178,8 +179,8 @@ function Configuration(;
     accept = zeros(Float64, (2, Nd, max(Nd, Nv)))
 
     return Configuration{V,typeof(obs),type}(seed, MersenneTwister(seed), var,  # static parameters
-        collect(neighbor), collect(dof), _maxdof(dof), obs, collect(reweight), collect(reweight_goal),
-        visited, # integrand properties
+        Nd - 1, collect(neighbor), collect(dof), _maxdof(dof), obs,
+        collect(reweight), collect(reweight_goal), visited, # integrand properties
         0, curr, norm, normalization, relativeWeight, relativeWeights, weights, absweight, 1.0, propose, accept  # current MC state
     )
 end
