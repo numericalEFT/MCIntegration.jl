@@ -24,13 +24,9 @@ const spin = basic.spin
     extQ::Vector{SVector{3,Float64}} = [@SVector [q, 0.0, 0.0] for q in LinRange(0.0 * kF, 2.0 * kF, Qsize)]
 end
 
-function integrand(config)
-    if config.curr != 1
-        error("impossible")
-    end
-    para = config.para
-
-    T, K, Ext = config.var[1], config.var[2], config.var[3]
+function integrand(T, K, Ext; userdata)
+    # @assert idx == 1 "$(idx) is not a valid integrand"
+    para, _Ext = userdata
     k = K[1]
     # Tin, Tout = T[1], T[2]
     Tin, Tout = 0.0, T[1]
@@ -46,12 +42,10 @@ function integrand(config)
     return g1 * g2 * spin * phase * cos(2π * para.n * τ / β)
 end
 
-function measure(config)
-    obs = config.observable
-    factor = 1.0 / config.reweight[config.curr]
-    extidx = config.var[3][1]
-    weight = integrand(config)
-    obs[extidx] += weight / abs(weight) * factor
+function measure(obs, weight; userdata)
+    # @assert idx == 1 "$(idx) is not a valid integrand"
+    para, Ext = userdata
+    obs[Ext[1]] += weight
 end
 
 function run(steps)
@@ -67,8 +61,10 @@ function run(steps)
     dof = [[1, 1, 1],] # degrees of freedom of the normalization diagram and the bubble
     obs = zeros(Float64, Qsize) # observable for the normalization diagram and the bubble
 
-    config = MCIntegration.Configuration(var=(T, K, Ext), dof=dof, obs=obs, para=para)
-    result = MCIntegration.integrate(integrand; config=config, measure=measure, neval=steps, print=0, block=16)
+    # config = MCIntegration.Configuration(var=(T, K, Ext), dof=dof, obs=obs, para=para)
+    result = MCIntegration.integrate(integrand; measure=measure, userdata=(para, Ext),
+        var=(T, K, Ext), dof=dof, obs=obs, solver=:mcmc,
+        neval=steps, print=0, block=16)
 
     if isnothing(result) == false
         @unpack n, extQ = Para()

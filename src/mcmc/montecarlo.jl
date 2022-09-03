@@ -57,10 +57,18 @@ function montecarlo(config::Configuration, integrand::Function, neval, userdata,
                 if isnothing(measure)
                     config.observable[curr] += relativeWeight
                 else
-                    if isnothing(userdata)
-                        measure(config.observable, relativeWeight; idx=curr)
+                    if config.N == 1 # there is only one integral (plus a normalization integral)
+                        if isnothing(userdata)
+                            measure(config.observable, relativeWeight)
+                        else
+                            measure(config.observable, relativeWeight; userdata=userdata)
+                        end
                     else
-                        measure(config.observable, relativeWeight; idx=curr, userdata=userdata)
+                        if isnothing(userdata)
+                            measure(config.observable, relativeWeight; idx=curr)
+                        else
+                            measure(config.observable, relativeWeight; idx=curr, userdata=userdata)
+                        end
                     end
                 end
             end
@@ -81,7 +89,7 @@ end
 
 
 @inline function integrand_wrap(config, curr, _integrand, userdata, signal=nothing)
-    if length(config.dof) - 1 == 1 # there is only one integral (plus a normalization integral)
+    if config.N == 1 # there is only one integral (plus a normalization integral)
         if !isnothing(userdata) && !isnothing(signal)
             return _integrand(config.var...; userdata=userdata, signal=signal)
         elseif !isnothing(userdata)

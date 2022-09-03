@@ -17,6 +17,7 @@ mutable struct FermiK{D} <: Variable
     end
 end
 
+Base.length(Var::FermiK{D}) where {D} = size(Var.data)[2]
 Base.getindex(Var::FermiK{D}, i::Int) where {D} = view(Var.data, :, i)
 function Base.setindex!(Var::FermiK{D}, v, i::Int) where {D}
     view(Var.data, :, i) .= v
@@ -232,7 +233,7 @@ end
 #     end
 # end
 
-accumulate!(var::Variable, idx) = nothing
+accumulate!(var::Variable, idx, wegith) = nothing
 # clearStatistics!(Var::Variable) = ing
 train!(Var::Variable) = nothing
 # addStatistics!(target::Variable, income::Variable) = nothing
@@ -240,7 +241,7 @@ clearStatistics!(T::Variable) = fill!(T.histogram, 1.0e-10)
 addStatistics!(target::Variable, income::Variable) = (target.histogram .+= income.histogram)
 
 function initialize!(T::Variable, config)
-    for i = 1:length(T.data)-2
+    for i = 1:length(T)-2
         create!(T, i, config)
     end
 end
@@ -281,6 +282,7 @@ function delta_probability(config, curr=config.curr; new)
     return prob
 end
 
+Base.length(Var::Variable) = length(Var.data)
 Base.getindex(Var::Variable, i::Int) = Var.data[i]
 function Base.setindex!(Var::Variable, v, i::Int)
     Var.data[i] = v

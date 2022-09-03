@@ -1,5 +1,6 @@
 module Dist
 using StaticArrays
+using LinearAlgebra
 import ..TINY
 
 abstract type AdaptiveMap end
