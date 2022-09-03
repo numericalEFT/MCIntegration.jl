@@ -2,7 +2,6 @@
 
 using LinearAlgebra, Random, Printf
 using StaticArrays
-using Lehmann
 using MCIntegration
 # using ProfileView
 
