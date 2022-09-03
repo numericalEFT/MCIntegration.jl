@@ -73,7 +73,7 @@ using MCIntegration
 
     function measure(obs, weight, config)
         para, Ext = config.userdata
-        obs[Ext[1]] += weight[1]
+        obs[1][Ext[1]] += weight[1]
     end
     function measure(idx, obs, weight, config)
         # @assert idx == 1 "$(idx) is not a valid integrand"
@@ -90,7 +90,7 @@ using MCIntegration
         Ext = MCIntegration.Discrete(1, length(extQ); adapt=false) # external variable is specified
 
         dof = [[1, 1, 1],] # degrees of freedom of the normalization diagram and the bubble
-        obs = zeros(Float64, Qsize) # observable for the normalization diagram and the bubble
+        obs = [zeros(Float64, Qsize),] # observable for the normalization diagram and the bubble
 
         # config = MCIntegration.Configuration(var=(T, K, Ext), dof=dof, obs=obs, para=para)
         @time result = MCIntegration.integrate(integrand; measure=measure, userdata=(para, Ext),
@@ -98,7 +98,7 @@ using MCIntegration
             neval=steps, print=0, block=16)
 
         if isnothing(result) == false
-            avg, std = result.mean, result.stdev
+            avg, std = result.mean[1], result.stdev[1]
 
             println("Algorithm : $(alg)")
             @printf("%10s  %10s   %10s  %10s\n", "q/kF", "avg", "err", "exact")
@@ -108,6 +108,7 @@ using MCIntegration
                 @printf("%10.6f  %10.6f ± %10.6f  %10.6f\n", q / kF, avg[idx], std[idx], p)
                 # check(avg[idx], std[idx], p)
             end
+            check(avg[1], std[1], lindhard(extQ[1][1], para))
         end
     end
 

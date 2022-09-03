@@ -84,7 +84,6 @@ function integrate(integrand::Function;
     # nevalperblock = neval # number of evaluations per block
 
     results = []
-    obsSum, obsSquaredSum = zero(config.observable), zero(config.observable)
 
     # configVec = Vector{Configuration}[]
 
@@ -95,8 +94,8 @@ function integrate(integrand::Function;
     startTime = time()
     for iter in 1:niter
 
-        obsSum *= 0
-        obsSquaredSum *= 0
+        obsSum = [zero(o) for o in config.observable]
+        obsSquaredSum = [zero(o) for o in config.observable]
         # summed configuration of all blocks, but changes in each iteration
         summedConfig = deepcopy(config)
 
@@ -123,14 +122,16 @@ function integrate(integrand::Function;
                 error("normalization of block $i is $(config.normalization), which is not positively defined!")
             end
 
-            if typeof(obsSum) <: AbstractArray
-                m = config.observable ./ config.normalization
-                obsSum += m
-                obsSquaredSum += (eltype(m) <: Complex) ? (@. (real(m))^2 + (imag(m))^2 * 1im) : m .^ 2
-            else
-                m = config.observable / config.normalization
-                obsSum += m
-                obsSquaredSum += (eltype(m) <: Complex) ? (real(m))^2 + (imag(m))^2 * 1im : m^2
+            for o in 1:config.N
+                if obsSum[o] isa AbstractArray
+                    m = config.observable[o] ./ config.normalization
+                    obsSum[o] += m
+                    obsSquaredSum[o] += (eltype(m) <: Complex) ? (@. (real(m))^2 + (imag(m))^2 * 1im) : m .^ 2
+                else
+                    m = config.observable[o] / config.normalization
+                    obsSum[o] += m
+                    obsSquaredSum[o] += (eltype(m) <: Complex) ? (real(m))^2 + (imag(m))^2 * 1im : m^2
+                end
             end
 
             if MPI.Comm_rank(comm) == root
@@ -138,26 +139,15 @@ function integrate(integrand::Function;
             end
         end
         #################### collect statistics  ####################################
-        MCUtility.MPIreduce(obsSum)
-        MCUtility.MPIreduce(obsSquaredSum)
+        obsSum = [MCUtility.MPIreduce(osum) for osum in obsSum]
+        obsSquaredSum = [MCUtility.MPIreduce(osumsq) for osumsq in obsSquaredSum]
         # collect all statistics to summedConfig of the root worker
         MPIreduceConfig!(summedConfig, root, comm)
 
         if MPI.Comm_rank(comm) == root
             ##################### Extract Statistics  ################################
-            mean = obsSum ./ block
-            if block > 1
-                if eltype(obsSquaredSum) <: Complex
-                    r_std = @. sqrt((real.(obsSquaredSum) / block - real(mean)^2) / (block - 1))
-                    i_std = @. sqrt((imag.(obsSquaredSum) / block - imag(mean)^2) / (block - 1))
-                    std = r_std + i_std * 1im
-                else
-                    std = @. sqrt((obsSquaredSum / block - mean^2) / (block - 1))
-                end
-            else
-                std = zero(config.observable) .+ 1e-10 # avoid division by zero
-            end
             # println("mean: ", mean, ", std: ", std)
+            mean, std = _mean_std(obsSum, obsSquaredSum, block)
             push!(results, (mean, std, summedConfig))
 
             ################### self-learning ##########################################
@@ -196,4 +186,25 @@ function integrate(integrand::Function;
         end
         return result
     end
+end
+
+function _mean_std(obsSum, obsSquaredSum, block)
+    function elementwise(osquaredSum, mean, block)
+        if block > 1
+            if eltype(osquaredSum) <: Complex
+                r_std = @. sqrt((real.(osquaredSum) / block - real(mean)^2) / (block - 1))
+                i_std = @. sqrt((imag.(osquaredSum) / block - imag(mean)^2) / (block - 1))
+                std = r_std + i_std * 1im
+            else
+                std = @. sqrt((osquaredSum / block - mean^2) / (block - 1))
+            end
+        else
+            std = zero(osquaredSum) # avoid division by zero
+        end
+        return std
+    end
+
+    mean = [osum ./ block for osum in obsSum]
+    std = [elementwise(obsSquaredSum[o], mean[o], block) for o in eachindex(obsSquaredSum)]
+    return mean, std
 end

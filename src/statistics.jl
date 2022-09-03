@@ -27,7 +27,13 @@ struct Result{O,C}
         config = history[end][3]
         dof = length(history) - 1
         neval = sum(h[3].neval for h in history)
-        mean, stdev, chi2 = average(history, dof + 1)
+        mean, stdev, chi2 = [], [], []
+        for o in 1:config.N
+            _mean, _stdev, _chi2 = average(history, dof + 1, o)
+            push!(mean, _mean)
+            push!(stdev, _stdev)
+            push!(chi2, _chi2)
+        end
         # println(mean, ", ", stdev, ", ", chi2)
         return new{O,typeof(config)}(mean, stdev, chi2, neval, dof, config, history)
     end
@@ -118,7 +124,7 @@ average the history[1:max]. Return the mean, standard deviation and chi2 of the 
 function average(history, max=length(history), idx=1)
     @assert max > 0
     if max == 1
-        return history[1][1], history[1][2], zero(history[1][1])
+        return history[1][1][idx], history[1][2][idx], zero(history[1][1][idx])
     end
 
     function _statistic(data, weight)
@@ -135,17 +141,17 @@ function average(history, max=length(history), idx=1)
         return mea, err, chi2
     end
 
-    if eltype(history[end][1]) <: Complex
-        dataR = [real.(history[i][1]) for i in 1:max]
-        dataI = [imag.(history[i][1]) for i in 1:max]
-        weightR = [1.0 ./ (real.(history[i][2]) .+ 1.0e-10) .^ 2 for i in 1:max]
-        weightI = [1.0 ./ (imag.(history[i][2]) .+ 1.0e-10) .^ 2 for i in 1:max]
+    if eltype(history[end][1][idx]) <: Complex
+        dataR = [real.(history[i][1][idx]) for i in 1:max]
+        dataI = [imag.(history[i][1][idx]) for i in 1:max]
+        weightR = [1.0 ./ (real.(history[i][2][idx]) .+ 1.0e-10) .^ 2 for i in 1:max]
+        weightI = [1.0 ./ (imag.(history[i][2][idx]) .+ 1.0e-10) .^ 2 for i in 1:max]
         mR, eR, chi2R = _statistic(dataR, weightR)
         mI, eI, chi2I = _statistic(dataI, weightI)
         return mR + mI * 1im, eR + eI * 1im, chi2R + chi2I * 1im
     else
-        data = [history[i][1] for i in 1:max]
-        weight = [1.0 ./ (history[i][2] .+ 1.0e-10) .^ 2 for i in 1:max]
+        data = [history[i][1][idx] for i in 1:max]
+        weight = [1.0 ./ (history[i][2][idx] .+ 1.0e-10) .^ 2 for i in 1:max]
         return _statistic(data, weight)
     end
 end

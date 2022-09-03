@@ -145,6 +145,8 @@ function Configuration(;
     # make sure dof has the correct size that matches var and neighbor
     @assert all(nv -> length(nv) == Nv, dof) "Each element of `dof` should have the same dimension as `var`"
 
+    @assert length(obs) == Nd - 1 "The number of observables should be equal to the number of integrands"
+
     neighbor = _neighbor(neighbor, Nd)
 
     if isnothing(reweight_goal)
@@ -222,10 +224,8 @@ function _maxdof(dof)
 end
 
 function clearStatistics!(config)
-    if typeof(config.observable) <: AbstractArray
-        fill!(config.observable, zero(eltype(config.observable))) # reinialize observable
-    else
-        config.observable = zero(config.observable)
+    for i in eachindex(config.observable)
+        config.observable[i] = zero(config.observable[i])
     end
     config.neval = 0
     config.normalization = 1.0e-10
@@ -243,7 +243,7 @@ function addConfig!(c::Configuration, ic::Configuration)
     c.propose += ic.propose
     c.neval += ic.neval
     c.normalization += ic.normalization
-    c.observable += ic.observable
+    c.observable .+= ic.observable
     for (vi, var) in enumerate(c.var)
         Dist.addStatistics!(var, ic.var[vi])
     end
@@ -254,7 +254,7 @@ function MPIreduceConfig!(c::Configuration, root, comm)
     ########## variable that could be a number ##############
     neval = MPI.Reduce(c.neval, MPI.SUM, root, comm)
     normalization = MPI.Reduce(c.normalization, MPI.SUM, root, comm)
-    observable = MPI.Reduce(c.observable, MPI.SUM, root, comm)
+    observable = [MPI.Reduce(c.observable[o], MPI.SUM, root, comm) for o in eachindex(c.observable)]
     if MPI.Comm_rank(comm) == root
         c.neval = neval
         c.normalization = normalization
