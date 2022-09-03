@@ -6,7 +6,7 @@
  ## Static parameters
  - `seed`: seed to initialize random numebr generator, also serves as the unique pid of the configuration
  - `rng`: a MersenneTwister random number generator, seeded by `seed`
- - `para`: user-defined parameter, set to nothing if not needed
+ - `userdata`: user-defined parameter
  - `var`: TUPLE of variables, each variable should be derived from the abstract type Variable, see variable.jl for details). Use a tuple rather than a vector improves the performance.
 
  ## integrand properties
@@ -33,11 +33,12 @@
     Their shapes are (number of updates X integrand number X max(integrand number, variable number).
     The last index will waste some memory, but the dimension is small anyway.
 """
-mutable struct Configuration{V,O,T}
+mutable struct Configuration{V,P,O,T}
     ########### static parameters ###################
     seed::Int # seed to initialize random numebr generator, also serves as the unique pid of the configuration
     rng::MersenneTwister # random number generator seeded by seed
     var::V
+    userdata::P
 
     ########### integrand properties ##############
     N::Int # number of integrands (does not include the normalization diagram)
@@ -95,6 +96,7 @@ By default, it will be set to 0.0 if there is only one integrand (e.g., length(d
     The neighbor vector defines a undirected graph showing how the integrands are connected. Please make sure all integrands are connected.
     By default, we assume the N integrands are in the increase order, meaning the neighbor will be set to [(N+1, 1), (1, 2), (2, 4), ..., (N-1, N)], where the first N entries are for diagram 1, 2, ..., N and the last entry is for the normalization diagram. Only the first diagram is connected to the normalization diagram.
     Only highly correlated integrands are not highly correlated should be defined as neighbors. Otherwise, most of the updates between the neighboring integrands will be rejected and wasted.
+- `userdata`: User data you want to pass to the integrand and the measurement
 """
 function Configuration(;
     var::Union{Variable,AbstractVector,Tuple}=(Continuous(0.0, 1.0),),
@@ -106,6 +108,7 @@ function Configuration(;
     seed::Int=rand(Random.RandomDevice(), 1:1000000),
     neighbor::Union{Vector{Vector{Int}},Vector{Tuple{Int,Int}},Nothing}=nothing,
     idx::Int=1, # index of the current integrand
+    userdata=nothing,
     kwargs...
 )
     if var isa Variable
@@ -174,8 +177,8 @@ function Configuration(;
     propose = zeros(Float64, (2, Nd, max(Nd, Nv))) .+ 1.0e-8 # add a small initial value to avoid Inf when inverted
     accept = zeros(Float64, (2, Nd, max(Nd, Nv)))
 
-    return Configuration{typeof(var),typeof(obs),type}(
-        seed, MersenneTwister(seed), var,  # static parameters
+    return Configuration{typeof(var),typeof(userdata),typeof(obs),type}(
+        seed, MersenneTwister(seed), var, userdata,  # static parameters
         Nd - 1, neighbor, dof, _maxdof(dof), obs, reweight, reweight_goal, visited, # integrand properties
         0, idx, norm, normalization, relativeWeights, weights, probability, propose, accept  # current MC state
     )

@@ -31,7 +31,6 @@
 - `alpha`:    Learning rate of the reweight factor after each iteraction. Note that alpha <=1, where alpha = 0 means no reweighting.  
 - `print`:    -1 to not print anything, 0 to print minimal information, >0 to print summary for every `print` seconds
 - `printio`:  `io` to print the information
-- `userdata`: User data you want to pass to the integrand and the measurement
 - `kwargs`:   Keyword arguments. If `config` is `nothing`, you may need to provide arguments for the `Configuration` constructor, check [`Configuration`](@ref) docs for more details.
 
 # Examples
@@ -49,7 +48,6 @@ function integrate(integrand::Function;
     print=0, printio=stdout, save=0, saveio=nothing, timer=[],
     alpha=1.0, # learning rate of the reweight factor, only used in MCMC solver
     adapt=true, # whether to adapt the grid and the reweight factor
-    userdata=nothing, # user data
     kwargs...
 )
     if isnothing(config)
@@ -110,11 +108,11 @@ function integrate(integrand::Function;
             clearStatistics!(config) # reset statistics
 
             if solver == :vegasmc
-                config = VegasMC.montecarlo(config, integrand, nevalperblock, userdata, print, save, timer; kwargs...)
+                config = VegasMC.montecarlo(config, integrand, nevalperblock, print, save, timer; kwargs...)
             elseif solver == :vegas
-                config = Vegas.montecarlo(config, integrand, nevalperblock, userdata, print, save, timer; kwargs...)
+                config = Vegas.montecarlo(config, integrand, nevalperblock, print, save, timer; kwargs...)
             elseif solver == :mcmc
-                config = MCMC.montecarlo(config, integrand, nevalperblock, userdata, print, save, timer; kwargs...)
+                config = MCMC.montecarlo(config, integrand, nevalperblock, print, save, timer; kwargs...)
             else
                 error("Solver $solver is not supported!")
             end

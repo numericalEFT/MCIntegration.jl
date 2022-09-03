@@ -1,4 +1,4 @@
-function changeIntegrand(config, integrand, userdata)
+function changeIntegrand(config, integrand)
     # update to change an integrand to its neighbors. 
     # The degrees of freedom could be increase, decrease or remain the same.
 
@@ -24,7 +24,7 @@ function changeIntegrand(config, integrand, userdata)
     # @assert abs(p1 / p2 - prop) < 1e-10 "$p1   $p2   $prop"
     ######################################################################
 
-    weights = integrand_wrap(config, integrand, userdata)
+    weights = integrand_wrap(config, integrand)
     # newProbability = (new == config.norm) ? config.reweight[new] : abs(weights[new]) / Dist.probability(config, new) * config.reweight[new]
     newProbability = (new == config.norm) ? config.reweight[new] : abs(weights[new]) * config.reweight[new]
     # R = prop * newAbsWeight * config.reweight[new] / currAbsWeight / config.reweight[curr]
@@ -42,7 +42,7 @@ function changeIntegrand(config, integrand, userdata)
     return
 end
 
-function changeVariable(config, integrand, userdata)
+function changeVariable(config, integrand)
     # update to change the variables of the current diagrams
     curr = config.curr
     maxdof = config.maxdof
@@ -60,7 +60,7 @@ function changeVariable(config, integrand, userdata)
         return
     end
 
-    weights = integrand_wrap(config, integrand, userdata)
+    weights = integrand_wrap(config, integrand)
     # newProbability = (curr == config.norm) ? config.reweight[curr] : abs(weights[curr]) / Dist.probability(config, curr) * config.reweight[curr]
     newProbability = (curr == config.norm) ? config.reweight[curr] : abs(weights[curr]) * config.reweight[curr]
 

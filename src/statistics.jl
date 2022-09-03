@@ -11,7 +11,7 @@ the returned result of the MC integration.
 - `neval`: number of evaluations of the integrand
 - `dof`: degrees of freedom of the MC integration (number of iterations - 1)
 - `config`: configuration of the MC integration from the last iteration
-- `iteractions`: list of tuples [(data, error, Configuration), ...] from each iteration
+- `iterations`: list of tuples [(data, error, Configuration), ...] from each iteration
 """
 struct Result{O,C}
     mean::O
@@ -72,14 +72,6 @@ It will first print the configuration from the last iteration, then print the we
 - name: name of each picked observable. If name is not given, the index of the pick function will be used.
 """
 function report(result::Result, pick::Union{Function,AbstractVector}=obs -> real(first(obs)), name=nothing; verbose=0)
-    # summary(result.config)
-
-    # if pick isa Function
-    #     pick = [pick,]
-    # else
-    #     @assert eltype(pick) <: Function "pick must be either a function or a vector of functions!"
-    # end
-
     if isnothing(name) == false
         name = collect(name)
     end

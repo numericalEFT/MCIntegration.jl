@@ -1,10 +1,11 @@
-function montecarlo(config::Configuration, integrand::Function, neval, userdata, print, save, timer;
+function montecarlo(config::Configuration, integrand::Function, neval,
+    print, save, timer;
     measurefreq=2, measure::Union{Nothing,Function}=nothing, kwargs...)
     ##############  initialization  ################################
     # don't forget to initialize the diagram weight
 
     for i in 1:10000
-        initialize!(config, integrand, userdata)
+        initialize!(config, integrand)
         if (config.curr == config.norm) || config.probability > TINY
             break
         end
@@ -33,7 +34,7 @@ function montecarlo(config::Configuration, integrand::Function, neval, userdata,
         config.neval += 1
         config.visited[config.curr] += 1
         _update = rand(config.rng, updates) # randomly select an update
-        _update(config, integrand, userdata)
+        _update(config, integrand)
         # push!(kwargs[:mem], (config.curr, config.relativeWeight))
         # if i % 10 == 0 && i >= neval / 100
         if i % measurefreq == 0 && i >= neval / 100
@@ -57,18 +58,10 @@ function montecarlo(config::Configuration, integrand::Function, neval, userdata,
                 if isnothing(measure)
                     config.observable[curr] += relativeWeight
                 else
-                    if config.N == 1 # there is only one integral (plus a normalization integral)
-                        if isnothing(userdata)
-                            measure(config.observable, relativeWeight)
-                        else
-                            measure(config.observable, relativeWeight; userdata=userdata)
-                        end
+                    if config.N == 1
+                        measure(config.observable, relativeWeight, config)
                     else
-                        if isnothing(userdata)
-                            measure(config.observable, relativeWeight; idx=curr)
-                        else
-                            measure(config.observable, relativeWeight; idx=curr, userdata=userdata)
-                        end
+                        measure(config.curr, config.observable, relativeWeight, config)
                     end
                 end
             end
@@ -87,38 +80,21 @@ function montecarlo(config::Configuration, integrand::Function, neval, userdata,
     return config
 end
 
-
-@inline function integrand_wrap(config, curr, _integrand, userdata, signal=nothing)
-    if config.N == 1 # there is only one integral (plus a normalization integral)
-        if !isnothing(userdata) && !isnothing(signal)
-            return _integrand(config.var...; userdata=userdata, signal=signal)
-        elseif !isnothing(userdata)
-            return _integrand(config.var...; userdata=userdata)
-        elseif !isnothing(signal)
-            return _integrand(config.var...; signal=signal)
-        else
-            return _integrand(config.var...)
-        end
+@inline function integrand_wrap(new, config, _integrand)
+    if config.N == 1
+        return _integrand(config.var..., config)
     else
-        if !isnothing(userdata) && !isnothing(signal)
-            return _integrand(config.var...; userdata=userdata, idx=curr, signal=signal)
-        elseif !isnothing(userdata)
-            return _integrand(config.var...; userdata=userdata, idx=curr)
-        elseif !isnothing(signal)
-            return _integrand(config.var...; signal=signal, idx=curr)
-        else
-            return _integrand(config.var...; idx=curr)
-        end
+        return _integrand(new, config.var..., config)
     end
 end
 
-function initialize!(config, integrand, userdata)
+function initialize!(config, integrand)
     for var in config.var
         Dist.initialize!(var, config)
     end
     curr = config.curr
     if curr != config.norm
-        config.weights[curr] = integrand_wrap(config, curr, integrand, userdata)
+        config.weights[curr] = integrand_wrap(curr, config, integrand)
         config.probability = abs(config.weights[curr]) * config.reweight[curr]
     else
         config.probability = config.reweight[curr]

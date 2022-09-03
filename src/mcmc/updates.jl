@@ -1,4 +1,4 @@
-function changeIntegrand(config::Configuration{V,O,T}, integrand, userdata) where {V,O,T}
+function changeIntegrand(config::Configuration{V,P,O,T}, integrand) where {V,P,O,T}
     # update to change an integrand to its neighbors. 
     # The degrees of freedom could be increase, decrease or remain the same.
 
@@ -41,7 +41,7 @@ function changeIntegrand(config::Configuration{V,O,T}, integrand, userdata) wher
     # but still needs to be set to zero(T) so that newWeight is type stable
     newWeight = (new == config.norm) ?
                 zero(T) :
-                integrand_wrap(config, new, integrand, userdata)
+                integrand_wrap(new, config, integrand)
     newProbability = (new == config.norm) ?
                      config.reweight[new] :
                      abs(newWeight) * config.reweight[new]
@@ -83,7 +83,7 @@ function changeIntegrand(config::Configuration{V,O,T}, integrand, userdata) wher
     return
 end
 
-function changeVariable(config, integrand, userdata)
+function changeVariable(config, integrand)
     # update to change the variables of the current diagrams
     (config.curr == config.norm) && return
 
@@ -105,7 +105,7 @@ function changeVariable(config, integrand, userdata)
         return
     end
 
-    weight = integrand_wrap(config, curr, integrand, userdata)
+    weight = integrand_wrap(curr, config, integrand)
     newProbability = abs(weight) * config.reweight[curr]
     R = prop * newProbability / currProbability
     # newAbsWeight = abs(weight)
@@ -129,7 +129,7 @@ function changeVariable(config, integrand, userdata)
     return
 end
 
-function swapVariable(config, integrand, userdata)
+function swapVariable(config, integrand)
     # update to change the variables of the current diagrams
     (config.curr == config.norm) && return
 
@@ -153,7 +153,7 @@ function swapVariable(config, integrand, userdata)
         return
     end
 
-    weight = integrand_wrap(config, curr, integrand, userdata)
+    weight = integrand_wrap(curr, config, integrand)
     newProbability = abs(weight) * config.reweight[curr]
     R = prop * newProbability / currProbability
     # newAbsWeight = abs(weight)

@@ -19,13 +19,14 @@ However, the biggest problem is that the algorithm can fail if the integrand
 exactly vanishes in some regime (e.g. circle area x^2+y^2<0).
 """
 
-function montecarlo(config::Configuration, integrand::Function, neval, userdata, print, save, timer;
+function montecarlo(config::Configuration, integrand::Function, neval,
+    print, save, timer;
     measurefreq=2, measure::Union{Nothing,Function}=nothing,
     kwargs...)
     ##############  initialization  ################################
     # don't forget to initialize the diagram weight
     for i in 1:10000
-        initialize!(config, integrand, userdata)
+        initialize!(config, integrand)
         if (config.curr == config.norm) || abs(config.weights[config.curr]) > TINY
             break
         end
@@ -52,7 +53,7 @@ function montecarlo(config::Configuration, integrand::Function, neval, userdata,
         config.neval += 1
         config.visited[config.curr] += 1
         _update = rand(config.rng, updates) # randomly select an update
-        _update(config, integrand, userdata)
+        _update(config, integrand)
         # if i % 10 == 0 && i >= neval / 100
         if i % measurefreq == 0 && i >= neval / 100
 
@@ -90,11 +91,7 @@ function montecarlo(config::Configuration, integrand::Function, neval, userdata,
                     prob = Dist.delta_probability(config, config.curr; new=i)
                     config.relativeWeights[i] = config.weights[i] * prob / config.probability
                 end
-                if isnothing(userdata)
-                    measure(config.observable, config.relativeWeights)
-                else
-                    measure(config.observable, config.relativeWeights; userdata=userdata)
-                end
+                measure(config.observable, config.relativeWeights, config)
             end
             prob = Dist.delta_probability(config, config.curr; new=config.norm)
             config.normalization += prob / config.probability
@@ -109,38 +106,16 @@ function montecarlo(config::Configuration, integrand::Function, neval, userdata,
     return config
 end
 
-@inline function integrand_wrap(config, _integrand, userdata)
-    if !isnothing(userdata)
-        return _integrand(config.var...; userdata=userdata)
-    else
-        return _integrand(config.var...)
-    end
+@inline function integrand_wrap(config, _integrand)
+    return _integrand(config.var..., config)
 end
 
-function simple_measure(config, integrands, factor)
-    for i in eachindex(integrands)
-        # prob = Dist.delta_probability(config, config.curr; new=i)
-        # config.observable[i] += config.weights[i] / config.probability * prob
-        # config.observable[i] += config.weights[i] / config.probability
-        config.observable[i] += integrands[i] * factor
-    end
-
-    # if (config.observable isa AbstractVector) && (eltype(config.observable) <: Number)
-    #     # for 
-    #     config.observable .+= config.weights / config.probability
-    # elseif config.observable isa Number
-    #     config.observable += config.weights / config.probability
-    # else
-    #     error("simple_measure only works with observable of the AbstractVector of Number or Number types!")
-    # end
-end
-
-function initialize!(config, integrand, userdata)
+function initialize!(config, integrand)
     for var in config.var
         Dist.initialize!(var, config)
     end
 
-    weights = integrand_wrap(config, integrand, userdata)
+    weights = integrand_wrap(config, integrand)
     # config.probability = abs(weights[config.curr]) / Dist.probability(config, config.curr) * config.reweight[config.curr]
     if config.curr == config.norm
         config.probability = config.reweight[config.curr]

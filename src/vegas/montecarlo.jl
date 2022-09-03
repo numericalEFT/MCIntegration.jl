@@ -1,4 +1,4 @@
-function montecarlo(config::Configuration, integrand::Function, neval, userdata=nothing,
+function montecarlo(config::Configuration, integrand::Function, neval,
     print=0, save=0, timer=[];
     measure::Union{Nothing,Function}=nothing, measurefreq=1, kwargs...)
 
@@ -24,7 +24,7 @@ function montecarlo(config::Configuration, integrand::Function, neval, userdata=
                 jac *= Dist.create!(var, idx + var.offset, config)
             end
         end
-        weights = integrand_wrap(config, integrand, userdata)
+        weights = integrand_wrap(config, integrand)
 
         if (i % measurefreq == 0)
             if isnothing(measure)
@@ -35,11 +35,7 @@ function montecarlo(config::Configuration, integrand::Function, neval, userdata=
                 for i in eachindex(weights)
                     config.relativeWeights[i] = weights[i] * jac
                 end
-                if isnothing(userdata)
-                    measure(config.observable, config.relativeWeights)
-                else
-                    measure(config.observable, config.relativeWeights; userdata=userdata)
-                end
+                measure(config.observable, config.relativeWeights, config)
             end
             # push!(mem, weight * prop)
             config.normalization += 1.0 #should be 1!
@@ -62,10 +58,6 @@ function montecarlo(config::Configuration, integrand::Function, neval, userdata=
     return config
 end
 
-@inline function integrand_wrap(config, _integrand, userdata)
-    if !isnothing(userdata)
-        return _integrand(config.var...; userdata=userdata)
-    else
-        return _integrand(config.var...)
-    end
+@inline function integrand_wrap(config, _integrand)
+    return _integrand(config.var..., config)
 end
