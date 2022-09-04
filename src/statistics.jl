@@ -44,6 +44,8 @@ function tostring(mval, merr; pm="±")
 
     if mval isa Real && merr isa Real && isfinite(mval) && isfinite(merr)
         return @sprintf("%16.8g %s %.8g", mval, pm, merr)
+    elseif mval isa Complex && merr isa Complex && isfinite(mval) && isfinite(merr)
+        return @sprintf("%10.5g(%8.5g) + %10.5g(%.5g)i", real(mval), real(merr), imag(mval), imag(merr))
     else
         return "$mval $pm $merr"
     end
@@ -78,7 +80,7 @@ It will first print the configuration from the last iteration, then print the we
 - pick: The pick function is used to select one of the observable to be printed. The return value of pick function must be a Number.
 - name: name of each picked observable. If name is not given, the index of the pick function will be used.
 """
-function report(result::Result, pick::Union{Function,AbstractVector}=obs -> real(first(obs)), name=nothing; verbose=0)
+function report(result::Result, pick::Union{Function,AbstractVector}=obs -> first(obs), name=nothing; verbose=0)
     if isnothing(name) == false
         name = collect(name)
     end
@@ -96,7 +98,7 @@ function report(result::Result, pick::Union{Function,AbstractVector}=obs -> real
                 m0, e0 = p(result.iterations[iter][1][i]), p(result.iterations[iter][2][i])
                 m, e, chi2 = average(result.iterations, iter, i)
                 m, e, chi2 = p(m[i]), p(e[i]), p(chi2[i])
-                println(@sprintf("%6s %-36s %-36s %16.4f", iter, tostring(m0, e0), tostring(m, e), iter == 1 ? 0.0 : chi2 / (iter - 1)))
+                println(@sprintf("%6s %-36s %-36s %16.4f", iter, tostring(m0, e0), tostring(m, e), iter == 1 ? 0.0 : abs(chi2) / (iter - 1)))
             end
             println(bar)
         else
