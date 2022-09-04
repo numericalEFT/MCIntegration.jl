@@ -1,8 +1,11 @@
-function montecarlo(config::Configuration, integrand::Function, neval,
+function montecarlo(config::Configuration{V,P,O,T}, integrand::Function, neval,
     print, save, timer;
-    measurefreq=2, measure::Union{Nothing,Function}=nothing, kwargs...)
+    measurefreq=2, measure::Union{Nothing,Function}=nothing, kwargs...) where {V,P,O,T}
     ##############  initialization  ################################
     # don't forget to initialize the diagram weight
+    if isnothing(measure)
+        @assert (config.observable isa AbstractVector) && (length(config.observable) == config.N) && (eltype(config.observable) == T) "the default measure can only handle observable as Vector{$T} with $(config.N) elements!"
+    end
 
     for i in 1:10000
         initialize!(config, integrand)

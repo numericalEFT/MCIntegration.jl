@@ -19,10 +19,14 @@ However, the biggest problem is that the algorithm can fail if the integrand
 exactly vanishes in some regime (e.g. circle area x^2+y^2<0).
 """
 
-function montecarlo(config::Configuration, integrand::Function, neval,
+function montecarlo(config::Configuration{V,P,O,T}, integrand::Function, neval,
     print, save, timer;
     measurefreq=2, measure::Union{Nothing,Function}=nothing,
-    kwargs...)
+    kwargs...) where {V,P,O,T}
+
+    if isnothing(measure)
+        @assert (config.observable isa AbstractVector) && (length(config.observable) == config.N) && (eltype(config.observable) == T) "the default measure can only handle observable as Vector{$T} with $(config.N) elements!"
+    end
     ##############  initialization  ################################
     # don't forget to initialize the diagram weight
     for i in 1:10000
