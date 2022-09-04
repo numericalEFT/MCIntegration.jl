@@ -67,8 +67,8 @@ function rescale(dist::AbstractVector, alpha=1.5)
     if length(dist) == 1
         return dist
     end
+    @assert all(x -> x > 0, dist) "distribution should be all positive and non-zero\n dist = $dist"
     dist ./= sum(dist)
-    @assert all(x -> (0 < x < 1), dist) "$dist"
     # println("before:", dist[1:10])
     dist = @. ((1 - dist) / log(1 / dist))^alpha
     # println(dist[1:10])

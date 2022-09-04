@@ -110,6 +110,9 @@ function train!(T::Continuous)
     if T.adapt == false
         return
     end
+    # println(T.histogram)
+    @assert all(x -> isfinite(x), T.histogram) "histogram should be all finite\n histogram =$(T.histogram[findall(x->(!isfinite(x)), T.histogram)]) at $(findall(x->(!isfinite(x)), T.histogram))"
+    @assert all(x -> x > 0, T.histogram) "histogram should be all positive and non-zero\n histogram = $(T.histogram)"
     distribution = smooth(T.histogram, 6.0)
     distribution = rescale(distribution, T.alpha)
     newgrid = similar(T.grid)

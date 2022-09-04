@@ -331,22 +331,40 @@ Propose to shift an existing variable to a new one, both in [T.lower, T.lower+T.
     currIdx = T.gidx[idx]
 
     N = length(T.grid) - 1
-    x = rand(config.rng)
-    if x < 1.0 / 2
-        δ = 0.2
-        # x--> y
-        dyo = (T[idx] - T.grid[currIdx]) / (T.grid[currIdx+1] - T.grid[currIdx])
-        y = (currIdx - 1 + dyo) / N
-        y += 2 * δ * (rand(config.rng) - 0.5)
-        if y < 0.0
-            y += 1.0
-        end
-        if y >= 1.0
-            y -= 1.0
-        end
-    else
-        y = rand(config.rng) # [0, 1) random number
+    # x = rand(config.rng)
+    # if x < 1.0 / 2
+    # TODO: this part of code can generate NaN
+    #     δ = 0.2
+    #     # x--> y
+    #     dyo = (T[idx] - T.grid[currIdx]) / (T.grid[currIdx+1] - T.grid[currIdx])
+    #     y = (currIdx - 1 + dyo) / N
+    #     y += 2 * δ * (rand(config.rng) - 0.5)
+    #     if y < 0.0
+    #         y += 1.0
+    #     end
+    #     if y >= 1.0
+    #         y -= 1.0
+    #     end
+    # else
+    #     y = rand(config.rng) # [0, 1) random number
+    # end
+    y = rand(config.rng) # [0, 1) random number
+    if (isfinite(y) == false) || (isnan(y) == true)
+        println(y)
     end
+    if (isfinite(N) == false) || (isnan(N) == true)
+        println("error with N")
+        println(N)
+    end
+    if (isfinite(floor(N * y)) == false) || (isnan(floor(N * y)) == true)
+        println("error with y*N")
+        println(x)
+        println(y)
+        println(N)
+        println(y * N)
+        println(floor(y * N))
+    end
+    # println(y * N)
     iy = Int(floor(y * N)) + 1
     dy = y * N - (iy - 1)
     x = T.grid[iy] + dy * (T.grid[iy+1] - T.grid[iy])
