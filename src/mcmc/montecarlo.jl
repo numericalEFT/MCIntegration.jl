@@ -12,11 +12,6 @@ function montecarlo(config::Configuration, integrand::Function, neval,
     end
     @assert (config.curr == config.norm) || config.probability > TINY "Cannot find the variables that makes the $(config.curr) integrand >1e-10"
 
-    # weight = config.curr == config.norm ? 1.0 : integrand_wrap(config, integrand, userdata)
-    # setweight!(config, weight)
-    # config.absWeight = abs(weight)
-
-
     # updates = [changeIntegrand,] # TODO: sample changeVariable more often
     # updates = [changeIntegrand, swapVariable,] # TODO: sample changeVariable more often
     updates = [changeIntegrand, swapVariable, changeVariable] # TODO: sample changeVariable more often
