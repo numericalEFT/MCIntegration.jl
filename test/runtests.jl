@@ -1,23 +1,24 @@
 using MCIntegration
 using Test
 
-function check(mean, error, expect)
+function check(mean, error, expect, ratio=7.0)
     # println(mean, error)
     for ei in eachindex(expect)
-        @test abs(mean[ei] - expect[ei]) < 5.0 * error[ei]
+        @test abs(mean[ei] - expect[ei]) < error[ei] * ratio
     end
 end
 
-function check(result, expect)
+function check(result::Result, expect, ratio=7.0)
+    # println(result)
     mean, error = result.mean, result.stdev
-    check(mean, error, expect)
+    check(mean, error, expect, ratio)
 end
 
-function check_complex(result, expect)
+function check_complex(result::Result, expect, ratio=7.0)
     mean, error = result.mean, result.stdev
     # println(mean, error)
-    check(real(mean), real(error), real(expect))
-    check(imag(mean), imag(error), imag(expect))
+    check(real(mean), real(error), real(expect), ratio)
+    check(imag(mean), imag(error), imag(expect), ratio)
 end
 
 # @testset "MCIntegration.jl" begin

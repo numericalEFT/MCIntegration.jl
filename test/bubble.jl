@@ -106,7 +106,7 @@ using MCIntegration
             neval=steps, print=0, block=16)
 
         if isnothing(result) == false
-            avg, std = result.mean[1], result.stdev[1]
+            avg, std = result.mean, result.stdev
 
             println("Algorithm : $(alg)")
             @printf("%10s  %10s   %10s  %10s\n", "q/kF", "avg", "err", "exact")

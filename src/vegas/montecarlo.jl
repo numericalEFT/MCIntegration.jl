@@ -24,9 +24,11 @@ function montecarlo(config::Configuration{V,P,O,T}, integrand::Function, neval,
         for vi in eachindex(maxdof)
             var = config.var[vi]
             for idx in 1:maxdof[vi]
-                # jac *= Dist.create!(var, idx + var.offset, config)
                 Dist.shift!(var, idx + var.offset, config)
                 jac /= var.prob[idx+var.offset]
+
+                # alternative way to calculate the jacobian
+                # jac *= Dist.create!(var, idx + var.offset, config)
             end
         end
         weights = integrand_wrap(config, integrand)

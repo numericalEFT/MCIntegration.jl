@@ -16,27 +16,46 @@ the returned result of the MC integration.
 struct Result{O,C}
     mean::O
     stdev::O
-    chi2::O
+    chi2::Any
     neval::Int
     dof::Int
     config::C
     iterations::Any
     function Result(history::AbstractVector)
+        # history[end][1] # a vector of avg
+        # history[end][2] # a vector of std
+        # history[end][3] # a vector of config
         @assert length(history) > 0
-        O = typeof(history[end][1])
         config = history[end][3]
         dof = length(history) - 1
         neval = sum(h[3].neval for h in history)
-        mean, stdev, chi2 = [], [], []
-        for o in 1:config.N
-            _mean, _stdev, _chi2 = average(history, dof + 1, o)
-            push!(mean, _mean)
-            push!(stdev, _stdev)
-            push!(chi2, _chi2)
+        @assert config.N >= 1
+        if config.N == 1
+            O = typeof(history[end][1][1]) #if there is only value, then extract this value from the vector
+            mean, stdev, chi2 = average(history, dof + 1, 1)
+        else
+            O = typeof(history[end][1])
+            @assert O <: AbstractVector
+            mean, stdev, chi2 = [], [], []
+            res = [average(history, dof + 1, o) for o in 1:config.N]
+            mean = [r[1] for r in res]
+            stdev = [r[2] for r in res]
+            chi2 = [r[3] for r in res]
+            # for o in 1:config.N
+            #     _mean, _stdev, _chi2 = average(history, dof + 1, o)
+            #     push!(mean, _mean)
+            #     push!(stdev, _stdev)
+            #     push!(chi2, _chi2)
+            # end
         end
         # println(mean, ", ", stdev, ", ", chi2)
+        # println(typeof(mean), typeof(config))
         return new{O,typeof(config)}(mean, stdev, chi2, neval, dof, config, history)
     end
+end
+
+function Base.getindex(result::Result, idx::Int)
+    return result.mean[idx], result.stdev[idx], result.chi2[idx]
 end
 
 function tostring(mval, merr; pm="±")
