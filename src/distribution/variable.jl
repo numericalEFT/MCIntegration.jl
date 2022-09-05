@@ -80,7 +80,7 @@ mutable struct Continuous{G} <: Variable
 
         N = length(grid) - 1
         inc = [grid[i+1] - grid[i] for i in 1:N]
-        histogram = ones(N) * 1e-10
+        histogram = ones(N) * TINY
 
         var = new{G}(t, gidx, prob, lower, upper - lower, offset, grid, inc, histogram, alpha, adapt)
         return var
@@ -165,17 +165,22 @@ mutable struct Discrete <: Variable
     distribution::Vector{Float64}
     alpha::Float64
     adapt::Bool
-    function Discrete(bound::Union{Tuple{Int,Int},Vector{Int}}, size=MaxOrder; offset=0, alpha=2.0, adapt=true)
-        return Discrete([bound[0], bound[1]], size; offset=offset, alpha=alpha, adapt=adapt)
+    function Discrete(bound::Union{Tuple{Int,Int},Vector{Int}}, size=MaxOrder; distribution=nothing, offset=0, alpha=2.0, adapt=true)
+        return Discrete([bound[0], bound[1]], size; distribution=distribution, offset=offset, alpha=alpha, adapt=adapt)
     end
-    function Discrete(lower::Int, upper::Int, size=MaxOrder; offset=0, alpha=2.0, adapt=true)
+    function Discrete(lower::Int, upper::Int, size=MaxOrder; distribution=nothing, offset=0, alpha=2.0, adapt=true)
         @assert offset + 1 < size
         size = size + 1 # need one more element as cache for the swap operation
         d = collect(Iterators.take(Iterators.cycle(lower:upper), size)) #avoid dulication
 
         @assert upper >= lower
-        histogram = ones(upper - lower + 1)
-        distribution = deepcopy(histogram) #very important, makesure histogram is not the same array as the distribution
+        histogram = ones(upper - lower + 1) * TINY
+        if isnothing(distribution)
+            distribution = deepcopy(histogram) #very important, makesure histogram is not the same array as the distribution
+        else
+            @assert all(x -> x >= 0.0, distribution) "distribution should be all non-negative!"
+            @assert length(distribution) == length(histogram) "distribution should for the range $lower:$upper, which has the length $(upper-lower+1)"
+        end
         distribution ./= sum(distribution)
         accumulation = [sum(distribution[1:i]) for i in 1:length(distribution)]
         accumulation = [0.0, accumulation...] # start with 0.0 and end with 1.0
@@ -269,12 +274,41 @@ function initialize!(T::Variable, config)
     end
 end
 
+function total_probability(config)
+    prob = 1.0
+    for (vi, var) in enumerate(config.var)
+        offset = var.offset
+        for pos = 1:config.maxdof[vi]
+            prob *= var.prob[pos+offset]
+        end
+    end
+    if prob < TINY
+        @warn "probability is either too small or negative : $(prob)"
+    end
+    return prob
+end
+
 function probability(config, curr=config.curr)
     prob = 1.0
     dof = config.dof[curr]
     for (vi, var) in enumerate(config.var)
         offset = var.offset
         for pos = 1:dof[vi]
+            prob *= var.prob[pos+offset]
+        end
+    end
+    if prob < TINY
+        @warn "probability is either too small or negative : $(prob)"
+    end
+    return prob
+end
+
+function padding_probability(config, curr=config.curr)
+    prob = 1.0
+    dof = config.dof[curr]
+    for (vi, var) in enumerate(config.var)
+        offset = var.offset
+        for pos = dof[vi]+1:config.maxdof[vi]
             prob *= var.prob[pos+offset]
         end
     end

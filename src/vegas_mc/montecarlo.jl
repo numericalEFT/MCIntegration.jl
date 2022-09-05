@@ -41,11 +41,11 @@ function montecarlo(config::Configuration{V,P,O,T}, integrand::Function, neval,
     # updates = [changeIntegrand,] # TODO: sample changeVariable more often
     # updates = [changeIntegrand, swapVariable,] # TODO: sample changeVariable more often
     # updates = [changeIntegrand, swapVariable, changeVariable] # TODO: sample changeVariable more often
-    updates = [changeIntegrand, changeVariable] # TODO: sample changeVariable more often
-    # updates = [changeVariable,] # TODO: sample changeVariable more often
-    for i = 2:length(config.var)*2
-        push!(updates, changeVariable)
-    end
+    # updates = [changeIntegrand, changeVariable] # TODO: sample changeVariable more often
+    updates = [changeVariable,] # TODO: sample changeVariable more often
+    # for i = 2:length(config.var)*2
+    #     push!(updates, changeVariable)
+    # end
 
     ########### MC simulation ##################################
     # if (print > 0)
@@ -64,8 +64,8 @@ function montecarlo(config::Configuration{V,P,O,T}, integrand::Function, neval,
             ######## accumulate variable and calculate variable probability #################
             if config.curr != config.norm
 
-                prop = Dist.probability(config, config.curr)
-                f2 = (abs(config.weights[config.curr]))^2 / prop
+                # prop = Dist.probability(config, config.curr)
+                # f2 = (abs(config.weights[config.curr]))^2 / prop
 
                 for (vi, var) in enumerate(config.var)
                     offset = var.offset
