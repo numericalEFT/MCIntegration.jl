@@ -1,46 +1,46 @@
-function changeIntegrand(config, integrand)
-    # update to change an integrand to its neighbors. 
-    # The degrees of freedom could be increase, decrease or remain the same.
+# function changeIntegrand(config, integrand)
+#     # update to change an integrand to its neighbors. 
+#     # The degrees of freedom could be increase, decrease or remain the same.
 
-    curr = config.curr
-    new = rand(config.rng, config.neighbor[curr]) # jump to a randomly picked neighboring integrand
+#     curr = config.curr
+#     new = rand(config.rng, config.neighbor[curr]) # jump to a randomly picked neighboring integrand
 
-    currProbability = config.probability
+#     currProbability = config.probability
 
-    # propose probability caused by the selection of neighbors
-    prop = length(config.neighbor[curr]) / length(config.neighbor[new])
+#     # propose probability caused by the selection of neighbors
+#     prop = length(config.neighbor[curr]) / length(config.neighbor[new])
 
-    # sampler may want to reject, then prop has already been set to zero
-    if prop <= eps(0.0)
-        return
-    end
+#     # sampler may want to reject, then prop has already been set to zero
+#     if prop <= eps(0.0)
+#         return
+#     end
 
-    prop *= Dist.delta_probability(config, curr; new=new)
+#     prop *= Dist.delta_probability(config, curr; new=new)
 
-    ############## the following are consistent  #############################
-    # prop *= Dist.delta_probability(config, curr; new=new)
-    # p1 = Dist.probability(config, curr)
-    # p2 = Dist.probability(config, new)
-    # @assert abs(p1 / p2 - prop) < 1e-10 "$p1   $p2   $prop"
-    ######################################################################
+#     ############## the following are consistent  #############################
+#     # prop *= Dist.delta_probability(config, curr; new=new)
+#     # p1 = Dist.probability(config, curr)
+#     # p2 = Dist.probability(config, new)
+#     # @assert abs(p1 / p2 - prop) < 1e-10 "$p1   $p2   $prop"
+#     ######################################################################
 
-    weights = integrand_wrap(config, integrand)
-    # newProbability = (new == config.norm) ? config.reweight[new] : abs(weights[new]) / Dist.probability(config, new) * config.reweight[new]
-    newProbability = (new == config.norm) ? config.reweight[new] : abs(weights[new]) * config.reweight[new]
-    # R = prop * newAbsWeight * config.reweight[new] / currAbsWeight / config.reweight[curr]
-    R = prop * newProbability / currProbability
+#     weights = integrand_wrap(config, integrand)
+#     # newProbability = (new == config.norm) ? config.reweight[new] : abs(weights[new]) / Dist.probability(config, new) * config.reweight[new]
+#     newProbability = (new == config.norm) ? config.reweight[new] : abs(weights[new]) * config.reweight[new]
+#     # R = prop * newAbsWeight * config.reweight[new] / currAbsWeight / config.reweight[curr]
+#     R = prop * newProbability / currProbability
 
-    config.propose[1, curr, new] += 1.0
-    if rand(config.rng) < R  # accept the change
-        config.accept[1, curr, new] += 1.0
-        setWeight!(config, weights)
-        config.probability = newProbability
-        config.curr = new
-        # else # reject the change
-        #     config.curr = curr # reset the current diagram index
-    end
-    return
-end
+#     config.propose[1, curr, new] += 1.0
+#     if rand(config.rng) < R  # accept the change
+#         config.accept[1, curr, new] += 1.0
+#         setWeight!(config, weights)
+#         config.probability = newProbability
+#         config.curr = new
+#         # else # reject the change
+#         #     config.curr = curr # reset the current diagram index
+#     end
+#     return
+# end
 
 function changeVariable(config, integrand)
     # update to change the variables of the current diagrams

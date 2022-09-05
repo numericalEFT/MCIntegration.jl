@@ -33,7 +33,7 @@
     Their shapes are (number of updates X integrand number X max(integrand number, variable number).
     The last index will waste some memory, but the dimension is small anyway.
 """
-mutable struct Configuration{V,P,O,T}
+mutable struct Configuration{NI,V,P,O,T}
     ########### static parameters ###################
     seed::Int # seed to initialize random numebr generator, also serves as the unique pid of the configuration
     rng::MersenneTwister # random number generator seeded by seed
@@ -179,7 +179,7 @@ function Configuration(;
     propose = zeros(Float64, (2, Nd, max(Nd, Nv))) .+ 1.0e-8 # add a small initial value to avoid Inf when inverted
     accept = zeros(Float64, (2, Nd, max(Nd, Nv)))
 
-    return Configuration{typeof(var),typeof(userdata),typeof(obs),type}(
+    return Configuration{Nd - 1,typeof(var),typeof(userdata),typeof(obs),type}(
         seed, MersenneTwister(seed), var, userdata,  # static parameters
         Nd - 1, neighbor, dof, _maxdof(dof), obs, reweight, reweight_goal, visited, # integrand properties
         0, idx, norm, normalization, relativeWeights, weights, probability, propose, accept  # current MC state

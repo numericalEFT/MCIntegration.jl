@@ -1,6 +1,37 @@
-function montecarlo(config::Configuration{V,P,O,T}, integrand::Function, neval,
+type_length(tup::Type{T}) where {T<:Tuple} = length(tup.parameters)
+
+"""
+    macro _expanded_integrand(config, integrand, N)
+    
+    return a function call: `integrand(config.var[1], config.var[2], ...config.var[N], config).
+"""
+macro _expanded_integrand(config, integrand, N)
+    #TODO: right now, it only works for explict N
+    para = []
+    # NN = type_length($(esc(V)))
+    # println(NN)
+    for i = 1:N
+        push!(para, :($(esc(config)).var[$i]))
+    end
+    return Expr(:call, :($(esc(integrand))), para..., :($(esc(config))))
+end
+
+# @generated function _gen_integrand(config::Configuration{Ni,V,P,O,T}, integrand) where {Ni,V,P,O,T}
+# end
+
+@generated function sub2ind_gen(dims::NTuple{N}, I::Integer...) where {N}
+    ex = :(I[$N] - 1)
+    for i = (N-1):-1:1
+        ex = :(I[$i] - 1 + dims[$i] * $ex)
+    end
+    return :($ex + 1)
+end
+
+function montecarlo(config::Configuration{Ni,V,P,O,T}, integrand::Function, neval,
     print=0, save=0, timer=[];
-    measure::Union{Nothing,Function}=nothing, measurefreq=1, kwargs...) where {V,P,O,T}
+    measure::Union{Nothing,Function}=nothing, measurefreq=1, kwargs...) where {Ni,V,P,O,T}
+
+    # println(fieldcount(V))
 
     if isnothing(measure)
         @assert (config.observable isa AbstractVector) && (length(config.observable) == config.N) && (eltype(config.observable) == T) "the default measure can only handle observable as Vector{$T} with $(config.N) elements!"
@@ -31,15 +62,17 @@ function montecarlo(config::Configuration{V,P,O,T}, integrand::Function, neval,
                 # jac *= Dist.create!(var, idx + var.offset, config)
             end
         end
-        weights = integrand_wrap(config, integrand)
+        # weights = @_expanded_integrand(config, integrand, 1) # very fast, but requires explicit N
+        weights = integrand_wrap(config, integrand) #make a lot of allocations
 
         if (i % measurefreq == 0)
             if isnothing(measure)
-                for i in eachindex(weights)
+                for i in 1:Ni
                     config.observable[i] += weights[i] * jac
                 end
+                # observable += weights * jac
             else
-                for i in eachindex(weights)
+                for i in 1:Ni
                     config.relativeWeights[i] = weights[i] * jac
                 end
                 measure(config.observable, config.relativeWeights, config)
@@ -47,6 +80,8 @@ function montecarlo(config::Configuration{V,P,O,T}, integrand::Function, neval,
             # push!(mem, weight * prop)
             config.normalization += 1.0 #should be 1!
         end
+        # w2 = abs(weights)
+        # Dist.accumulate!(config.var[1], 1, (w2 * jac)^2)
 
         ######## accumulate variable #################
         for (vi, var) in enumerate(config.var)
@@ -67,9 +102,11 @@ function montecarlo(config::Configuration{V,P,O,T}, integrand::Function, neval,
         ###############################################
     end
 
+    # config.observable[1] = observable
     return config
 end
 
-@inline function integrand_wrap(config, _integrand)
+@inline function integrand_wrap(config::Configuration{N,V,P,O,T}, _integrand) where {N,V,P,O,T}
     return _integrand(config.var..., config)
+    # return _integrand(config)
 end

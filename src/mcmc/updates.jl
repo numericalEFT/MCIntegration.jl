@@ -1,4 +1,4 @@
-function changeIntegrand(config::Configuration{V,P,O,T}, integrand) where {V,P,O,T}
+function changeIntegrand(config::Configuration{N,V,P,O,T}, integrand) where {N,V,P,O,T}
     # update to change an integrand to its neighbors. 
     # The degrees of freedom could be increase, decrease or remain the same.
 

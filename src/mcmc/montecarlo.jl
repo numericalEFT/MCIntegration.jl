@@ -1,6 +1,6 @@
-function montecarlo(config::Configuration{V,P,O,T}, integrand::Function, neval,
+function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval,
     print, save, timer;
-    measurefreq=2, measure::Union{Nothing,Function}=nothing, kwargs...) where {V,P,O,T}
+    measurefreq=2, measure::Union{Nothing,Function}=nothing, kwargs...) where {N,V,P,O,T}
     ##############  initialization  ################################
     # don't forget to initialize the diagram weight
     if isnothing(measure)
