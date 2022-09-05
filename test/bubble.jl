@@ -85,7 +85,7 @@ using MCIntegration
         measure(obs, weight, config)
     end
 
-    function run(steps, alg)
+    function run(steps, alg, ratio)
         para = Para()
         extQ, Qsize = para.extQ, para.Qsize
         kF, β = para.kF, para.β
@@ -103,10 +103,10 @@ using MCIntegration
         # config = MCIntegration.Configuration(var=(T, K, Ext), dof=dof, obs=obs, para=para)
         result = integrate(integrand; measure=measure, userdata=(para, Ext),
             var=(R, θ, ϕ, T, Ext), dof=dof, obs=obs, solver=alg,
-            neval=steps, print=0, block=16)
+            neval=steps, print=-1, block=8)
         @time result = integrate(integrand; measure=measure, userdata=(para, Ext),
             var=(R, θ, ϕ, T, Ext), dof=dof, obs=obs, solver=alg,
-            neval=steps, print=0, block=16, config=result.config)
+            neval=steps * 10, print=0, block=64, niter=1, config=result.config)
 
         if isnothing(result) == false
             avg, std = result.mean, result.stdev
@@ -117,15 +117,15 @@ using MCIntegration
                 q = q[1]
                 p = lindhard(q, para)
                 @printf("%10.6f  %10.6f ± %10.6f  %10.6f\n", q / kF, avg[idx], std[idx], p)
-                check(avg[idx], std[idx], p, 10.0)
+                check(avg[idx], std[idx], p, ratio)
             end
             # check(avg[1], std[1], lindhard(extQ[1][1], para))
         end
     end
 
-    run(Steps, :mcmc)
-    run(Steps, :vegas)
-    run(Steps, :vegasmc)
+    run(Steps, :mcmc, 5.0)
+    run(Steps, :vegas, 10.0)
+    run(Steps, :vegasmc, 5.0)
     # run(Steps, :vegasmc) #currently vegasmc can not handle this 
     # @time run(Steps)
 end

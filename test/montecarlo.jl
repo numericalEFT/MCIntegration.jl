@@ -147,15 +147,18 @@ end
     println("MC Vegas tests")
 
     # TODO: so far vegas MC doesn't work with Sphere1 and Sphere2. These integrals vanishes in some regimes, making the measurement of the normalization integral unreliable.
-    # println("Sphere1")
-    # check(Sphere1(neval, :MCMC), π / 4.0)
+    println("Sphere1")
+    check(Sphere1(neval, :vegasmc), π / 4.0)
     # check(Sphere2(neval), π / 4.0)
-    # println("Sphere2")
+    println("Sphere2")
+    check(Sphere2(neval, :vegasmc), [π / 4.0, 4.0 * π / 3.0 / 8])
+    check(Sphere2(neval, :vegasmc; offset=2), [π / 4.0, 4.0 * π / 3.0 / 8])
     # check(Sphere3(neval), [π / 4.0, 4.0 * π / 3.0 / 8])
     println("Discrete")
     check(TestDiscrete(neval, :vegasmc), 6.0)
     println("Singular1")
     res = TestSingular1(neval, :vegasmc)
+    println(res)
     check(res, -4.0)
     # @test res.stdev[1] < 0.0004 #make there is no regression, vegas typically gives accuracy ~0.0002 with 1e5x10 evaluations
     println("Singular2")
