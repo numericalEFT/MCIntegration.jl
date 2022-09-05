@@ -114,7 +114,7 @@ using MCIntegration
                 q = q[1]
                 p = lindhard(q, para)
                 @printf("%10.6f  %10.6f ± %10.6f  %10.6f\n", q / kF, avg[idx], std[idx], p)
-                check(avg[idx], std[idx], p)
+                check(avg[idx], std[idx], p, 10.0)
             end
             # check(avg[1], std[1], lindhard(extQ[1][1], para))
         end

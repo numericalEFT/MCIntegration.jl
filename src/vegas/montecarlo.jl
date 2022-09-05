@@ -52,8 +52,13 @@ function montecarlo(config::Configuration{V,P,O,T}, integrand::Function, neval,
         for (vi, var) in enumerate(config.var)
             offset = var.offset
             for idx in eachindex(weights)
+                w2 = abs(weights[idx])
+                j2 = jac
+                if isfinite(w2) == false
+                    @warn("abs of the integrand $idx = $(w2) is not finite at step $(config.neval)")
+                end
                 for pos = 1:config.dof[idx][vi]
-                    Dist.accumulate!(var, pos + offset, (abs(weights[idx])^2 * jac^2))
+                    Dist.accumulate!(var, pos + offset, (w2 * j2)^2)
                     # Dist.accumulate!(var, pos + offset, (abs(weight) * prop))
                     # Dist.accumulate!(var, pos + offset, 1.0)
                 end
