@@ -62,13 +62,18 @@ function changeVariable(config, integrand)
 
     weights = integrand_wrap(config, integrand)
     # newProbability = (curr == config.norm) ? config.reweight[curr] : abs(weights[curr]) / Dist.probability(config, curr) * config.reweight[curr]
-    newProbability = (curr == config.norm) ? config.reweight[curr] : abs(weights[curr]) * config.reweight[curr]
+    # newProbability = (curr == config.norm) ? config.reweight[curr] : abs(weights[curr]) * config.reweight[curr]
 
-    if idx > config.dof[curr][vi] + var.offset
-        R = 1.0
-    else
-        R = prop * newProbability / currProbability
+    # if idx > config.dof[curr][vi] + var.offset
+    #     R = 1.0
+    # else
+    #     R = prop * newProbability / currProbability
+    # end
+    newProbability = config.reweight[config.norm] * Dist.padding_probability(config, config.norm) #normalization integral
+    for i in 1:config.N #other integrals
+        newProbability += abs(weights[i]) * config.reweight[i] * Dist.padding_probability(config, i)
     end
+    R = prop * newProbability / currProbability
 
     # curr == 2 && println("propose, $curr: old: $oldvar --> new: $(var[idx]), with R $newAbsWeight / $currAbsWeight * $prop = $R")
     config.propose[2, curr, vi] += 1.0

@@ -55,7 +55,6 @@ function montecarlo(config::Configuration{V,P,O,T}, integrand::Function, neval,
 
     for i = 1:neval
         config.neval += 1
-        config.visited[config.curr] += 1
         _update = rand(config.rng, updates) # randomly select an update
         _update(config, integrand)
         # if i % 10 == 0 && i >= neval / 100
@@ -79,26 +78,36 @@ function montecarlo(config::Configuration{V,P,O,T}, integrand::Function, neval,
                         # the following accumulator has a similar performance
                         # this is because that with an optimial grid, |f(x)| ~ prop
                         # Dist.accumulate!(var, pos + offset, 1.0/ reweight
-                        Dist.accumulate!(var, pos + offset, 1.0 / config.reweight[config.curr])
+                        # Dist.accumulate!(var, pos + offset, 1.0 / config.reweight[config.curr])
+                        for i in eachindex(config.weights)
+                            Dist.accumulate!(var, pos + offset, abs(config.weights[i] * config.reweight[i]) / config.probability)
+                        end
                     end
                 end
             end
             ##############################################################################
 
+
             if isnothing(measure)
                 for i in eachindex(config.weights)
-                    prob = Dist.delta_probability(config, config.curr; new=i)
-                    config.observable[i] += config.weights[i] * prob / config.probability
+                    # prob = Dist.delta_probability(config, config.curr; new=i)
+                    # config.observable[i] += config.weights[i] * prob / config.probability
+                    config.observable[i] += config.weights[i] / config.probability
+                    config.visited[i] += abs(config.weights[i] * config.reweight[i]) / config.probability
                 end
             else
                 for i in eachindex(config.weights)
-                    prob = Dist.delta_probability(config, config.curr; new=i)
-                    config.relativeWeights[i] = config.weights[i] * prob / config.probability
+                    # prob = Dist.delta_probability(config, config.curr; new=i)
+                    # config.relativeWeights[i] = config.weights[i] * prob / config.probability
+                    config.relativeWeights[i] = config.weights[i] / config.probability
+                    config.visited[i] += abs(config.weights[i] * config.reweight[i]) / config.probability
                 end
                 measure(config.observable, config.relativeWeights, config)
             end
-            prob = Dist.delta_probability(config, config.curr; new=config.norm)
-            config.normalization += prob / config.probability
+            # prob = Dist.delta_probability(config, config.curr; new=config.norm)
+            # config.normalization += prob / config.probability
+            config.normalization += 1.0 / config.probability
+            config.visited[config.norm] += config.reweight[config.norm] / config.probability
         end
         if i % 1000 == 0
             for t in timer

@@ -323,7 +323,7 @@ function report(config::Configuration, total_neval=nothing)
     println(bar)
 
     println(yellow(@sprintf("%-20s %12s %12s %12s", "ChangeVariable", "Proposed", "Accepted", "Ratio  ")))
-    for idx = 1:Nd # normalization diagram don't have variable to change
+    for idx = 1:Nd-1 # normalization diagram don't have variable to change
         for (vi, var) in enumerate(var)
             typestr = "$(typeof(var))"
             typestr = split(typestr, ".")[end]

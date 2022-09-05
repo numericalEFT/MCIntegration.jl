@@ -102,27 +102,6 @@ end
 # end
 
 
-function doReweight!(config, alpha)
-    avgstep = sum(config.visited)
-    for (vi, v) in enumerate(config.visited)
-        # if v > 1000
-        if v <= 1
-            config.reweight[vi] *= (avgstep)^alpha
-        else
-            config.reweight[vi] *= (avgstep / v)^alpha
-        end
-    end
-    config.reweight .*= config.reweight_goal
-    # renoormalize all reweight to be (0.0, 1.0)
-    config.reweight ./= sum(config.reweight)
-    # avoid overreacting to atypically large reweighting factor
-    # reweighting factor close to 1.0 will not be changed much
-    # reweighting factor close to zero will be amplified significantly
-    # Check Eq. (19) of https://arxiv.org/pdf/2009.05112.pdf for more detail
-    # config.reweight = @. ((1 - config.reweight) / log(1 / config.reweight))^beta
-    # config.reweight ./= sum(config.reweight)
-end
-
 # function doReweight!(config, alpha)
 #     avgstep = sum(config.visited) / length(config.visited)
 #     for (vi, v) in enumerate(config.visited)
