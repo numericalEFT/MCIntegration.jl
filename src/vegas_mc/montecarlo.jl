@@ -92,22 +92,23 @@ function montecarlo(config::Configuration{V,P,O,T}, integrand::Function, neval,
                 for i in eachindex(config.weights)
                     # prob = Dist.delta_probability(config, config.curr; new=i)
                     # config.observable[i] += config.weights[i] * prob / config.probability
-                    config.observable[i] += config.weights[i] / config.probability
-                    config.visited[i] += abs(config.weights[i] * config.reweight[i]) / config.probability
+                    config.observable[i] += config.weights[i] * Dist.padding_probability(config, i) / config.probability
+                    config.visited[i] += abs(config.weights[i] * Dist.padding_probability(config, i) * config.reweight[i]) / config.probability
                 end
             else
                 for i in eachindex(config.weights)
                     # prob = Dist.delta_probability(config, config.curr; new=i)
                     # config.relativeWeights[i] = config.weights[i] * prob / config.probability
-                    config.relativeWeights[i] = config.weights[i] / config.probability
-                    config.visited[i] += abs(config.weights[i] * config.reweight[i]) / config.probability
+                    config.relativeWeights[i] = config.weights[i] * Dist.padding_probability(config, i) / config.probability
+                    config.visited[i] += abs(config.weights[i] * Dist.padding_probability(config, i) * config.reweight[i]) / config.probability
                 end
                 measure(config.observable, config.relativeWeights, config)
             end
             # prob = Dist.delta_probability(config, config.curr; new=config.norm)
             # config.normalization += prob / config.probability
-            config.normalization += 1.0 / config.probability
-            config.visited[config.norm] += config.reweight[config.norm] / config.probability
+            config.normalization += 1.0 * Dist.padding_probability(config, config.norm) / config.probability
+            config.visited[config.norm] += config.reweight[config.norm] * Dist.padding_probability(config, config.norm) / config.probability
+            # push!(kwargs["mem"], (1.0 / config.probability, config.weights[i] / config.probability))
         end
         if i % 1000 == 0
             for t in timer

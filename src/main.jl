@@ -189,14 +189,18 @@ function integrate(integrand::Function;
 end
 
 function _mean_std(obsSum, obsSquaredSum, block)
+    function _sqrt(x)
+        return x < 0.0 ? 0.0 : sqrt(x)
+    end
     function elementwise(osquaredSum, mean, block)
         if block > 1
             if eltype(osquaredSum) <: Complex
-                r_std = @. sqrt((real.(osquaredSum) / block - real(mean)^2) / (block - 1))
-                i_std = @. sqrt((imag.(osquaredSum) / block - imag(mean)^2) / (block - 1))
+                r_std = @. _sqrt((real.(osquaredSum) / block - real(mean)^2) / (block - 1))
+                i_std = @. _sqrt((imag.(osquaredSum) / block - imag(mean)^2) / (block - 1))
                 std = r_std + i_std * 1im
             else
-                std = @. sqrt((osquaredSum / block - mean^2) / (block - 1))
+                # println(obsSquaredSum, ", ", mean, ", ", block)
+                std = @. _sqrt((osquaredSum / block - mean^2) / (block - 1))
             end
         else
             std = zero(osquaredSum) # avoid division by zero

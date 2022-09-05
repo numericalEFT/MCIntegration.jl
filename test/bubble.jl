@@ -6,7 +6,7 @@ using MCIntegration
 # using ProfileView
 
 @testset "Free electron polarization" begin
-    Steps = 2e5
+    Steps = 1e5
 
     # include("parameter.jl")
     Base.@kwdef struct Para
@@ -101,9 +101,12 @@ using MCIntegration
         obs = [zeros(Float64, Qsize),] # observable for the normalization diagram and the bubble
 
         # config = MCIntegration.Configuration(var=(T, K, Ext), dof=dof, obs=obs, para=para)
-        @time result = integrate(integrand; measure=measure, userdata=(para, Ext),
+        result = integrate(integrand; measure=measure, userdata=(para, Ext),
             var=(R, θ, ϕ, T, Ext), dof=dof, obs=obs, solver=alg,
             neval=steps, print=0, block=16)
+        @time result = integrate(integrand; measure=measure, userdata=(para, Ext),
+            var=(R, θ, ϕ, T, Ext), dof=dof, obs=obs, solver=alg,
+            neval=steps, print=0, block=16, config=result.config)
 
         if isnothing(result) == false
             avg, std = result.mean, result.stdev
@@ -122,6 +125,7 @@ using MCIntegration
 
     run(Steps, :mcmc)
     run(Steps, :vegas)
+    run(Steps, :vegasmc)
     # run(Steps, :vegasmc) #currently vegasmc can not handle this 
     # @time run(Steps)
 end
