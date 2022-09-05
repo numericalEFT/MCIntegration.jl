@@ -7,6 +7,11 @@ using ProgressMeter
 
 const RNG = Random.GLOBAL_RNG
 const TINY = 1e-10
+const EPSILON = eps(Float64)
+
+# this is how vegas python package does it
+# cdef double TINY = 10 ** (sys.float_info.min_10_exp + 50)  # smallest and biggest
+# cdef double HUGE = 10 ** (sys.float_info.max_10_exp - 50)  # with extra headroom
 
 include("utility/utility.jl")
 using .MCUtility

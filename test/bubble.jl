@@ -49,12 +49,19 @@ using MCIntegration
         end
     end
 
-    function integrand(T, K, Ext, config)
+    function integrand(R, Theta, Phi, T, Ext, config)
         # @assert idx == 1 "$(idx) is not a valid integrand"
         para, _Ext = config.userdata
         kF, β, me = para.kF, para.β, para.me
-        k = K[1]
-        # Tin, Tout = T[1], T[2]
+
+        r = R[1] / (1 - R[1])
+        θ = Theta[1]
+        ϕ = Phi[1]
+        # varK[:, i+1] .= [r * sin(θ) * cos(ϕ), r * sin(θ) * sin(ϕ), r * cos(θ)]
+        k = [r * sin(θ) * cos(ϕ), r * sin(θ) * sin(ϕ), r * cos(θ)]
+        factor = 1.0 / (2π)^(para.dim)  #each momentum loop is ∫dkxdkydkz/(2π)^3
+        factor *= r^2 / (1 - R[1])^2 * sin(θ)
+
         Tin, Tout = 0.0, T[1]
         extidx = Ext[1]
         q = para.extQ[extidx] # external momentum
@@ -64,11 +71,10 @@ using MCIntegration
         g1 = green(τ, ω1, β)
         ω2 = (dot(kq, kq) - kF^2) / (2me)
         g2 = green(-τ, ω2, β)
-        phase = 1.0 / (2π)^3
         n = 0 # external Matsubara frequency
-        return g1 * g2 * para.spin * phase * cos(2π * n * τ / β)
+        return g1 * g2 * para.spin * factor * cos(2π * n * τ / β)
     end
-    integrand(idx, T, K, Ext, config) = integrand(T, K, Ext, config)
+    integrand(idx, r, θ, ϕ, T, Ext, config) = integrand(r, θ, ϕ, T, Ext, config)
 
     function measure(obs, weight, config)
         para, Ext = config.userdata
@@ -84,16 +90,19 @@ using MCIntegration
         extQ, Qsize = para.extQ, para.Qsize
         kF, β = para.kF, para.β
 
-        T = MCIntegration.Continuous(0.0, β; alpha=3.0, adapt=true)
-        K = MCIntegration.FermiK(3, kF, 0.2 * kF, 10.0 * kF)
-        Ext = MCIntegration.Discrete(1, length(extQ); adapt=false) # external variable is specified
+        T = Continuous(0.0, β; alpha=3.0, adapt=true)
+        R = Continuous(0.0, 1.0; alpha=3.0, adapt=true)
+        θ = Continuous(0.0, 1π; alpha=3.0, adapt=true)
+        ϕ = Continuous(0.0, 2π; alpha=3.0, adapt=true)
+        # K = MCIntegration.FermiK(3, kF, 0.2 * kF, 10.0 * kF)
+        Ext = Discrete(1, length(extQ); adapt=false) # external variable is specified
 
-        dof = [[1, 1, 1],] # degrees of freedom of the normalization diagram and the bubble
+        dof = [[1, 1, 1, 1, 1],] # degrees of freedom of the normalization diagram and the bubble
         obs = [zeros(Float64, Qsize),] # observable for the normalization diagram and the bubble
 
         # config = MCIntegration.Configuration(var=(T, K, Ext), dof=dof, obs=obs, para=para)
-        @time result = MCIntegration.integrate(integrand; measure=measure, userdata=(para, Ext),
-            var=(T, K, Ext), dof=dof, obs=obs, solver=alg,
+        @time result = integrate(integrand; measure=measure, userdata=(para, Ext),
+            var=(R, θ, ϕ, T, Ext), dof=dof, obs=obs, solver=alg,
             neval=steps, print=0, block=16)
 
         if isnothing(result) == false
@@ -105,9 +114,9 @@ using MCIntegration
                 q = q[1]
                 p = lindhard(q, para)
                 @printf("%10.6f  %10.6f ± %10.6f  %10.6f\n", q / kF, avg[idx], std[idx], p)
-                # check(avg[idx], std[idx], p)
+                check(avg[idx], std[idx], p)
             end
-            check(avg[1], std[1], lindhard(extQ[1][1], para))
+            # check(avg[1], std[1], lindhard(extQ[1][1], para))
         end
     end
 

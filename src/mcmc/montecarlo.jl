@@ -35,6 +35,9 @@ function montecarlo(config::Configuration{V,P,O,T}, integrand::Function, neval,
         _update(config, integrand)
         # push!(kwargs[:mem], (config.curr, config.relativeWeight))
         # if i % 10 == 0 && i >= neval / 100
+        if isfinite(config.probability) == false
+            @warn("integrand probability = $(config.probability) is not finite at step $(config.neval)")
+        end
         if i % measurefreq == 0 && i >= neval / 100
 
             ######## accumulate variable #################

@@ -70,8 +70,30 @@ function rescale(dist::AbstractVector, alpha=1.5)
     @assert all(x -> x > 0, dist) "distribution should be all positive and non-zero\n dist = $dist"
     dist ./= sum(dist)
     # println("before:", dist[1:10])
-    dist = @. ((1 - dist) / log(1 / dist))^alpha
+    for i in eachindex(dist)
+        if dist[i] > 0 && dist[i] <= 0.99999999
+            dist[i] = (-(1 - dist[i]) / log(dist[i]))^alpha
+        end
+    end
+    @assert all(x -> isfinite(x), dist) "distribution is not all finite\n dist = $dist"
     # println(dist[1:10])
     # return dist ./= sum(dist)
     return dist
+
+    # this is how vegas python package does it
+    # tmp_f[0] = abs(7. * avg_f[0] + avg_f[1]) / 8.
+    # tmp_f[old_ninc - 1] = abs(7. * avg_f[old_ninc - 1] + avg_f[old_ninc - 2]) / 8.
+    # sum_f = tmp_f[0] + tmp_f[old_ninc - 1]
+    # for i in range(1, old_ninc - 1):
+    #     tmp_f[i] = abs(6. * avg_f[i] + avg_f[i-1] + avg_f[i+1]) / 8.
+    #     sum_f += tmp_f[i]
+    # if sum_f > 0:
+    #     for i in range(old_ninc):
+    #         avg_f[i] = tmp_f[i] / sum_f + TINY
+    # else:
+    #     for i in range(old_ninc):
+    #         avg_f[i] = TINY
+    # for i in range(old_ninc):
+    #     if avg_f[i] > 0 and avg_f[i] <= 0.99999999:
+    #         avg_f[i] = (-(1 - avg_f[i]) / log(avg_f[i])) ** alpha
 end
