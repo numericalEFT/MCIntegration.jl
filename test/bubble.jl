@@ -6,7 +6,7 @@ using MCIntegration
 # using ProfileView
 
 @testset "Free electron polarization" begin
-    Steps = 1e5
+    Steps = 2e5
 
     # include("parameter.jl")
     Base.@kwdef struct Para

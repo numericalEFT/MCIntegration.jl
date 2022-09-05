@@ -1,4 +1,5 @@
 # This example demonstrated how to calculate the bubble diagram of free electrons using the Monte Carlo module
+"TODO: vegas doesn't work with FermiK variable yet. Probably because of the way the FermiK.prob is calculated has some problems."
 
 using LinearAlgebra, Random, Printf
 using StaticArrays
@@ -6,7 +7,7 @@ using MCIntegration
 # using ProfileView
 
 @testset "Free electron polarization" begin
-    Steps = 1e5
+    Steps = 2e5
 
     # include("parameter.jl")
     Base.@kwdef struct Para
