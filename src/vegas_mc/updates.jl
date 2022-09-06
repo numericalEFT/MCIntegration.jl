@@ -42,7 +42,8 @@
 #     return
 # end
 
-function changeVariable(config::Configuration{N,V,P,O,T}, integrand, weights,
+function changeVariable(config::Configuration{N,V,P,O,T}, integrand,
+    currProbability::Float64, weights,
     padding_probability, _padding_probability) where {N,V,P,O,T}
     # update to change the variables of the current diagrams
     curr = config.curr
@@ -52,7 +53,7 @@ function changeVariable(config::Configuration{N,V,P,O,T}, integrand, weights,
     # (currdof[vi] <= 0) && return # return if the var has zero degree of freedom
     idx = var.offset + rand(config.rng, 1:maxdof[vi]) # randomly choose one var to update
 
-    currProbability = config.probability
+    # currProbability = config.probability
 
     prop = Dist.shift!(var, idx, config)
 
@@ -86,11 +87,13 @@ function changeVariable(config::Configuration{N,V,P,O,T}, integrand, weights,
         for i in 1:N+1 # broadcast operator . doesn't work here, because _weights can be a scalar
             @inbounds padding_probability[i] = _padding_probability[i]
         end
-        config.probability = newProbability
+        # config.probability = newProbability
+        return newProbability
     else
         Dist.shiftRollback!(var, idx, config)
+        return currProbability
     end
-    return
+    # return
 end
 
 # function swapVariable(config, integrand)
