@@ -33,6 +33,7 @@ function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval
     # should be something like [f_1(x)*g_0(y), f_2(x, y), 1*f_0(x)*g_0(y)], where f_0(x) and g_0(y) are the ansatz from the Vegas map
     # after padding, all integrands have the same dimension and have similiar probability distribution
     padding_probability = zeros(T, N + 1)
+    padding_probability_cache = zeros(T, N + 1)
     ##############  initialization  ################################
     # don't forget to initialize the diagram weight
     # initialize!(config, integrand)
@@ -62,7 +63,7 @@ function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval
     for ne = 1:neval
         config.neval += 1
         _update = rand(config.rng, updates) # randomly select an update
-        _update(config, integrand, weights, padding_probability)
+        _update(config, integrand, weights, padding_probability, padding_probability_cache)
 
         ######## accumulate variable and calculate variable probability #################
         for i in 1:N

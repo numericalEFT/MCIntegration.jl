@@ -125,7 +125,7 @@ using MCIntegration
     end
 
     run(Steps, :mcmc, 10.0)
-    run(Steps, :vegas, 10.0)
+    run(Steps, :vegas, 20.0)
     run(Steps, :vegasmc, 10.0)
     # run(Steps, :vegasmc) #currently vegasmc can not handle this 
     # @time run(Steps)

@@ -42,7 +42,8 @@
 #     return
 # end
 
-function changeVariable(config::Configuration{N,V,P,O,T}, integrand, weights, padding_probability) where {N,V,P,O,T}
+function changeVariable(config::Configuration{N,V,P,O,T}, integrand, weights,
+    padding_probability, _padding_probability) where {N,V,P,O,T}
     # update to change the variables of the current diagrams
     curr = config.curr
     maxdof = config.maxdof
@@ -64,8 +65,10 @@ function changeVariable(config::Configuration{N,V,P,O,T}, integrand, weights, pa
     _weights = (fieldcount(V) == 1) ?
                integrand(config.var[1], config) :
                integrand(config.var, config)
-    _padding_probability = [Dist.padding_probability(config, i) for i in 1:N+1]
-
+    for i in 1:N+1
+        _padding_probability[i] = Dist.padding_probability(config, i)
+    end
+    # println(_padding_probability)
     newProbability = config.reweight[config.norm] * _padding_probability[config.norm] #normalization integral
     for i in 1:N #other integrals
         newProbability += abs(_weights[i]) * config.reweight[i] * _padding_probability[i]
@@ -80,7 +83,9 @@ function changeVariable(config::Configuration{N,V,P,O,T}, integrand, weights, pa
         for i in 1:N # broadcast operator . doesn't work here, because _weights can be a scalar
             weights[i] = _weights[i]
         end
-        padding_probability .= _padding_probability
+        for i in 1:N+1 # broadcast operator . doesn't work here, because _weights can be a scalar
+            @inbounds padding_probability[i] = _padding_probability[i]
+        end
         config.probability = newProbability
     else
         Dist.shiftRollback!(var, idx, config)

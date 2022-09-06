@@ -31,7 +31,7 @@ function montecarlo(config::Configuration{Ni,V,P,O,T}, integrand::Function, neva
     print=0, save=0, timer=[];
     measure::Union{Nothing,Function}=nothing, measurefreq=1, kwargs...) where {Ni,V,P,O,T}
 
-    # println(fieldcount(V))
+    relativeWeights = zeros(T, Ni)
 
     if isnothing(measure)
         @assert (config.observable isa AbstractVector) && (length(config.observable) == config.N) && (eltype(config.observable) == T) "the default measure can only handle observable as Vector{$T} with $(config.N) elements!"
@@ -47,7 +47,7 @@ function montecarlo(config::Configuration{Ni,V,P,O,T}, integrand::Function, neva
     startTime = time()
     # mem = kwargs[:mem]
 
-    for i = 1:neval
+    for ne = 1:neval
         config.neval += 1
 
         maxdof = config.maxdof
@@ -66,7 +66,7 @@ function montecarlo(config::Configuration{Ni,V,P,O,T}, integrand::Function, neva
         # weights = integrand_wrap(config, integrand) #make a lot of allocations
         weights = (fieldcount(V) == 1) ? integrand(config.var[1], config) : integrand(config.var, config)
 
-        if (i % measurefreq == 0)
+        if (ne % measurefreq == 0)
             if isnothing(measure)
                 for i in 1:Ni
                     config.observable[i] += weights[i] * jac
@@ -74,11 +74,11 @@ function montecarlo(config::Configuration{Ni,V,P,O,T}, integrand::Function, neva
                 # observable += weights * jac
             else
                 for i in 1:Ni
-                    config.relativeWeights[i] = weights[i] * jac
+                    relativeWeights[i] = weights[i] * jac
                 end
                 (fieldcount(V) == 1) ?
-                measure(config.var[1], config.observable, config.relativeWeights, config) :
-                measure(config.var, config.observable, config.relativeWeights, config)
+                measure(config.var[1], config.observable, relativeWeights, config) :
+                measure(config.var, config.observable, relativeWeights, config)
             end
             # push!(mem, weight * prop)
             config.normalization += 1.0 #should be 1!
