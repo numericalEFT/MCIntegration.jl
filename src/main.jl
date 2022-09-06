@@ -7,7 +7,7 @@
         block=16, 
         gamma=1.0, 
         print=-1, 
-        printio=stdout,
+        debug=false, 
         kwargs...
     )
 
@@ -31,7 +31,7 @@
               In MPI mode, the blocks are distributed among the workers. If the numebr of workers N is larger than block, then block will be set to be N.
 - `gamma`:    Learning rate of the reweight factor after each iteraction. Note that alpha <=1, where alpha = 0 means no reweighting.  
 - `print`:    -1 to not print anything, 0 to print minimal information, >0 to print summary for every `print` seconds
-- `printio`:  `io` to print the information
+- `debug`:    Whether to print debug information (type instability, float overflow etc.)
 - `kwargs`:   Keyword arguments. If `config` is `nothing`, you may need to provide arguments for the `Configuration` constructor, check [`Configuration`](@ref) docs for more details.
 
 # Examples
@@ -49,11 +49,13 @@ function integrate(integrand::Function;
     print=0, printio=stdout, save=0, saveio=nothing, timer=[],
     gamma=1.0, # learning rate of the reweight factor, only used in MCMC solver
     adapt=true, # whether to adapt the grid and the reweight factor
+    debug=false, # whether to print debug information (type instability, etc.)
     kwargs...
 )
     if isnothing(config)
         config = Configuration(; kwargs...)
     end
+
     # weights = integrand(config, _integrand)
     # @assert length(weights) == length(config.dof) - 1 "There should be $(length(config.dof)-1) integrands, got $(length(weights))"
 
@@ -108,11 +110,11 @@ function integrate(integrand::Function;
             clearStatistics!(config) # reset statistics
 
             if solver == :vegasmc
-                config = VegasMC.montecarlo(config, integrand, nevalperblock, print, save, timer; kwargs...)
+                config = VegasMC.montecarlo(config, integrand, nevalperblock, print, save, timer, debug; kwargs...)
             elseif solver == :vegas
-                config = Vegas.montecarlo(config, integrand, nevalperblock, print, save, timer; kwargs...)
+                config = Vegas.montecarlo(config, integrand, nevalperblock, print, save, timer, debug; kwargs...)
             elseif solver == :mcmc
-                config = MCMC.montecarlo(config, integrand, nevalperblock, print, save, timer; kwargs...)
+                config = MCMC.montecarlo(config, integrand, nevalperblock, print, save, timer, debug; kwargs...)
             else
                 error("Solver $solver is not supported!")
             end

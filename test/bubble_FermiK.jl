@@ -71,7 +71,7 @@ using MCIntegration
         n = 0 # external Matsubara frequency
         return g1 * g2 * para.spin * phase * cos(2π * n * τ / β)
     end
-    integrand(idx, T, K, Ext, config) = integrand(T, K, Ext, config)
+    # integrand(idx, T, K, Ext, config)::Float64 = integrand(T, K, Ext, config)
 
     @inline function measure(vars, obs, weight, config)
         # para = config.userdata
@@ -104,7 +104,7 @@ using MCIntegration
 
         @time result = MCIntegration.integrate(integrand; measure=measure, userdata=para,
             var=(T, K, Ext), dof=dof, obs=obs, solver=alg,
-            neval=steps, print=0, block=16)
+            neval=steps, print=0, block=16, debug=true)
 
         if isnothing(result) == false
             avg, std = result.mean, result.stdev

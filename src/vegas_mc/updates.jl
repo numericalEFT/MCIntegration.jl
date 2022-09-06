@@ -59,7 +59,7 @@ function changeVariable(config::Configuration{N,V,P,O,T}, integrand,
 
     # sampler may want to reject, then prop has already been set to zero
     if prop <= eps(0.0)
-        return
+        return currProbability
     end
 
     # weights = integrand_wrap(config, integrand)
@@ -85,7 +85,7 @@ function changeVariable(config::Configuration{N,V,P,O,T}, integrand,
             weights[i] = _weights[i]
         end
         for i in 1:N+1 # broadcast operator . doesn't work here, because _weights can be a scalar
-            @inbounds padding_probability[i] = _padding_probability[i]
+            padding_probability[i] = _padding_probability[i]
         end
         # config.probability = newProbability
         return newProbability

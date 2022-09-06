@@ -4,7 +4,7 @@ Demostrate do syntax for Monte Carlo simulation.
 function Sphere1(neval, alg)
     X = Continuous(0.0, 1.0)
     f(x, c) = (X[1]^2 + X[2]^2 < 1.0) ? 1.0 : 0.0
-    f(idx, x, c) = f(x, c)
+    f(idx, x, c)::Float64 = f(x, c)
     return integrate(f; var=(X,), dof=[[2,],], neval=neval, print=-1, solver=alg)
 end
 
@@ -36,7 +36,7 @@ function Sphere2(totalstep, alg; offset=0)
     config = Configuration(var=(T,), dof=dof; neighbor=[(1, 3), (1, 2)])
     @inferred integrand(config.var[1], config) #make sure the type is inferred for the integrand function
     @inferred integrand(config.curr, config.var[1], config) #make sure the type is inferred for the integrand function
-    return integrate(integrand, measure=measure, config=config, neval=totalstep, print=-1, solver=alg)
+    return integrate(integrand, measure=measure, config=config, neval=totalstep, print=-1, solver=alg, debug=true)
 end
 
 function TestDiscrete(totalstep, alg)
@@ -44,14 +44,14 @@ function TestDiscrete(totalstep, alg)
     dof = [[1,],] # number of X variable of the integrand
     config = Configuration(var=(X,), dof=dof)
     f(x, c) = x[1]
-    f(idx, x, c) = f(x, c)
-    return integrate(f; config=config, neval=totalstep, niter=10, print=-1, solver=alg)
+    f(idx, x, c)::Int = f(x, c)
+    return integrate(f; config=config, neval=totalstep, niter=10, print=-1, solver=alg, debug=true)
 end
 
 function TestSingular1(totalstep, alg)
     #log(x)/sqrt(x), singular in x->0
     f(X, c) = log(X[1]) / sqrt(X[1])
-    f(idx, X, c) = f(X, c)
+    f(idx, X, c)::Float64 = f(X, c) # dispatch with args seems require type annotation
     return integrate(f; neval=totalstep, print=-1, solver=alg)
 end
 
@@ -70,8 +70,8 @@ end
 
 function TestComplex1(totalstep, alg)
     f(x, c) = x[1] + x[1]^2 * 1im
-    f(idx, x, c) = f(x, c)
-    integrate(f; neval=totalstep, print=-1, type=ComplexF64, solver=alg)
+    f(idx, x, c)::ComplexF64 = f(x, c)
+    integrate(f; neval=totalstep, print=-1, type=ComplexF64, solver=alg, debug=true)
 end
 
 function TestComplex2(totalstep, alg)
@@ -82,7 +82,7 @@ function TestComplex2(totalstep, alg)
     function integrand(idx, x, c) # return one of the integrand
         return idx == 1 ? x[1] + 0im : (x[1]^2 * 1im)
     end
-    res = integrate(integrand; dof=[[1,], [1,]], neval=totalstep, print=-1, type=ComplexF64, solver=alg)
+    res = integrate(integrand; dof=[[1,], [1,]], neval=totalstep, print=-1, type=ComplexF64, solver=alg, debug=true)
     config = res.config
     @inferred integrand(config.var[1], config) #make sure the type is inferred for the integrand function
     @inferred integrand(config.curr, config.var[1], config) #make sure the type is inferred for the integrand function

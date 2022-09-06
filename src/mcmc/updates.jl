@@ -1,4 +1,4 @@
-function changeIntegrand(config::Configuration{N,V,P,O,T}, integrand) where {N,V,P,O,T}
+function changeIntegrand(config::Configuration{N,V,P,O,T}, integrand, state) where {N,V,P,O,T}
     # update to change an integrand to its neighbors. 
     # The degrees of freedom could be increase, decrease or remain the same.
 
@@ -8,7 +8,7 @@ function changeIntegrand(config::Configuration{N,V,P,O,T}, integrand) where {N,V
 
     currdof, newdof = config.dof[curr], config.dof[new]
 
-    currProbability = config.probability
+    # currProbability = config.probability
 
     # propose probability caused by the selection of neighbors
     prop = length(config.neighbor[curr]) / length(config.neighbor[new])
@@ -49,17 +49,16 @@ function changeIntegrand(config::Configuration{N,V,P,O,T}, integrand) where {N,V
                      config.reweight[new] :
                      abs(newWeight) * config.reweight[new]
 
-    R = prop * newProbability / currProbability
+    R = prop * newProbability / state.probability
 
     config.propose[1, curr, new] += 1.0
     if rand(config.rng) < R  # accept the change
         config.accept[1, curr, new] += 1.0
-        if new != config.norm
-            config.weights[new] = newWeight
-        end
-        config.probability = newProbability
-        # config.absWeight = newAbsWeight
-        # setweight!(config, weight)
+        # if new != config.norm
+        #     config.weights[new] = newWeight
+        # end
+        state.weight = newWeight
+        state.probability = newProbability
     else # reject the change
         config.curr = curr # reset the current diagram index
 
@@ -80,7 +79,7 @@ function changeIntegrand(config::Configuration{N,V,P,O,T}, integrand) where {N,V
     return
 end
 
-function changeVariable(config::Configuration{N,V,P,O,T}, integrand) where {N,V,P,O,T}
+function changeVariable(config::Configuration{N,V,P,O,T}, integrand, state) where {N,V,P,O,T}
     # update to change the variables of the current diagrams
     (config.curr == config.norm) && return
 
@@ -93,7 +92,7 @@ function changeVariable(config::Configuration{N,V,P,O,T}, integrand) where {N,V,
 
     # oldvar = copy(var[idx])
     # currAbsWeight = config.absWeight
-    currProbability = config.probability
+    # currProbability = config.probability
 
     prop = Dist.shift!(var, idx, config)
 
@@ -105,7 +104,7 @@ function changeVariable(config::Configuration{N,V,P,O,T}, integrand) where {N,V,
     # weight = integrand_wrap(curr, config, integrand)
     weight = (fieldcount(V) == 1) ? integrand(curr, config.var[1], config) : integrand(curr, config.var, config)
     newProbability = abs(weight) * config.reweight[curr]
-    R = prop * newProbability / currProbability
+    R = prop * newProbability / state.probability
     # newAbsWeight = abs(weight)
     # R = prop * newAbsWeight / currAbsWeight
 
@@ -113,21 +112,19 @@ function changeVariable(config::Configuration{N,V,P,O,T}, integrand) where {N,V,
     if rand(config.rng) < R
         # curr == 2 && println("accept, $curr")
         config.accept[2, curr, vi] += 1.0
-        config.weights[curr] = weight
-        config.probability = newProbability
-        # config.absWeight = newAbsWeight
-        # config.relativeWeight = weight / newAbsWeight / config.reweight[config.curr]
-        # setweight!(config, weight)
-        # accumulate!(var, idx)
+        state.weight = weight
+        state.probability = newProbability
+        # return weight, newProbability
     else
         # var[idx] = oldvar
         # config.absWeight = currAbsWeight
         Dist.shiftRollback!(var, idx, config)
+        # return currWeight, currProbability
     end
     return
 end
 
-function swapVariable(config::Configuration{N,V,P,O,T}, integrand) where {N,V,P,O,T}
+function swapVariable(config::Configuration{N,V,P,O,T}, integrand, state) where {N,V,P,O,T}
     # update to change the variables of the current diagrams
     (config.curr == config.norm) && return
 
@@ -142,7 +139,7 @@ function swapVariable(config::Configuration{N,V,P,O,T}, integrand) where {N,V,P,
 
     # oldvar = copy(var[idx])
     # currAbsWeight = config.absWeight
-    currProbability = config.probability
+    # currProbability = config.probability
 
     prop = Dist.swap!(var, idx1, idx2, config)
 
@@ -154,7 +151,7 @@ function swapVariable(config::Configuration{N,V,P,O,T}, integrand) where {N,V,P,
     weight = (fieldcount(V) == 1) ? integrand(curr, config.var[1], config) : integrand(curr, config.var, config)
     # weight = integrand_wrap(curr, config, integrand)
     newProbability = abs(weight) * config.reweight[curr]
-    R = prop * newProbability / currProbability
+    R = prop * newProbability / state.probability
     # newAbsWeight = abs(weight)
     # currAbsWeight = config.absWeight
     # R = prop * newAbsWeight / currAbsWeight
@@ -164,14 +161,14 @@ function swapVariable(config::Configuration{N,V,P,O,T}, integrand) where {N,V,P,
     if rand(config.rng) < R
         # curr == 2 && println("accept, $curr")
         config.accept[2, curr, vi] += 1.0
-        config.weights[curr] = weight
-        config.probability = newProbability
+        state.weight = weight
+        state.probability = newProbability
         # config.absWeight = newAbsWeight
         # setweight!(config, weight)
+        # return weight, newProbability
     else
-        # var[idx] = oldvar
-        # config.absWeight = currAbsWeight
         Dist.swapRollback!(var, idx1, idx2, config)
+        # return currWeight, currProbability
     end
     return
 end

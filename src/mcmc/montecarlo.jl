@@ -1,5 +1,10 @@
+mutable struct _State{T}
+    weight::T
+    probability::Float64
+end
+
 function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval,
-    print, save, timer;
+    print=0, save=0, timer=[], debug=false;
     measurefreq=2, measure::Union{Nothing,Function}=nothing, kwargs...) where {N,V,P,O,T}
     ##############  initialization  ################################
     # don't forget to initialize the diagram weight
@@ -7,19 +12,41 @@ function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval
         @assert (config.observable isa AbstractVector) && (length(config.observable) == config.N) && (eltype(config.observable) == T) "the default measure can only handle observable as Vector{$T} with $(config.N) elements!"
     end
 
+    ################## test integrand type stability ######################
+    if debug
+        if (length(config.var) == 1)
+            MCUtility.test_type_stability(integrand, (1, config.var[1], config))
+        else
+            MCUtility.test_type_stability(integrand, (1, config.var, config))
+        end
+    end
+    #######################################################################
+
+    state = _State{T}(zero(T), 1.0)
+
     for i in 1:10000
-        initialize!(config, integrand)
-        if (config.curr == config.norm) || config.probability > TINY
+        initialize!(config, integrand, state)
+        if (config.curr == config.norm) || state.probability > TINY
             break
         end
     end
-    @assert (config.curr == config.norm) || config.probability > TINY "Cannot find the variables that makes the $(config.curr) integrand >1e-10"
+    if (config.curr != config.norm) && state.probability ≈ 0.0
+        error("Cannot find the variables that makes the $(config.curr) integrand nonzero!")
+    elseif (config.curr != config.norm) && state.probability < TINY
+        @warn("Cannot find the variables that makes the $(config.curr) integrand >1e-10!")
+    end
 
     # updates = [changeIntegrand,] # TODO: sample changeVariable more often
     # updates = [changeIntegrand, swapVariable,] # TODO: sample changeVariable more often
     updates = [changeIntegrand, swapVariable, changeVariable] # TODO: sample changeVariable more often
     for i = 2:length(config.var)*2
         push!(updates, changeVariable)
+    end
+
+    if debug
+        for _update in updates
+            MCUtility.test_type_stability(_update, (config, integrand, state))
+        end
     end
 
     ########### MC simulation ##################################
@@ -32,11 +59,11 @@ function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval
         config.neval += 1
         config.visited[config.curr] += 1
         _update = rand(config.rng, updates) # randomly select an update
-        _update(config, integrand)
+        _update(config, integrand, state)
         # push!(kwargs[:mem], (config.curr, config.relativeWeight))
         # if i % 10 == 0 && i >= neval / 100
-        if isfinite(config.probability) == false
-            @warn("integrand probability = $(config.probability) is not finite at step $(config.neval)")
+        if debug && (isfinite(state.probability) == false)
+            @warn("integrand probability = $(state.probability) is not finite at step $(config.neval)")
         end
         if i % measurefreq == 0 && i >= neval / 100
 
@@ -55,7 +82,7 @@ function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval
                 config.normalization += 1.0 / config.reweight[config.norm]
             else
                 curr = config.curr
-                relativeWeight = config.weights[curr] / config.probability
+                relativeWeight = state.weight / state.probability
                 if isnothing(measure)
                     config.observable[curr] += relativeWeight
                 else
@@ -83,21 +110,20 @@ end
     return _integrand(new, config.var..., config)
 end
 
-function initialize!(config, integrand)
+function initialize!(config::Configuration{N,V,P,O,T}, integrand, state) where {N,V,P,O,T}
     for var in config.var
         Dist.initialize!(var, config)
     end
     curr = config.curr
     if curr != config.norm
         # config.weights[curr] = integrand_wrap(curr, config, integrand)
-        config.weights[curr] = (length(config.var) == 1) ? integrand(curr, config.var[1], config) : integrand(curr, config.var, config)
-        config.probability = abs(config.weights[curr]) * config.reweight[curr]
+        state.weight = (length(config.var) == 1) ? integrand(curr, config.var[1], config) : integrand(curr, config.var, config)
+        state.probability = abs(state.weight) * config.reweight[curr]
     else
-        config.probability = config.reweight[curr]
+        state.weight = zero(T)
+        state.probability = config.reweight[curr]
     end
-
-    # setweight!(config, weight)
-    # config.absWeight = abs(weight)
+    return
 end
 
 # function setweight!(config, weight)

@@ -3,6 +3,7 @@ using MPI
 using Printf, Dates
 using Random
 using Graphs
+using Test
 using ProgressMeter
 
 const RNG = Random.GLOBAL_RNG

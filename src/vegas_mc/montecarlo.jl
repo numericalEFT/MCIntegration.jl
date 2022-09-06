@@ -20,9 +20,19 @@ exactly vanishes in some regime (e.g. circle area x^2+y^2<0).
 """
 
 function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval,
-    print, save, timer;
+    print=0, save=0, timer=[], debug=false;
     measurefreq=2, measure::Union{Nothing,Function}=nothing,
     kwargs...) where {N,V,P,O,T}
+
+    ################## test integrand type stability ######################
+    if debug
+        if (length(config.var) == 1)
+            MCUtility.test_type_stability(integrand, (config.var[1], config))
+        else
+            MCUtility.test_type_stability(integrand, (config.var, config))
+        end
+    end
+    #######################################################################
 
     if isnothing(measure)
         @assert (config.observable isa AbstractVector) && (length(config.observable) == config.N) && (eltype(config.observable) == T) "the default measure can only handle observable as Vector{$T} with $(config.N) elements!"
@@ -55,6 +65,12 @@ function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval
     # for i = 2:length(config.var)*2
     #     push!(updates, changeVariable) #add other updates
     # end
+    if debug
+        for _update in updates
+            MCUtility.test_type_stability(_update, (config, integrand, probability,
+                weights, padding_probability, padding_probability_cache))
+        end
+    end
 
     ########### MC simulation ##################################
     startTime = time()

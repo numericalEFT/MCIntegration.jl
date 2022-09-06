@@ -2,6 +2,7 @@
 Utility data structures and functions
 """
 module MCUtility
+using Test
 using ..MPI
 
 include("stopwatch.jl")
@@ -49,6 +50,19 @@ function MPIreduce(data)
         result = [data,]  # MPI.Reduce works for array only
         MPI.Reduce!(result, MPI.SUM, root, comm) # root node gets the sum of observables from all blocks
         return result[1]
+    end
+end
+
+function test_type_stability(f, args)
+    try
+        @inferred f(args...)
+    catch e
+        if isa(e, MethodError)
+            @warn("call $f with wrong args. Got $(args)")
+        else
+            @warn "Type instability issue detected for $f, it may makes the integration slow" exception = (e, catch_backtrace())
+            # @warn("Type instability issue detected for $f, it may makes the integration slow.\n$e")
+        end
     end
 end
 

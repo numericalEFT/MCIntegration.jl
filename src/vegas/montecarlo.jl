@@ -19,19 +19,30 @@ end
 # @generated function _gen_integrand(config::Configuration{Ni,V,P,O,T}, integrand) where {Ni,V,P,O,T}
 # end
 
-@generated function sub2ind_gen(dims::NTuple{N}, I::Integer...) where {N}
-    ex = :(I[$N] - 1)
-    for i = (N-1):-1:1
-        ex = :(I[$i] - 1 + dims[$i] * $ex)
-    end
-    return :($ex + 1)
-end
+# @generated function sub2ind_gen(dims::NTuple{N}, I::Integer...) where {N}
+#     ex = :(I[$N] - 1)
+#     for i = (N-1):-1:1
+#         ex = :(I[$i] - 1 + dims[$i] * $ex)
+#     end
+#     return :($ex + 1)
+# end
 
 function montecarlo(config::Configuration{Ni,V,P,O,T}, integrand::Function, neval,
-    print=0, save=0, timer=[];
+    print=0, save=0, timer=[], debug=false;
     measure::Union{Nothing,Function}=nothing, measurefreq=1, kwargs...) where {Ni,V,P,O,T}
 
     relativeWeights = zeros(T, Ni)
+
+    ################## test integrand type stability ######################
+    if debug
+        if (length(config.var) == 1)
+            MCUtility.test_type_stability(integrand, (config.var[1], config))
+        else
+            MCUtility.test_type_stability(integrand, (config.var, config))
+        end
+    end
+    #######################################################################
+
 
     if isnothing(measure)
         @assert (config.observable isa AbstractVector) && (length(config.observable) == config.N) && (eltype(config.observable) == T) "the default measure can only handle observable as Vector{$T} with $(config.N) elements!"
@@ -92,7 +103,7 @@ function montecarlo(config::Configuration{Ni,V,P,O,T}, integrand::Function, neva
             for idx in eachindex(weights)
                 w2 = abs(weights[idx])
                 j2 = jac
-                if isfinite(w2) == false
+                if debug && (isfinite(w2) == false)
                     @warn("abs of the integrand $idx = $(w2) is not finite at step $(config.neval)")
                 end
                 for pos = 1:config.dof[idx][vi]
