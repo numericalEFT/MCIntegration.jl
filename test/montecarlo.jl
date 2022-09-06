@@ -31,8 +31,9 @@ function Sphere2(totalstep, alg; offset=0)
     end
 
     T = Continuous(0.0, 1.0; offset=offset)
-    dof = [2 3] # a 1x2 matrix, each row is the number of dof for each integrand
-    config = Configuration(var=(T,), dof=dof, obs=[0.0, 0.0]; neighbor=[(1, 3), (1, 2)])
+    # dof = [2 3] # a 1x2 matrix, each row is the number of dof for each integrand
+    dof = [[2,], [3,]] # a 1x2 matrix, each row is the number of dof for each integrand
+    config = Configuration(var=(T,), dof=dof; neighbor=[(1, 3), (1, 2)])
     @inferred integrand(config.var[1], config) #make sure the type is inferred for the integrand function
     @inferred integrand(config.curr, config.var[1], config) #make sure the type is inferred for the integrand function
     return integrate(integrand, measure=measure, config=config, neval=totalstep, print=-1, solver=alg)
@@ -151,7 +152,10 @@ end
     check(Sphere1(neval, :vegasmc), π / 4.0)
     # check(Sphere2(neval), π / 4.0)
     println("Sphere2")
-    check(Sphere2(neval, :vegasmc), [π / 4.0, 4.0 * π / 3.0 / 8])
+    res = Sphere2(neval, :vegasmc)
+    println(res)
+    check(res, [π / 4.0, 4.0 * π / 3.0 / 8])
+    println("Sphere2 with offset")
     check(Sphere2(neval, :vegasmc; offset=2), [π / 4.0, 4.0 * π / 3.0 / 8])
     # check(Sphere3(neval), [π / 4.0, 4.0 * π / 3.0 / 8])
     println("Discrete")

@@ -77,12 +77,10 @@ function changeVariable(config::Configuration{N,V,P,O,T}, integrand, weights, pa
     if rand(config.rng) < R
         # curr == 2 && println("accept, $curr")
         config.accept[2, curr, vi] += 1.0
-        for i in 1:N
+        for i in 1:N # broadcast operator . doesn't work here, because _weights can be a scalar
             weights[i] = _weights[i]
         end
-        for i in 1:N+1
-            padding_probability[i] = _padding_probability[i]
-        end
+        padding_probability .= _padding_probability
         config.probability = newProbability
     else
         Dist.shiftRollback!(var, idx, config)

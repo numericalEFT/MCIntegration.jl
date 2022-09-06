@@ -35,83 +35,72 @@ function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval
     padding_probability = zeros(T, N + 1)
     ##############  initialization  ################################
     # don't forget to initialize the diagram weight
-    initialize!(config, integrand)
-    # for i in 1:10000
-    #     initialize!(config, integrand)
-    #     if (config.curr == config.norm) || abs(config.weights[config.curr]) > TINY
-    #         break
-    #     end
-    # end
-    # @assert (config.curr == config.norm) || abs(config.weights[config.curr]) > TINY "Cannot find the variables that makes the $(config.curr) integrand >1e-10"
+    # initialize!(config, integrand)
+    for var in config.var
+        Dist.initialize!(var, config)
+    end
+
+    _weights = (length(config.var) == 1) ? integrand(config.var[1], config) : integrand(config.var, config)
+
+    padding_probability .= [Dist.padding_probability(config, i) for i in 1:N+1]
+    newProbability = config.reweight[config.norm] * padding_probability[config.norm] #normalization integral
+    for i in 1:config.N #other integrals
+        weights[i] = _weights[i]
+        newProbability += abs(_weights[i]) * config.reweight[i] * padding_probability[i]
+    end
+    config.probability = newProbability
 
 
     updates = [changeVariable,]
     # for i = 2:length(config.var)*2
-    #     push!(updates, changeVariable)
+    #     push!(updates, changeVariable) #add other updates
     # end
 
     ########### MC simulation ##################################
-    # if (print > 0)
-    #     println(green("Seed $(config.seed) Start Simulation ..."))
-    # end
     startTime = time()
 
-    for i = 1:neval
+    for ne = 1:neval
         config.neval += 1
         _update = rand(config.rng, updates) # randomly select an update
         _update(config, integrand, weights, padding_probability)
 
         ######## accumulate variable and calculate variable probability #################
-        for (vi, var) in enumerate(config.var)
-            offset = var.offset
-            for i in 1:N
-                # need to make sure Δxᵢ*∫_xᵢ^xᵢ₊₁ dx f^2(x)dx is a constant
-                # where  Δxᵢ ∝ 1/prop ∝ Jacobian for the vegas map
-                # since the current weight is sampled with the probability density ∝ config.probability =\sum_i |f_i(x)|*reweight[i]
-                # the estimator ∝ Δxᵢ*f^2(x)/(|f(x)|*reweight) = |f(x)|/prop/reweight
-                f2 = abs(config.weights[i])^2 / Dist.probability(config, i)
-                wf2 = f2 * Dist.padding_probability(config, i) / config.probability
-                # push!(kwargs[:mesh], (f2, var[1]))
+        for i in 1:N
+            # need to make sure Δxᵢ*∫_xᵢ^xᵢ₊₁ dx f^2(x)dx is a constant
+            # where  Δxᵢ ∝ 1/prop ∝ Jacobian for the vegas map
+            # since the current weight is sampled with the probability density ∝ config.probability =\sum_i |f_i(x)|*reweight[i]
+            # the estimator ∝ Δxᵢ*f^2(x)/(|f(x)|*reweight) = |f(x)|/prop/reweight
+            f2 = abs(weights[i])^2 / Dist.probability(config, i)
+            wf2 = f2 * padding_probability[i] / config.probability
+            for (vi, var) in enumerate(config.var)
+                offset = var.offset
                 for pos = 1:config.dof[i][vi]
-                    # Dist.accumulate!(var, pos + offset, f2 / config.probability)
-
-                    # the following accumulator has a similar performance
-                    # this is because that with an optimial grid, |f(x)| ~ prop
-                    # Dist.accumulate!(var, pos + offset, 1.0/ reweight
-                    # Dist.accumulate!(var, pos + offset, 1.0 / config.reweight[config.curr])
                     Dist.accumulate!(var, pos + offset, wf2)
-                    # Dist.accumulate!(var, pos + offset, abs(config.weights[i] * config.reweight[i]) / config.probability)
                 end
             end
         end
 
-        if i % measurefreq == 0 && i >= neval / 100
+        if ne % measurefreq == 0 && ne >= neval / 100
             ##############################################################################
-            if isnothing(measure)
-                for i in 1:N
-                    # prob = Dist.delta_probability(config, config.curr; new=i)
-                    # config.observable[i] += config.weights[i] * prob / config.probability
-                    config.observable[i] += weights[i] * Dist.padding_probability(config, i) / config.probability
-                    config.visited[i] += abs(weights[i] * Dist.padding_probability(config, i) * config.reweight[i]) / config.probability
+            for i in 1:N
+                config.visited[i] += abs(weights[i] * padding_probability[i] * config.reweight[i]) / config.probability
+                if isnothing(measure)
+                    config.observable[i] += weights[i] * padding_probability[i] / config.probability
+                else
+                    relativeWeights[i] = weights[i] * padding_probability[i] / config.probability
                 end
-            else
-                for i in 1:N
-                    # prob = Dist.delta_probability(config, config.curr; new=i)
-                    # config.relativeWeights[i] = config.weights[i] * prob / config.probability
-                    relativeWeights[i] = weights[i] * Dist.padding_probability(config, i) / config.probability
-                    config.visited[i] += abs(weights[i] * Dist.padding_probability(config, i) * config.reweight[i]) / config.probability
-                end
+            end
+            if isnothing(measure) == false
                 (fieldcount(V) == 1) ?
                 measure(config.var[1], config.observable, relativeWeights, config) :
                 measure(config.var, config.observable, relativeWeights, config)
             end
-            # prob = Dist.delta_probability(config, config.curr; new=config.norm)
-            # config.normalization += prob / config.probability
-            config.normalization += 1.0 * Dist.padding_probability(config, config.norm) / config.probability
-            config.visited[config.norm] += config.reweight[config.norm] * Dist.padding_probability(config, config.norm) / config.probability
+
+            config.normalization += 1.0 * padding_probability[config.norm] / config.probability
+            config.visited[config.norm] += config.reweight[config.norm] * padding_probability[config.norm] / config.probability
             # push!(kwargs["mem"], (1.0 / config.probability, config.weights[i] / config.probability))
         end
-        if i % 1000 == 0
+        if ne % 1000 == 0
             for t in timer
                 check(t, config, neval)
             end
@@ -123,34 +112,4 @@ end
 
 @inline function integrand_wrap(config, _integrand)
     return _integrand(config.var..., config)
-end
-
-function initialize!(config, integrand)
-    for var in config.var
-        Dist.initialize!(var, config)
-    end
-
-    # weights = integrand_wrap(config, integrand)
-    weights = (length(config.var) == 1) ? integrand(config.var[1], config) : integrand(config.var, config)
-    # config.probability = abs(weights[config.curr]) / Dist.probability(config, config.curr) * config.reweight[config.curr]
-    # if config.curr == config.norm
-    #     config.probability = config.reweight[config.curr]
-    # else
-    #     # config.probability = abs(weights[config.curr]) * config.reweight[config.curr] / Dist.probability(config, config.curr)
-    #     config.probability = abs(weights[config.curr]) * config.reweight[config.curr]
-    # end
-    newProbability = config.reweight[config.norm] * Dist.padding_probability(config, config.norm) #normalization integral
-    for i in 1:config.N #other integrals
-        newProbability += abs(weights[i]) * config.reweight[i] * Dist.padding_probability(config, i)
-    end
-    config.probability = newProbability
-    setWeight!(config, weights)
-end
-
-function setWeight!(config, weights)
-    # weights can be a number of a vector of numbers
-    # this function copy weights to a vector config.weights
-    for i in eachindex(config.weights)
-        config.weights[i] = weights[i]
-    end
 end
