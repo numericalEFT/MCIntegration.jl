@@ -42,7 +42,7 @@
 #     return
 # end
 
-function changeVariable(config::Configuration{N,V,P,O,T}, integrand) where {N,V,P,O,T}
+function changeVariable(config::Configuration{N,V,P,O,T}, integrand, weights, padding_probability) where {N,V,P,O,T}
     # update to change the variables of the current diagrams
     curr = config.curr
     maxdof = config.maxdof
@@ -61,20 +61,14 @@ function changeVariable(config::Configuration{N,V,P,O,T}, integrand) where {N,V,
     end
 
     # weights = integrand_wrap(config, integrand)
-    weights = (fieldcount(V) == 1) ?
-              integrand(config.var[1], config) :
-              integrand(config.var, config)
-    # newProbability = (curr == config.norm) ? config.reweight[curr] : abs(weights[curr]) / Dist.probability(config, curr) * config.reweight[curr]
-    # newProbability = (curr == config.norm) ? config.reweight[curr] : abs(weights[curr]) * config.reweight[curr]
+    _weights = (fieldcount(V) == 1) ?
+               integrand(config.var[1], config) :
+               integrand(config.var, config)
+    _padding_probability = [Dist.padding_probability(config, i) for i in 1:N+1]
 
-    # if idx > config.dof[curr][vi] + var.offset
-    #     R = 1.0
-    # else
-    #     R = prop * newProbability / currProbability
-    # end
-    newProbability = config.reweight[config.norm] * Dist.padding_probability(config, config.norm) #normalization integral
+    newProbability = config.reweight[config.norm] * _padding_probability[config.norm] #normalization integral
     for i in 1:N #other integrals
-        newProbability += abs(weights[i]) * config.reweight[i] * Dist.padding_probability(config, i)
+        newProbability += abs(_weights[i]) * config.reweight[i] * _padding_probability[i]
     end
     R = prop * newProbability / currProbability
 
@@ -83,7 +77,12 @@ function changeVariable(config::Configuration{N,V,P,O,T}, integrand) where {N,V,
     if rand(config.rng) < R
         # curr == 2 && println("accept, $curr")
         config.accept[2, curr, vi] += 1.0
-        setWeight!(config, weights)
+        for i in 1:N
+            weights[i] = _weights[i]
+        end
+        for i in 1:N+1
+            padding_probability[i] = _padding_probability[i]
+        end
         config.probability = newProbability
     else
         Dist.shiftRollback!(var, idx, config)

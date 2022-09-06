@@ -27,7 +27,12 @@ function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval
     if isnothing(measure)
         @assert (config.observable isa AbstractVector) && (length(config.observable) == config.N) && (eltype(config.observable) == T) "the default measure can only handle observable as Vector{$T} with $(config.N) elements!"
     end
+    weights = zeros(T, N)
     relativeWeights = zeros(T, N)
+    # padding probability for user and normalization integrands
+    # should be something like [f_1(x)*g_0(y), f_2(x, y), 1*f_0(x)*g_0(y)], where f_0(x) and g_0(y) are the ansatz from the Vegas map
+    # after padding, all integrands have the same dimension and have similiar probability distribution
+    padding_probability = zeros(T, N + 1)
     ##############  initialization  ################################
     # don't forget to initialize the diagram weight
     initialize!(config, integrand)
@@ -54,7 +59,7 @@ function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval
     for i = 1:neval
         config.neval += 1
         _update = rand(config.rng, updates) # randomly select an update
-        _update(config, integrand)
+        _update(config, integrand, weights, padding_probability)
 
         ######## accumulate variable and calculate variable probability #################
         for (vi, var) in enumerate(config.var)
@@ -86,15 +91,15 @@ function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval
                 for i in 1:N
                     # prob = Dist.delta_probability(config, config.curr; new=i)
                     # config.observable[i] += config.weights[i] * prob / config.probability
-                    config.observable[i] += config.weights[i] * Dist.padding_probability(config, i) / config.probability
-                    config.visited[i] += abs(config.weights[i] * Dist.padding_probability(config, i) * config.reweight[i]) / config.probability
+                    config.observable[i] += weights[i] * Dist.padding_probability(config, i) / config.probability
+                    config.visited[i] += abs(weights[i] * Dist.padding_probability(config, i) * config.reweight[i]) / config.probability
                 end
             else
                 for i in 1:N
                     # prob = Dist.delta_probability(config, config.curr; new=i)
                     # config.relativeWeights[i] = config.weights[i] * prob / config.probability
-                    relativeWeights[i] = config.weights[i] * Dist.padding_probability(config, i) / config.probability
-                    config.visited[i] += abs(config.weights[i] * Dist.padding_probability(config, i) * config.reweight[i]) / config.probability
+                    relativeWeights[i] = weights[i] * Dist.padding_probability(config, i) / config.probability
+                    config.visited[i] += abs(weights[i] * Dist.padding_probability(config, i) * config.reweight[i]) / config.probability
                 end
                 (fieldcount(V) == 1) ?
                 measure(config.var[1], config.observable, relativeWeights, config) :
