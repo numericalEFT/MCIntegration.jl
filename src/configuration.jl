@@ -124,8 +124,8 @@ function Configuration(;
     if dof isa Int  #one integral with one variable
         @assert length(var) == 1 "Only one type of variable is allowed when dof is an integer"
         dof = [[dof,],]
-    elseif (dof isa AbstractVector) && eltype(dof) <: Int #one integral with multiple variables
-        dof = [deepcopy(dof),]
+        # elseif (dof isa AbstractVector) && eltype(dof) <: Int #one integral with multiple variables
+        #     dof = [deepcopy(dof),]
     elseif dof isa AbstractMatrix #each column is a dof for one integral
         dof = [dof[:, i] for i in 1:size(dof)[2]]
     else
@@ -184,6 +184,13 @@ function Configuration(;
         Nd - 1, neighbor, dof, _maxdof(dof), obs, reweight, reweight_goal, visited, # integrand properties
         0, idx, norm, normalization, relativeWeights, weights, probability, propose, accept  # current MC state
     )
+end
+function Configuration(;
+    var::Variable=Continuous(0.0, 1.0),
+    dof::Int=1,
+    kwargs...
+)
+    return Configuration(var=(var,), dof=[[dof,],], kwargs...)
 end
 
 function _neighbor(neighbor, Nd)

@@ -104,7 +104,7 @@ function report(result::Result, pick::Union{Function,AbstractVector}=obs -> firs
         name = collect(name)
     end
 
-    for i in eachindex(result.config.N)
+    for i in 1:result.config.N
         p = pick
         info = isnothing(name) ? "$i" : "$(name[i])"
         if verbose >= 0

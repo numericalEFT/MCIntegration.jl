@@ -18,7 +18,8 @@ The following command evaluate a two-dimensional integral ∫dx₁dx₂ (x₁^2+
 julia> X=Continuous(0.0, 1.0) #Create a pool of continuous variables. It supports as much as 16 same type of variables. see the section [variable](#variable) for more details.
 Adaptive continuous variable in the domain [0.0, 1.0). Max variable number = 16. Learning rate = 2.0.
 
-julia> integrate(c->(X=c.var[1]; X[1]^2+X[2]^2); var = (X, ), dof = [(2, ),]); # We use two of the continuous variables to calculate a two-dimensional integral ∫dx₁dx₂(x₁²+x₂²) in the domain [0, 1)x[0, 1)
+julia> integrate((X, c)->(X[1]^2+X[2]^2); var = X, dof = 2); 
+# We use two of the continuous variables to calculate a two-dimensional integral ∫dx₁dx₂(x₁²+x₂²) in the domain [0, 1)x[0, 1). The parameter c in the integrand is a Configuration struct that carries the internal MC state. See docs for more detail.
 ==================================     Integral 1    ==============================================
   iter          integral                            wgt average                          chi2/dof
 ---------------------------------------------------------------------------------------------------
@@ -35,54 +36,30 @@ julia> integrate(c->(X=c.var[1]; X[1]^2+X[2]^2); var = (X, ), dof = [(2, ),]); #
 ---------------------------------------------------------------------------------------------------
 Integral 1 = 0.6857705325654451 ± 0.013588681837082542   (chi2/dof = 2.71)
 ```
+By default, the function performs 10 iterations and each iteraction costs about `1e5` evaluations. You may reset these values with `niter` and `neval` keywords arguments.
 
-The following is a more involved example with a script.
+Internally, the `integrate` function optimizes the important sampling after each iteration. The results generally improves with iteractions. As long as `neval` is sufficiently large, the estimations from different iteractions should be statistically independent. This will justify an average of different iterations weighted by the inverse variance. The assumption of statically independence can be explicitly checked with chi-square test, namely `chi2/dof` should be about one. 
+
+You can also choose different Monte Carlo algorithms by specifing the keyword arguemnt `solver`. By default, the Vegas algorithm with `solver = :vegas` is used. In addition, this package provides two Markov-chain Monte Carlo algorithms for numerical integration. You can call them with `solver = :vegasmc` or `solver = :mcmc`. Check the Algorithm section for more details.
+
+If you have multiple integrals the same set of variables, simply use:
 ```julia
-using MCIntegration
-
-# Define the integrand 
-function integrand(config)
-    #config.var is a tuple of variable types specified in the second argument of `MCIntegration.Configuration(...)`
-    X = config.var[1]
-    if config.curr == 1 #config.curr is the index of the currently sampled integral by MC
-        return (X[1]^2 + X[2]^2 < 1.0) ? 1.0 : 0.0
-    else
-        return (X[1]^2 + X[2]^2 + X[3]^2 < 1.0) ? 1.0 : 0.0
-    end
-end
-
-# Define how many (degrees of freedom) variables of each type. 
-# For example, [[n1, n2], [m1, m2], ...] means the first integral involves n1 varibales of type 1, and n2 variables of type2, while the second integral involves m1 variables of type 1 and m2 variables of type 2. 
+julia> integrate((X, c)->(X[1]^2+X[2]^2, X[1]^2+X[2]^2+X[3]^2); var = X, dof = [[2,],[3,]], print=-1) # print controls the amount of information to print
 dof = [(2,), (3,)]
-
-# perform MC integration. Set print>=0 to print more information.
-result = integrate(integrand; 
-    var = (Continuous(0.0, 1.0),), 
-    dof = dof
-    neval=1e7,  # number of integrand evaluation
-    niter=10,   # number of iteration.  After each iteraction, the program will try to improve the important sampling
-    print=0     #-1 to not print anything, 0 to print progressbar, >0 to print out internal configurations for every "print" seconds
-    )
-
-# In MPI mode, only the root node return meaningful estimates. All other workers simply return nothing
-if isnothing(result) == false
-    # MCIntegration.summary(result) # uncomment this line to print the summary of the result
-    avg, err = result.mean, result.stdev
-    println("Circle area: $(avg[1]) +- $(err[1]) (exact: $(π / 4.0))")
-    println("Sphere volume: $(avg[2]) +- $(err[2]) (exact: $(4.0 * π / 3.0 / 8))")
-end
+Integral 1 = 0.664810806792709 ± 0.000793999167254061   (chi2/dof = 0.903)
+Integral 2 = 0.9991886776671396 ± 0.000530301553703244   (chi2/dof = 1.75)
 ```
+Here `dof` defines how many (degrees of freedom) variables of each type. For example, [[n1, n2], [m1, m2], ...] means the first integral involves n1 varibales of type 1, and n2 variables of type2, while the second integral involves m1 variables of type 1 and m2 variables of type 2. 
 
 You can also use the julia do-syntax to simplify the integration part in above example:
 ```julia
-result = integrate(var = (Continuous(0.0, 1.0),), dof = [(2,), (3,)], neval = 1e7, niter = 10, print = 0) do config
-    X = config.var[1]
-    if config.curr == 1 #config.curr is the index of the currently sampled integral by MC
-        return (X[1]^2 + X[2]^2 < 1.0) ? 1.0 : 0.0
-    else
-        return (X[1]^2 + X[2]^2 + X[3]^2 < 1.0) ? 1.0 : 0.0
-    end
-end  
+julia> integrate(var = (Continuous(0.0, 1.0),), dof = [[2,], [3,]], neval = 1e5, niter = 10, print = -1) do X, c
+           r1 = (X[1]^2 + X[2]^2 < 1.0) ? 1.0 : 0.0
+           r2 = (X[1]^2 + X[2]^2 + X[3]^2 < 1.0) ? 1.0 : 0.0
+           return (r1, r2)
+       end
+Integral 1 = 0.7858137468685643 ± 0.0003890543762596982   (chi2/dof = 1.63)
+Integral 2 = 0.5240009569393371 ± 0.00039066497807783214   (chi2/dof = 0.715)
 ```
 
 # Variables
