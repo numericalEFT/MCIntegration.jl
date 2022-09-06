@@ -63,7 +63,8 @@ function montecarlo(config::Configuration{Ni,V,P,O,T}, integrand::Function, neva
             end
         end
         # weights = @_expanded_integrand(config, integrand, 1) # very fast, but requires explicit N
-        weights = integrand_wrap(config, integrand) #make a lot of allocations
+        # weights = integrand_wrap(config, integrand) #make a lot of allocations
+        weights = (fieldcount(V) == 1) ? integrand(config.var[1], config) : integrand(config.var, config)
 
         if (i % measurefreq == 0)
             if isnothing(measure)
@@ -75,7 +76,9 @@ function montecarlo(config::Configuration{Ni,V,P,O,T}, integrand::Function, neva
                 for i in 1:Ni
                     config.relativeWeights[i] = weights[i] * jac
                 end
-                measure(config.observable, config.relativeWeights, config)
+                (fieldcount(V) == 1) ?
+                measure(config.var[1], config.observable, config.relativeWeights, config) :
+                measure(config.var, config.observable, config.relativeWeights, config)
             end
             # push!(mem, weight * prop)
             config.normalization += 1.0 #should be 1!
@@ -107,6 +110,11 @@ function montecarlo(config::Configuration{Ni,V,P,O,T}, integrand::Function, neva
 end
 
 @inline function integrand_wrap(config::Configuration{N,V,P,O,T}, _integrand) where {N,V,P,O,T}
-    return _integrand(config.var..., config)
+    # return _integrand(config.var..., config)
+    if fieldcount(V) == 1
+        return _integrand(config.var[1], config)
+    else
+        return _integrand(config.var, config)
+    end
     # return _integrand(config)
 end

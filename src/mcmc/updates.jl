@@ -40,9 +40,11 @@ function changeIntegrand(config::Configuration{N,V,P,O,T}, integrand) where {N,V
 
     # if new == config.norm, then newWeight will not be used, 
     # but still needs to be set to zero(T) so that newWeight is type stable
-    newWeight = (new == config.norm) ?
-                zero(T) :
-                integrand_wrap(new, config, integrand)
+    newWeight =
+        (new == config.norm) ?
+        zero(T) :
+        (fieldcount(V) == 1) ? integrand(new, config.var[1], config) : integrand(new, config.var, config)
+    # integrand_wrap(new, config, integrand)
     newProbability = (new == config.norm) ?
                      config.reweight[new] :
                      abs(newWeight) * config.reweight[new]
@@ -78,7 +80,7 @@ function changeIntegrand(config::Configuration{N,V,P,O,T}, integrand) where {N,V
     return
 end
 
-function changeVariable(config, integrand)
+function changeVariable(config::Configuration{N,V,P,O,T}, integrand) where {N,V,P,O,T}
     # update to change the variables of the current diagrams
     (config.curr == config.norm) && return
 
@@ -100,7 +102,8 @@ function changeVariable(config, integrand)
         return
     end
 
-    weight = integrand_wrap(curr, config, integrand)
+    # weight = integrand_wrap(curr, config, integrand)
+    weight = (fieldcount(V) == 1) ? integrand(curr, config.var[1], config) : integrand(curr, config.var, config)
     newProbability = abs(weight) * config.reweight[curr]
     R = prop * newProbability / currProbability
     # newAbsWeight = abs(weight)
@@ -124,7 +127,7 @@ function changeVariable(config, integrand)
     return
 end
 
-function swapVariable(config, integrand)
+function swapVariable(config::Configuration{N,V,P,O,T}, integrand) where {N,V,P,O,T}
     # update to change the variables of the current diagrams
     (config.curr == config.norm) && return
 
@@ -148,7 +151,8 @@ function swapVariable(config, integrand)
         return
     end
 
-    weight = integrand_wrap(curr, config, integrand)
+    weight = (fieldcount(V) == 1) ? integrand(curr, config.var[1], config) : integrand(curr, config.var, config)
+    # weight = integrand_wrap(curr, config, integrand)
     newProbability = abs(weight) * config.reweight[curr]
     R = prop * newProbability / currProbability
     # newAbsWeight = abs(weight)

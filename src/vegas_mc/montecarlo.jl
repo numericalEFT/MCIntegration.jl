@@ -102,7 +102,9 @@ function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval
                     config.relativeWeights[i] = config.weights[i] * Dist.padding_probability(config, i) / config.probability
                     config.visited[i] += abs(config.weights[i] * Dist.padding_probability(config, i) * config.reweight[i]) / config.probability
                 end
-                measure(config.observable, config.relativeWeights, config)
+                (fieldcount(V) == 1) ?
+                measure(config.var[1], config.observable, config.relativeWeights, config) :
+                measure(config.var, config.observable, config.relativeWeights, config)
             end
             # prob = Dist.delta_probability(config, config.curr; new=config.norm)
             # config.normalization += prob / config.probability
@@ -129,7 +131,8 @@ function initialize!(config, integrand)
         Dist.initialize!(var, config)
     end
 
-    weights = integrand_wrap(config, integrand)
+    # weights = integrand_wrap(config, integrand)
+    weights = (length(config.var) == 1) ? integrand(config.var[1], config) : integrand(config.var, config)
     # config.probability = abs(weights[config.curr]) / Dist.probability(config, config.curr) * config.reweight[config.curr]
     if config.curr == config.norm
         config.probability = config.reweight[config.curr]
@@ -147,44 +150,3 @@ function setWeight!(config, weights)
         config.weights[i] = weights[i]
     end
 end
-
-
-function doReweight!(config, alpha)
-    avgstep = sum(config.visited)
-    for (vi, v) in enumerate(config.visited)
-        # if v > 1000
-        if v <= 1
-            config.reweight[vi] *= (avgstep)^alpha
-        else
-            config.reweight[vi] *= (avgstep / v)^alpha
-        end
-    end
-    config.reweight .*= config.reweight_goal
-    # renoormalize all reweight to be (0.0, 1.0)
-    config.reweight ./= sum(config.reweight)
-    # avoid overreacting to atypically large reweighting factor
-    # reweighting factor close to 1.0 will not be changed much
-    # reweighting factor close to zero will be amplified significantly
-    # Check Eq. (19) of https://arxiv.org/pdf/2009.05112.pdf for more detail
-    # config.reweight = @. ((1 - config.reweight) / log(1 / config.reweight))^beta
-    # config.reweight ./= sum(config.reweight)
-end
-
-# function doReweight!(config, alpha)
-#     avgstep = sum(config.visited) / length(config.visited)
-#     for (vi, v) in enumerate(config.visited)
-#         if v > 1000
-#             config.reweight[vi] *= avgstep / v
-#             if config.reweight[vi] < 1e-10
-#                 config.reweight[vi] = 1e-10
-#             end
-#         end
-#     end
-#     # renoormalize all reweight to be (0.0, 1.0)
-#     config.reweight .= config.reweight ./ sum(config.reweight)
-#     # dample reweight factor to avoid rapid, destabilizing changes
-#     # reweight factor close to 1.0 will not be changed much
-#     # reweight factor close to zero will be amplified significantly
-#     # Check Eq. (19) of https://arxiv.org/pdf/2009.05112.pdf for more detail
-#     config.reweight = @. ((1 - config.reweight) / log(1 / config.reweight))^2.0
-# end

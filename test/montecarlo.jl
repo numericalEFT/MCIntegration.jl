@@ -23,10 +23,10 @@ function Sphere2(totalstep, alg; offset=0)
         end
     end
 
-    function measure(obs, relativeWeights, config)
+    function measure(X, obs, relativeWeights, config)
         obs .+= relativeWeights
     end
-    function measure(idx, obs, relativeWeight, config)
+    function measure(idx, X, obs, relativeWeight, config)
         obs[idx] += relativeWeight
     end
 

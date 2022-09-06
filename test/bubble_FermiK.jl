@@ -5,6 +5,7 @@ using LinearAlgebra, Random, Printf
 using StaticArrays
 using MCIntegration
 # using ProfileView
+# using Infiltrator
 
 @testset "Free electron polarization" begin
     Steps = 2e5
@@ -50,9 +51,10 @@ using MCIntegration
         end
     end
 
-    function integrand(T, K, Ext, config)
+    function integrand(idx, vars, config)
         # @assert idx == 1 "$(idx) is not a valid integrand"
-        para, _Ext = config.userdata
+        T, K, Ext = vars
+        para = config.userdata
         kF, β, me = para.kF, para.β, para.me
         k = K[1]
         # Tin, Tout = T[1], T[2]
@@ -71,13 +73,17 @@ using MCIntegration
     end
     integrand(idx, T, K, Ext, config) = integrand(T, K, Ext, config)
 
-    function measure(obs, weight, config)
-        para, Ext = config.userdata
+    @inline function measure(vars, obs, weight, config)
+        # para = config.userdata
+        Ext = vars[end]
         obs[1][Ext[1]] += weight[1]
     end
-    function measure(idx, obs, weight, config)
+    function measure(idx, vars, obs, weight, config)
         # @assert idx == 1 "$(idx) is not a valid integrand"
-        measure(obs, weight, config)
+        # @infiltrate
+        # measure(vars, obs, weight, config) #use this function somehow makes a lot of allocations
+        Ext = vars[end]
+        obs[1][Ext[1]] += weight
     end
 
     function run(steps, alg)
@@ -92,8 +98,11 @@ using MCIntegration
         dof = [[1, 1, 1],] # degrees of freedom of the normalization diagram and the bubble
         obs = [zeros(Float64, Qsize),] # observable for the normalization diagram and the bubble
 
-        # config = MCIntegration.Configuration(var=(T, K, Ext), dof=dof, obs=obs, para=para)
-        @time result = MCIntegration.integrate(integrand; measure=measure, userdata=(para, Ext),
+        result = MCIntegration.integrate(integrand; measure=measure, userdata=para,
+            var=(T, K, Ext), dof=dof, obs=obs, solver=alg,
+            neval=steps, print=0, block=16)
+
+        @time result = MCIntegration.integrate(integrand; measure=measure, userdata=para,
             var=(T, K, Ext), dof=dof, obs=obs, solver=alg,
             neval=steps, print=0, block=16)
 
@@ -106,14 +115,14 @@ using MCIntegration
                 q = q[1]
                 p = lindhard(q, para)
                 @printf("%10.6f  %10.6f ± %10.6f  %10.6f\n", q / kF, avg[idx], std[idx], p)
-                # check(avg[idx], std[idx], p)
+                check(avg[idx], std[idx], p, 5.0)
             end
             check(avg[1], std[1], lindhard(extQ[1][1], para))
         end
     end
 
     run(Steps, :mcmc)
-    run(Steps, :vegas)
+    # run(Steps, :vegas)
     # run(Steps, :vegasmc) #currently vegasmc can not handle this 
     # @time run(Steps)
 end

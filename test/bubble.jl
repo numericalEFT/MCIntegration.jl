@@ -49,9 +49,10 @@ using MCIntegration
         end
     end
 
-    function integrand(R, Theta, Phi, T, Ext, config)
+    function integrand(vars, config)
         # @assert idx == 1 "$(idx) is not a valid integrand"
-        para, _Ext = config.userdata
+        R, Theta, Phi, T, Ext = vars
+        para = config.userdata
         kF, β, me = para.kF, para.β, para.me
 
         r = R[1] / (1 - R[1])
@@ -74,15 +75,16 @@ using MCIntegration
         n = 0 # external Matsubara frequency
         return g1 * g2 * para.spin * factor * cos(2π * n * τ / β)
     end
-    integrand(idx, r, θ, ϕ, T, Ext, config) = integrand(r, θ, ϕ, T, Ext, config)
+    integrand(idx, vars, config) = integrand(vars, config)
 
-    function measure(obs, weight, config)
-        para, Ext = config.userdata
+    function measure(vars, obs, weight, config)
+        # para = config.userdata
+        Ext = vars[end]
         obs[1][Ext[1]] += weight[1]
     end
-    function measure(idx, obs, weight, config)
+    function measure(idx, vars, obs, weight, config)
         # @assert idx == 1 "$(idx) is not a valid integrand"
-        measure(obs, weight, config)
+        measure(vars, obs, weight, config)
     end
 
     function run(steps, alg, ratio)
@@ -100,11 +102,10 @@ using MCIntegration
         dof = [[1, 1, 1, 1, 1],] # degrees of freedom of the normalization diagram and the bubble
         obs = [zeros(Float64, Qsize),] # observable for the normalization diagram and the bubble
 
-        # config = MCIntegration.Configuration(var=(T, K, Ext), dof=dof, obs=obs, para=para)
-        result = integrate(integrand; measure=measure, userdata=(para, Ext),
+        result = integrate(integrand; measure=measure, userdata=para,
             var=(R, θ, ϕ, T, Ext), dof=dof, obs=obs, solver=alg,
             neval=steps, print=-1, block=8)
-        @time result = integrate(integrand; measure=measure, userdata=(para, Ext),
+        @time result = integrate(integrand; measure=measure, userdata=para,
             var=(R, θ, ϕ, T, Ext), dof=dof, obs=obs, solver=alg,
             neval=steps * 10, print=0, block=64, niter=1, config=result.config)
 

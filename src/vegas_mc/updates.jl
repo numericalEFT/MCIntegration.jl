@@ -42,7 +42,7 @@
 #     return
 # end
 
-function changeVariable(config, integrand)
+function changeVariable(config::Configuration{N,V,P,O,T}, integrand) where {N,V,P,O,T}
     # update to change the variables of the current diagrams
     curr = config.curr
     maxdof = config.maxdof
@@ -60,7 +60,10 @@ function changeVariable(config, integrand)
         return
     end
 
-    weights = integrand_wrap(config, integrand)
+    # weights = integrand_wrap(config, integrand)
+    weights = (fieldcount(V) == 1) ?
+              integrand(config.var[1], config) :
+              integrand(config.var, config)
     # newProbability = (curr == config.norm) ? config.reweight[curr] : abs(weights[curr]) / Dist.probability(config, curr) * config.reweight[curr]
     # newProbability = (curr == config.norm) ? config.reweight[curr] : abs(weights[curr]) * config.reweight[curr]
 

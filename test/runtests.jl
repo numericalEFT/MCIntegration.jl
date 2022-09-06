@@ -28,7 +28,7 @@ if isempty(ARGS)
     include("montecarlo.jl")
     include("thread.jl")
     include("bubble.jl")
-    # include("bubble_FermiK.jl")
+    include("bubble_FermiK.jl")
 else
     include(ARGS[1])
 end

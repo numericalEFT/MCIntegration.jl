@@ -59,7 +59,9 @@ function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval
                 if isnothing(measure)
                     config.observable[curr] += relativeWeight
                 else
-                    measure(config.curr, config.observable, relativeWeight, config)
+                    (fieldcount(V) == 1) ?
+                    measure(config.curr, config.var[1], config.observable, relativeWeight, config) :
+                    measure(config.curr, config.var, config.observable, relativeWeight, config)
                 end
             end
         end
@@ -87,7 +89,8 @@ function initialize!(config, integrand)
     end
     curr = config.curr
     if curr != config.norm
-        config.weights[curr] = integrand_wrap(curr, config, integrand)
+        # config.weights[curr] = integrand_wrap(curr, config, integrand)
+        config.weights[curr] = (length(config.var) == 1) ? integrand(curr, config.var[1], config) : integrand(curr, config.var, config)
         config.probability = abs(config.weights[curr]) * config.reweight[curr]
     else
         config.probability = config.reweight[curr]
