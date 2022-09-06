@@ -27,22 +27,20 @@ function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval
     if isnothing(measure)
         @assert (config.observable isa AbstractVector) && (length(config.observable) == config.N) && (eltype(config.observable) == T) "the default measure can only handle observable as Vector{$T} with $(config.N) elements!"
     end
+    relativeWeights = zeros(T, N)
     ##############  initialization  ################################
     # don't forget to initialize the diagram weight
-    for i in 1:10000
-        initialize!(config, integrand)
-        if (config.curr == config.norm) || abs(config.weights[config.curr]) > TINY
-            break
-        end
-    end
-    @assert (config.curr == config.norm) || abs(config.weights[config.curr]) > TINY "Cannot find the variables that makes the $(config.curr) integrand >1e-10"
+    initialize!(config, integrand)
+    # for i in 1:10000
+    #     initialize!(config, integrand)
+    #     if (config.curr == config.norm) || abs(config.weights[config.curr]) > TINY
+    #         break
+    #     end
+    # end
+    # @assert (config.curr == config.norm) || abs(config.weights[config.curr]) > TINY "Cannot find the variables that makes the $(config.curr) integrand >1e-10"
 
 
-    # updates = [changeIntegrand,] # TODO: sample changeVariable more often
-    # updates = [changeIntegrand, swapVariable,] # TODO: sample changeVariable more often
-    # updates = [changeIntegrand, swapVariable, changeVariable] # TODO: sample changeVariable more often
-    # updates = [changeIntegrand, changeVariable] # TODO: sample changeVariable more often
-    updates = [changeVariable,] # TODO: sample changeVariable more often
+    updates = [changeVariable,]
     # for i = 2:length(config.var)*2
     #     push!(updates, changeVariable)
     # end
@@ -57,54 +55,50 @@ function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval
         config.neval += 1
         _update = rand(config.rng, updates) # randomly select an update
         _update(config, integrand)
-        # if i % 10 == 0 && i >= neval / 100
-        if i % measurefreq == 0 && i >= neval / 100
 
-            ######## accumulate variable and calculate variable probability #################
-            if config.curr != config.norm
+        ######## accumulate variable and calculate variable probability #################
+        for (vi, var) in enumerate(config.var)
+            offset = var.offset
+            for i in 1:N
+                # need to make sure Δxᵢ*∫_xᵢ^xᵢ₊₁ dx f^2(x)dx is a constant
+                # where  Δxᵢ ∝ 1/prop ∝ Jacobian for the vegas map
+                # since the current weight is sampled with the probability density ∝ config.probability =\sum_i |f_i(x)|*reweight[i]
+                # the estimator ∝ Δxᵢ*f^2(x)/(|f(x)|*reweight) = |f(x)|/prop/reweight
+                f2 = abs(config.weights[i])^2 / Dist.probability(config, i)
+                wf2 = f2 * Dist.padding_probability(config, i) / config.probability
+                # push!(kwargs[:mesh], (f2, var[1]))
+                for pos = 1:config.dof[i][vi]
+                    # Dist.accumulate!(var, pos + offset, f2 / config.probability)
 
-                # prop = Dist.probability(config, config.curr)
-                # f2 = (abs(config.weights[config.curr]))^2 / prop
-
-                for (vi, var) in enumerate(config.var)
-                    offset = var.offset
-                    for pos = 1:config.dof[config.curr][vi]
-                        # need to make sure Δxᵢ*∫_xᵢ^xᵢ₊₁ dx f^2(x)dx is a constant
-                        # where  Δxᵢ ∝ 1/prop ∝ Jacobian for the vegas map
-                        # since the current weight is sampled with the probability density ∝ |f(x)|*reweight
-                        # the estimator ∝ Δxᵢ*f^2(x)/(|f(x)|*reweight) = |f(x)|/prop/reweight
-                        # Dist.accumulate!(var, pos + offset, f2 / config.probability)
-
-                        # the following accumulator has a similar performance
-                        # this is because that with an optimial grid, |f(x)| ~ prop
-                        # Dist.accumulate!(var, pos + offset, 1.0/ reweight
-                        # Dist.accumulate!(var, pos + offset, 1.0 / config.reweight[config.curr])
-                        for i in eachindex(config.weights)
-                            Dist.accumulate!(var, pos + offset, abs(config.weights[i] * config.reweight[i]) / config.probability)
-                        end
-                    end
+                    # the following accumulator has a similar performance
+                    # this is because that with an optimial grid, |f(x)| ~ prop
+                    # Dist.accumulate!(var, pos + offset, 1.0/ reweight
+                    # Dist.accumulate!(var, pos + offset, 1.0 / config.reweight[config.curr])
+                    Dist.accumulate!(var, pos + offset, wf2)
+                    # Dist.accumulate!(var, pos + offset, abs(config.weights[i] * config.reweight[i]) / config.probability)
                 end
             end
+        end
+
+        if i % measurefreq == 0 && i >= neval / 100
             ##############################################################################
-
-
             if isnothing(measure)
-                for i in eachindex(config.weights)
+                for i in 1:N
                     # prob = Dist.delta_probability(config, config.curr; new=i)
                     # config.observable[i] += config.weights[i] * prob / config.probability
                     config.observable[i] += config.weights[i] * Dist.padding_probability(config, i) / config.probability
                     config.visited[i] += abs(config.weights[i] * Dist.padding_probability(config, i) * config.reweight[i]) / config.probability
                 end
             else
-                for i in eachindex(config.weights)
+                for i in 1:N
                     # prob = Dist.delta_probability(config, config.curr; new=i)
                     # config.relativeWeights[i] = config.weights[i] * prob / config.probability
-                    config.relativeWeights[i] = config.weights[i] * Dist.padding_probability(config, i) / config.probability
+                    relativeWeights[i] = config.weights[i] * Dist.padding_probability(config, i) / config.probability
                     config.visited[i] += abs(config.weights[i] * Dist.padding_probability(config, i) * config.reweight[i]) / config.probability
                 end
                 (fieldcount(V) == 1) ?
-                measure(config.var[1], config.observable, config.relativeWeights, config) :
-                measure(config.var, config.observable, config.relativeWeights, config)
+                measure(config.var[1], config.observable, relativeWeights, config) :
+                measure(config.var, config.observable, relativeWeights, config)
             end
             # prob = Dist.delta_probability(config, config.curr; new=config.norm)
             # config.normalization += prob / config.probability
@@ -134,12 +128,17 @@ function initialize!(config, integrand)
     # weights = integrand_wrap(config, integrand)
     weights = (length(config.var) == 1) ? integrand(config.var[1], config) : integrand(config.var, config)
     # config.probability = abs(weights[config.curr]) / Dist.probability(config, config.curr) * config.reweight[config.curr]
-    if config.curr == config.norm
-        config.probability = config.reweight[config.curr]
-    else
-        # config.probability = abs(weights[config.curr]) * config.reweight[config.curr] / Dist.probability(config, config.curr)
-        config.probability = abs(weights[config.curr]) * config.reweight[config.curr]
+    # if config.curr == config.norm
+    #     config.probability = config.reweight[config.curr]
+    # else
+    #     # config.probability = abs(weights[config.curr]) * config.reweight[config.curr] / Dist.probability(config, config.curr)
+    #     config.probability = abs(weights[config.curr]) * config.reweight[config.curr]
+    # end
+    newProbability = config.reweight[config.norm] * Dist.padding_probability(config, config.norm) #normalization integral
+    for i in 1:config.N #other integrals
+        newProbability += abs(weights[i]) * config.reweight[i] * Dist.padding_probability(config, i)
     end
+    config.probability = newProbability
     setWeight!(config, weights)
 end
 

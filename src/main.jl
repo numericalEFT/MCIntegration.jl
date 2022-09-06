@@ -152,7 +152,8 @@ function integrate(integrand::Function;
             push!(results, (mean, std, summedConfig))
 
             ################### self-learning ##########################################
-            (solver == :mcmc || solver == :vegasmc) && doReweight!(summedConfig, gamma)
+            # (solver == :mcmc || solver == :vegasmc) && doReweight!(summedConfig, gamma)
+            (solver == :mcmc) && doReweight!(summedConfig, gamma)
         end
 
         ######################## syncronize between works ##############################

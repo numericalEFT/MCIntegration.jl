@@ -73,7 +73,7 @@ function changeVariable(config::Configuration{N,V,P,O,T}, integrand) where {N,V,
     #     R = prop * newProbability / currProbability
     # end
     newProbability = config.reweight[config.norm] * Dist.padding_probability(config, config.norm) #normalization integral
-    for i in 1:config.N #other integrals
+    for i in 1:N #other integrals
         newProbability += abs(weights[i]) * config.reweight[i] * Dist.padding_probability(config, i)
     end
     R = prop * newProbability / currProbability

@@ -185,13 +185,6 @@ function Configuration(;
         0, idx, norm, normalization, relativeWeights, weights, probability, propose, accept  # current MC state
     )
 end
-function Configuration(;
-    var::Variable=Continuous(0.0, 1.0),
-    dof::Int=1,
-    kwargs...
-)
-    return Configuration(var=(var,), dof=[[dof,],], kwargs...)
-end
 
 function _neighbor(neighbor, Nd)
     if isnothing(neighbor)
