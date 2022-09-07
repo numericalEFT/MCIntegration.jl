@@ -61,12 +61,17 @@ function Base.show(io::IO, config::Configuration)
 end
 
 """
-    function Configuration(var::V, dof, obs::O=length(dof) == 1 ? 0.0 : zeros(length(dof));
-        para::P=nothing,
+    function Configuration(;
+        var::Union{Variable,AbstractVector,Tuple}=(Continuous(0.0, 1.0),),
+        dof::Union{Int,AbstractVector,AbstractMatrix}=[ones(Int, length(var)),],
+        type=Float64,  # type of the integrand
+        obs::AbstractVector=zeros(type, length(dof)),
         reweight::Vector{Float64}=ones(length(dof) + 1),
         seed::Int=rand(Random.RandomDevice(), 1:1000000),
-        neighbor::Union{Vector{Vector{Int}},Vector{Tuple{Int,Int}},Nothing}=nothing
-    ) where {V,P,O}
+        neighbor::Union{Vector{Vector{Int}},Vector{Tuple{Int,Int}},Nothing}=nothing,
+        userdata=nothing,
+        kwargs...
+    )
 
 Create a Configuration struct
 

@@ -42,7 +42,7 @@ Integral 1 = 0.6830078240204353 ± 0.014960689298028415   (chi2/dof = 1.46)
 ```
 """
 function integrate(integrand::Function;
-    solver::Symbol=:vegas, # :mcmc, :vegas, or :vegasmc
+    solver::Symbol=:vegasmc, # :mcmc, :vegas, or :vegasmc
     config::Union{Configuration,Nothing}=nothing,
     neval=1e4, # number of evaluations
     niter=10, # number of iterations
