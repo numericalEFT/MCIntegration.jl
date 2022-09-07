@@ -32,6 +32,7 @@
 - `gamma`:    Learning rate of the reweight factor after each iteraction. Note that alpha <=1, where alpha = 0 means no reweighting.  
 - `print`:    -1 to not print anything, 0 to print minimal information, >0 to print summary for every `print` seconds
 - `debug`:    Whether to print debug information (type instability, float overflow etc.)
+- `reweight_goal`: The expected distribution of visited times for each integrand after reweighting . If not set, then all factors will be initialized with one. Only useful for the :mcmc solver. 
 - `kwargs`:   Keyword arguments. If `config` is `nothing`, you may need to provide arguments for the `Configuration` constructor, check [`Configuration`](@ref) docs for more details.
 
 # Examples
@@ -50,6 +51,7 @@ function integrate(integrand::Function;
     gamma=1.0, # learning rate of the reweight factor, only used in MCMC solver
     adapt=true, # whether to adapt the grid and the reweight factor
     debug=false, # whether to print debug information (type instability, etc.)
+    reweight_goal::Union{Vector{Float64},Nothing}=nothing, # goal of visited steps of each integrand (include the normalization integral)
     kwargs...
 )
     if isnothing(config)
@@ -155,7 +157,7 @@ function integrate(integrand::Function;
 
             ################### self-learning ##########################################
             # (solver == :mcmc || solver == :vegasmc) && doReweight!(summedConfig, gamma)
-            (solver == :mcmc) && doReweight!(summedConfig, gamma)
+            (solver == :mcmc) && doReweight!(summedConfig, gamma, reweight_goal)
         end
 
         ######################## syncronize between works ##############################
@@ -217,7 +219,7 @@ function _mean_std(obsSum, obsSquaredSum, block)
     return mean, std
 end
 
-function doReweight!(config, gamma)
+function doReweight!(config, gamma, reweight_goal)
     avgstep = sum(config.visited)
     for (vi, v) in enumerate(config.visited)
         # if v > 1000
@@ -229,7 +231,9 @@ function doReweight!(config, gamma)
     end
     # println(config.visited)
     # println(config.reweight)
-    config.reweight .*= config.reweight_goal
+    if isnothing(reweight_goal) == false
+        config.reweight .*= config.reweight_goal
+    end
     # renoormalize all reweight to be (0.0, 1.0)
     config.reweight ./= sum(config.reweight)
     # avoid overreacting to atypically large reweighting factor

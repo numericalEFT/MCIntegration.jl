@@ -51,7 +51,7 @@ end
 function TestSingular1(totalstep, alg)
     #log(x)/sqrt(x), singular in x->0
     f(X, c) = log(X[1]) / sqrt(X[1])
-    f(idx, X, c)::Float64 = f(X, c) # dispatch with args seems require type annotation
+    f(idx, X, c) = log(X[1]) / sqrt(X[1])
     return integrate(f; neval=totalstep, print=-1, solver=alg)
 end
 
@@ -70,7 +70,7 @@ end
 
 function TestComplex1(totalstep, alg)
     f(x, c) = x[1] + x[1]^2 * 1im
-    f(idx, x, c)::ComplexF64 = f(x, c)
+    f(idx, x, c)::ComplexF64 = f(x, c) # dispatch with args seems require type annotation
     integrate(f; neval=totalstep, print=-1, type=ComplexF64, solver=alg, debug=true)
 end
 
@@ -102,6 +102,8 @@ end
     check(TestDiscrete(neval, :mcmc), 6.0)
     println("Singular1")
     res = TestSingular1(neval, :mcmc)
+    @time res = TestSingular1(neval, :mcmc)
+    @time res = TestSingular1(neval * 2, :mcmc)
     println(res)
     # check(res, -4.0)
     # @test res.stdev[1] < 0.0004 #make there is no regression, vegas typically gives accuracy ~0.0002 with 1e5x10 evaluations
@@ -129,6 +131,7 @@ end
     check(TestDiscrete(neval, :vegas), 6.0)
     println("Singular1")
     res = TestSingular1(neval, :vegas)
+    @time res = TestSingular1(neval, :vegas)
     println(res)
     check(res, -4.0)
     @test res.stdev[1] < 0.0004 #make there is no regression, vegas typically gives accuracy ~0.0002 with 1e5x10 evaluations
@@ -162,9 +165,10 @@ end
     check(TestDiscrete(neval, :vegasmc), 6.0)
     println("Singular1")
     res = TestSingular1(neval, :vegasmc)
+    @time res = TestSingular1(neval, :vegasmc)
     println(res)
     check(res, -4.0)
-    # @test res.stdev[1] < 0.0004 #make there is no regression, vegas typically gives accuracy ~0.0002 with 1e5x10 evaluations
+    @test res.stdev[1] < 0.0007 #make there is no regression, vegas typically gives accuracy ~0.0002 with 1e5x10 evaluations
     println("Singular2")
     check(TestSingular2(neval, :vegasmc), 1.3932)
 

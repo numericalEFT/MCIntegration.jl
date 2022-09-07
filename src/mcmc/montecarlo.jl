@@ -1,4 +1,5 @@
 mutable struct _State{T}
+    curr::Int
     weight::T
     probability::Float64
 end
@@ -22,18 +23,26 @@ function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval
     end
     #######################################################################
 
-    state = _State{T}(zero(T), 1.0)
+    if haskey(kwargs, :idx)
+        curr = kwargs[:idx]
+    elseif haskey(kwargs, :curr)
+        curr = kwargs[:curr]
+    else
+        curr = 1
+    end
+
+    state = _State{T}(curr, zero(T), 1.0)
 
     for i in 1:10000
         initialize!(config, integrand, state)
-        if (config.curr == config.norm) || state.probability > TINY
+        if (state.curr == config.norm) || state.probability > TINY
             break
         end
     end
-    if (config.curr != config.norm) && state.probability ≈ 0.0
-        error("Cannot find the variables that makes the $(config.curr) integrand nonzero!")
-    elseif (config.curr != config.norm) && state.probability < TINY
-        @warn("Cannot find the variables that makes the $(config.curr) integrand >1e-10!")
+    if (state.curr != config.norm) && state.probability ≈ 0.0
+        error("Cannot find the variables that makes the $(state.curr) integrand nonzero!")
+    elseif (state.curr != config.norm) && state.probability < TINY
+        @warn("Cannot find the variables that makes the $(state.curr) integrand >1e-10!")
     end
 
     # updates = [changeIntegrand,] # TODO: sample changeVariable more often
@@ -57,7 +66,7 @@ function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval
 
     for i = 1:neval
         config.neval += 1
-        config.visited[config.curr] += 1
+        config.visited[state.curr] += 1
         _update = rand(config.rng, updates) # randomly select an update
         _update(config, integrand, state)
         # push!(kwargs[:mem], (config.curr, config.relativeWeight))
@@ -68,27 +77,27 @@ function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval
         if i % measurefreq == 0 && i >= neval / 100
 
             ######## accumulate variable #################
-            if config.curr != config.norm
+            if state.curr != config.norm
                 for (vi, var) in enumerate(config.var)
                     offset = var.offset
-                    for pos = 1:config.dof[config.curr][vi]
+                    for pos = 1:config.dof[state.curr][vi]
                         Dist.accumulate!(var, pos + offset, 1.0)
                     end
                 end
             end
             ###############################################
 
-            if config.curr == config.norm # the last diagram is for normalization
+            if state.curr == config.norm # the last diagram is for normalization
                 config.normalization += 1.0 / config.reweight[config.norm]
             else
-                curr = config.curr
+                curr = state.curr
                 relativeWeight = state.weight / state.probability
                 if isnothing(measure)
                     config.observable[curr] += relativeWeight
                 else
                     (fieldcount(V) == 1) ?
-                    measure(config.curr, config.var[1], config.observable, relativeWeight, config) :
-                    measure(config.curr, config.var, config.observable, relativeWeight, config)
+                    measure(state.curr, config.var[1], config.observable, relativeWeight, config) :
+                    measure(state.curr, config.var, config.observable, relativeWeight, config)
                 end
             end
         end
@@ -114,7 +123,7 @@ function initialize!(config::Configuration{N,V,P,O,T}, integrand, state) where {
     for var in config.var
         Dist.initialize!(var, config)
     end
-    curr = config.curr
+    curr = state.curr
     if curr != config.norm
         # config.weights[curr] = integrand_wrap(curr, config, integrand)
         state.weight = (length(config.var) == 1) ? integrand(curr, config.var[1], config) : integrand(curr, config.var, config)
@@ -125,27 +134,3 @@ function initialize!(config::Configuration{N,V,P,O,T}, integrand, state) where {
     end
     return
 end
-
-# function setweight!(config, weight)
-#     config.relativeWeight = weight / abs(weight) / config.reweight[config.curr]
-# end
-
-
-# function doReweight!(config, alpha)
-#     avgstep = sum(config.visited) / length(config.visited)
-#     for (vi, v) in enumerate(config.visited)
-#         if v > 1000
-#             config.reweight[vi] *= avgstep / v
-#             if config.reweight[vi] < 1e-10
-#                 config.reweight[vi] = 1e-10
-#             end
-#         end
-#     end
-#     # renoormalize all reweight to be (0.0, 1.0)
-#     config.reweight .= config.reweight ./ sum(config.reweight)
-#     # dample reweight factor to avoid rapid, destabilizing changes
-#     # reweight factor close to 1.0 will not be changed much
-#     # reweight factor close to zero will be amplified significantly
-#     # Check Eq. (19) of https://arxiv.org/pdf/2009.05112.pdf for more detail
-#     config.reweight = @. ((1 - config.reweight) / log(1 / config.reweight))^2.0
-# end

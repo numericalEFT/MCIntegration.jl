@@ -19,7 +19,6 @@
  - `observable`: observables that is required to calculate the integrands, will be used in the `measure` function call.
     It is either an array of any type with the common operations like +-*/^ defined. 
  - `reweight`: reweight factors for each integrands. The reweight factor of the normalization diagram is assumed to be 1. Note that you don't need to explicitly add the normalization diagram. 
--  `reweight_goal`: The expected distribution of visited times for each integrand after reweighting . If not set, then all factors will be initialized with one.
  - `visited`: how many times this integrand is visited by the Markov chain.
 
  ## current MC state
@@ -27,8 +26,6 @@
  - `curr`: the current integrand, initialize with 1
  - `norm`: the index of the normalization diagram. `norm` is larger than the index of any user-defined integrands 
  - `normalization`: the accumulated normalization factor. Physical observable = Configuration.observable/Configuration.normalization.
- - `relativeWeight`: integrand(config)/absWeight/config.reweight[config.curr], which is the reweighted weight of the current integrand  
- - `absWeight`: the abolute weight of the current integrand. User is responsible to initialize it after the contructor is called.
  - `propose/accept`: array to store the proposed and accepted updates for each integrands and variables.
     Their shapes are (number of updates X integrand number X max(integrand number, variable number).
     The last index will waste some memory, but the dimension is small anyway.
@@ -47,7 +44,6 @@ mutable struct Configuration{NI,V,P,O,T}
     maxdof::Vector{Int} # max degrees of freedom of all integrands, length(maxdof) = length(var)
     observable::O  # observables for each integrand
     reweight::Vector{Float64}
-    reweight_goal::Vector{Float64}
     visited::Vector{Float64}
 
     ############# current state ######################
@@ -55,9 +51,6 @@ mutable struct Configuration{NI,V,P,O,T}
     curr::Int # index of current integrand
     norm::Int # index of the normalization diagram
     normalization::Float64 # normalization factor for observables
-    relativeWeights::Vector{T} # reweighted weight of all integrands
-    weights::Vector{T} # weight of each integrand in the current state
-    probability::Float64 # probablity of the current state
 
     propose::Array{Float64,3} # updates index, integrand index, integrand index
     accept::Array{Float64,3} # updates index, integrand index, integrand index 
@@ -89,7 +82,6 @@ It is either an array of any type with the common operations like +-*/^ defined.
 By default, it will be set to 0.0 if there is only one integrand (e.g., length(dof)==1); otherwise, it will be set to zeros(length(dof)).
 - `para`: user-defined parameter, set to nothing if not needed
 - `reweight`: reweight factors for each integrands. If not set, then all factors will be initialized with one.
-- `reweight_goal`: The expected distribution of visited times for each integrand after reweighting . If not set, then all factors will be initialized with one.
 - `seed`: seed to initialize random numebr generator, also serves as the unique pid of the configuration. If it is nothing, then use RandomDevice() to generate a random seed in [1, 1000_1000]
 - `neighbor::Vector{Tuple{Int, Int}}` : vector of tuples that defines the neighboring integrands. Two neighboring integrands are directly connected in the Markov chain. 
     e.g., [(1, 2), (2, 3)] means the integrand 1 and 2 are neighbor, and 2 and 3 are neighbor.  
@@ -104,7 +96,6 @@ function Configuration(;
     type=Float64,  # type of the integrand
     obs::AbstractVector=zeros(type, length(dof)),
     reweight::Vector{Float64}=ones(length(dof) + 1),
-    reweight_goal::Union{Vector{Float64},Nothing}=nothing,
     seed::Int=rand(Random.RandomDevice(), 1:1000000),
     neighbor::Union{Vector{Vector{Int}},Vector{Tuple{Int,Int}},Nothing}=nothing,
     idx::Int=1, # index of the current integrand
@@ -149,27 +140,14 @@ function Configuration(;
 
     neighbor = _neighbor(neighbor, Nd)
 
-    if isnothing(reweight_goal)
-        reweight_goal = ones(Nd)
-    else
-        reweight_goal = collect(reweight_goal)
-        reweight = reweight_goal # reweight will be overwritten if reweight_goal is set
-        @assert Nd == length(reweight_goal) "Wrong reweight_goal vector size! Note that the last element in reweight vector is for the normalization diagram."
-        @assert all(x -> x > 0, reweight_goal) "All reweight_goal factors should be positive."
-    end
-
     reweight = collect(reweight)
     reweight /= sum(reweight) # normalize the reweight factors
     @assert Nd == length(reweight) "Wrong reweight vector size! Note that the last element in reweight vector is for the normalization diagram."
     @assert all(x -> x > 0, reweight) "All reweight factors should be positive."
 
     norm = Nd # set the normalization diagram to be the last one
-    probability = 1e-10 # a small initial probability makes the initial configuaration quickly updated,
     # so that no error is caused even if the intial absweight is wrong, 
     normalization = 1.0e-10
-
-    relativeWeights = [zero(type) for i in 1:Nd-1]
-    weights = [zero(type) for i in 1:Nd-1]
 
     # visited[end] is for the normalization diagram
     visited = zeros(Float64, Nd) .+ 1.0e-8  # add a small initial value to avoid Inf when inverted
@@ -181,8 +159,8 @@ function Configuration(;
 
     return Configuration{Nd - 1,typeof(var),typeof(userdata),typeof(obs),type}(
         seed, MersenneTwister(seed), var, userdata,  # static parameters
-        Nd - 1, neighbor, dof, _maxdof(dof), obs, reweight, reweight_goal, visited, # integrand properties
-        0, idx, norm, normalization, relativeWeights, weights, probability, propose, accept  # current MC state
+        Nd - 1, neighbor, dof, _maxdof(dof), obs, reweight, visited, # integrand properties
+        0, idx, norm, normalization, propose, accept  # current MC state
     )
 end
 
