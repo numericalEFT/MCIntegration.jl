@@ -63,23 +63,45 @@ Here `dof` defines how many (degrees of freedom) variables of each type. For exa
 ## Histogram measurement
 You may want to study how an integral changes with a tuning parameter. The following example how to solve histogram measurement problem.
 ```julia
-julia> function measure(vars, obs, weights, config)
-           X, bin = vars # unpack the variables
-           obs[1][bin[1]] += weights[1]; obs[2][bin[1]] += weights[2]
-       end
-measure (generic function with 1 method)
+julia> N = 20;
 
-julia> obs = [zeros(16), zeros(16)];
+julia> grid = grid = [i / N for i in 1:N];
 
-julia> res=integrate(measure=measure,obs = obs, var = (X,Bin), dof = [[1,1], [2,1]], neval = 1e6, niter = 10, print = -1) do vars, c
-                  X, bin = vars; r=1.0/16*bin[1]; r1 = (X[1]^2 +r^2<1.0); r2=(X[1]^2+X[2]^2+r^2<1.0)
-                  return r1, r2
-              end
-Integral 1 = 0.9966677406614348 ± 0.0023379178422204337   (chi2/dof = 1.39)
-Integral 2 = 0.7833469087705167 ± 0.001746990368127615   (chi2/dof = 1.14)
+julia> function integrand(vars, config)
+            grid = config.userdata # radius
+            x, bin = vars #unpack the variables
+            r = grid[bin[1]] # binned variable in [0, 1)
+            r1 = x[1]^2 + r^2 < 1 # circle
+            r2 = x[1]^2 + x[2]^2 + r^2 < 1 # sphere
+            return r1, r2
+        end;
 
-julia> plot(res.mean[1])
+julia> function measure(vars, obs, weights, config) 
+       # obs: prototype of the observables for each integral
+           x, bin = vars #unpack the variables
+           obs[1][bin[1]] += weights[1] # circle
+           obs[2][bin[1]] += weights[2] # sphere
+       end;
+
+julia> res = integrate(integrand;
+                measure = measure, # measurement function
+                var = (Continuous(0.0, 1.0), Discrete(1, N)), # a continuous and a discrete variable pool 
+                dof = [[1,1], [2,1]], 
+                # integral-1: one continuous and one discrete variables, integral-2: two continous and one discrete variables
+                obs = [zeros(N), zeros(N)], # prototype of the observables for each integral
+                userdata = grid, neval = 1e5, print = -1)
+Integral 1 = 0.9957805541613277 ± 0.008336657854575344   (chi2/dof = 1.15)
+Integral 2 = 0.7768105610812656 ± 0.006119386106596811   (chi2/dof = 1.4)
 ```
+You can visualize the returned result `res` with `Plots.jl`. The command `res.mean[i]` and `res.stdev[i]` give the mean and stdev of the histogram of the integral `i`.
+```julia
+julia> using Plots
+
+julia> plt = plot(grid, res.mean[1], yerror = res.stdev[1], xlabel="R", label="circle", aspect_ratio=1.0, xlim=[0.0, 1.0])
+
+julia> plot!(plt, grid, res.mean[2], yerror = res.stdev[2], label="sphere")
+```
+![histogram](docs/src/assets/circle_sphere.png?raw=true "Circle and Sphere")
 
 You can also use the julia do-syntax to simplify the integration part in above example:
 ```julia
@@ -109,6 +131,25 @@ After each iteration, the code will try to optimize how the variables are sample
 
 More supported variables types can be found in the [source code](src/variable.jl).
 
+# Algorithm
+
+This package provides three solvers.
+
+- Vegas algorithm (`:vegas`): A Monte Carlo algorithm that uses importance sampling as a variance-reduction technique. Vegas iteratively builds up a piecewise constant weight function, represented
+on a rectangular grid. Each iteration consists of a sampling step followed by a refinement
+of the grid. The exact details of the algorithm can be found in **_G.P. Lepage, J. Comp. Phys. 27 (1978) 192, 3_** and
+**_G.P. Lepage, Report CLNS-80/447, Cornell Univ., Ithaca, N.Y., 1980_**. 
+
+- Vegas algorithm based on Markov-chain Monte Carlo (`:vegasmc`): A markov-chain Monte Carlo algorithm that uses the Vegas variance-reduction technique. It is as accurate as the vanilla Vegas algorithm, meanwhile tends to be more robust. For complicated high-dimensional integral, the vanilla Vegas algorithm can fail to learn the piecewise constant weight function. This algorithm uses Metropolis–Hastings algorithm to sample the integrand and improves the weight function learning.
+
+- Vegas algorithm based on Markov-chain Monte Carlo (`:vegasmc`): A markov-chain Monte Carlo algorithm that uses the Vegas variance-reduction technique. It is as accurate as the vanilla Vegas algorithm yet tends to be more robust. The vanilla Vegas algorithm can fail to learn the piecewise constant weight function for complicated high-dimensional integral. This algorithm uses the Metropolis-Hastings algorithm to sample the integrand and improves the weight-function learning.
+
+- Markov-chain Monte Carlo (`:mcmc`): This algorithm is useful for calculating bundled integrands that are too many to calculate at once. Examples are the path-integral of world lines of quantum particles, which involves hundreds and thousands of nested spacetime integrals. This algorithm uses the Metropolis-Hastings algorithm to jump between different integrals so that you only need to evaluate one integrand at each Monte Carlo step. Just as `:vegas` and `:vegasmc`, this algorithm also learns a piecewise constant weight function to reduce the variance. However, because it assumes you can access one integrand at each step, it tends to be less accurate than the other two algorithms for low-dimensional integrals.   
+
+The signature of the integrand and measure functions of the `:mcmc` solver receices an additional index argument than that of the `:vegas` and `:vegasmc` solvers. As shown in the above examples, the integrand and measure functions of the latter two solvers should be like `integrand( vars, config)` and `measure(vars, obs, weights, config)`, where `weights` is a vectors carries the values of the integrands at the current MC step. On the other hand, the `:mcmc` solver requires something like `integrand(idx, vars, config)` and `measure(idx, vars, weight, config)`, where `idx` is the index of the integrand of the current step, and the argument `weight` is a scalar carries the value of the current integrand being sampled.
+
+<!-- The internal algorithm and some simple benchmarks can be found in the [document](docs/src/man/important_sampling.md). -->
+
 # Parallelization
 
 MCIntegration supports MPI parallelization. To run your code in MPI mode, simply use the command
@@ -120,9 +161,6 @@ where `#CPU` is the number of workers. Internally, the MC sampler will send the 
 Note that you need to install the package [MPI.jl](https://github.com/JuliaParallel/MPI.jl) to use the MPI mode. See this [link](https://juliaparallel.github.io/MPI.jl/stable/configuration/) for the instruction on the configuration.
 
 The user essentially doesn't need to write additional code to support the parallelization. The only tricky part is the output: only the function `MCIntegratoin.integrate` of the root node returns meaningful estimates, while other workers simply returns `nothing`. 
-
-# Algorithm
-The internal algorithm and some simple benchmarks can be found in the [document](docs/src/man/important_sampling.md).
 
 # Q&A
 
