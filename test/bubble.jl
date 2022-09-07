@@ -75,7 +75,10 @@ using MCIntegration
         n = 0 # external Matsubara frequency
         return g1 * g2 * para.spin * factor * cos(2π * n * τ / β)
     end
-    integrand(idx, vars, config)::Float64 = integrand(vars, config)
+
+    function integrand(idx, vars, config)
+        return integrand(vars, config)::Float64
+    end
 
     function measure(vars, obs, weight, config)
         # para = config.userdata
