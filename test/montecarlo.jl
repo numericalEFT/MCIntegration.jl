@@ -35,7 +35,7 @@ function Sphere2(totalstep, alg; offset=0)
     dof = [[2,], [3,]] # a 1x2 matrix, each row is the number of dof for each integrand
     config = Configuration(var=(T,), dof=dof; neighbor=[(1, 3), (1, 2)])
     @inferred integrand(config.var[1], config) #make sure the type is inferred for the integrand function
-    @inferred integrand(config.curr, config.var[1], config) #make sure the type is inferred for the integrand function
+    @inferred integrand(1, config.var[1], config) #make sure the type is inferred for the integrand function
     return integrate(integrand, measure=measure, config=config, neval=totalstep, print=-1, solver=alg, debug=true)
 end
 
@@ -85,7 +85,7 @@ function TestComplex2(totalstep, alg)
     res = integrate(integrand; dof=[[1,], [1,]], neval=totalstep, print=-1, type=ComplexF64, solver=alg, debug=true)
     config = res.config
     @inferred integrand(config.var[1], config) #make sure the type is inferred for the integrand function
-    @inferred integrand(config.curr, config.var[1], config) #make sure the type is inferred for the integrand function
+    @inferred integrand(1, config.var[1], config) #make sure the type is inferred for the integrand function
     return res
 end
 

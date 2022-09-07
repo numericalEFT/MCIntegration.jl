@@ -23,7 +23,6 @@
 
  ## current MC state
  - `step`: the number of MC updates performed up to now
- - `curr`: the current integrand, initialize with 1
  - `norm`: the index of the normalization diagram. `norm` is larger than the index of any user-defined integrands 
  - `normalization`: the accumulated normalization factor. Physical observable = Configuration.observable/Configuration.normalization.
  - `propose/accept`: array to store the proposed and accepted updates for each integrands and variables.
@@ -48,7 +47,6 @@ mutable struct Configuration{NI,V,P,O,T}
 
     ############# current state ######################
     neval::Int # MC steps
-    curr::Int # index of current integrand
     norm::Int # index of the normalization diagram
     normalization::Float64 # normalization factor for observables
 
@@ -98,7 +96,6 @@ function Configuration(;
     reweight::Vector{Float64}=ones(length(dof) + 1),
     seed::Int=rand(Random.RandomDevice(), 1:1000000),
     neighbor::Union{Vector{Vector{Int}},Vector{Tuple{Int,Int}},Nothing}=nothing,
-    idx::Int=1, # index of the current integrand
     userdata=nothing,
     kwargs...
 )
@@ -160,7 +157,7 @@ function Configuration(;
     return Configuration{Nd - 1,typeof(var),typeof(userdata),typeof(obs),type}(
         seed, MersenneTwister(seed), var, userdata,  # static parameters
         Nd - 1, neighbor, dof, _maxdof(dof), obs, reweight, visited, # integrand properties
-        0, idx, norm, normalization, propose, accept  # current MC state
+        0, norm, normalization, propose, accept  # current MC state
     )
 end
 
