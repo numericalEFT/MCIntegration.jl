@@ -5,9 +5,10 @@ using Random
 using Graphs
 using Test
 using ProgressMeter
+using Measurements
 
 const RNG = Random.GLOBAL_RNG
-const TINY = 1e-10
+const TINY = eps(Float64(0)) * 1e50 # 4.940656458412466e-274
 const EPSILON = eps(Float64)
 
 # this is how vegas python package does it

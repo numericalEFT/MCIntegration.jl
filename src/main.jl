@@ -8,6 +8,8 @@
         gamma=1.0, 
         print=-1, 
         debug=false, 
+        reweight_goal::Union{Vector{Float64},Nothing}=nothing, 
+        ignore_iter::Int=1,
         kwargs...
     )
 
@@ -33,6 +35,7 @@
 - `print`:    -1 to not print anything, 0 to print minimal information, >0 to print summary for every `print` seconds
 - `debug`:    Whether to print debug information (type instability, float overflow etc.)
 - `reweight_goal`: The expected distribution of visited times for each integrand after reweighting . If not set, then all factors will be initialized with one. Only useful for the :mcmc solver. 
+- `ignore_iter` : ignore the iteration until ignore_iter. By default, the first iteration is igonred if adapt=true, and non is ignored if adapt=false.
 - `kwargs`:   Keyword arguments. If `config` is `nothing`, you may need to provide arguments for the `Configuration` constructor, check [`Configuration`](@ref) docs for more details.
 
 # Examples
@@ -52,12 +55,13 @@ function integrate(integrand::Function;
     adapt=true, # whether to adapt the grid and the reweight factor
     debug=false, # whether to print debug information (type instability, etc.)
     reweight_goal::Union{Vector{Float64},Nothing}=nothing, # goal of visited steps of each integrand (include the normalization integral)
+    ignore_iter::Int=adapt ? 1 : 0,
     kwargs...
 )
     if isnothing(config)
         config = Configuration(; kwargs...)
     end
-
+    # @assert niter >= ignore_iter + 1 "At least $(ignore_iter + 1) iterations are required."
     # weights = integrand(config, _integrand)
     # @assert length(weights) == length(config.dof) - 1 "There should be $(length(config.dof)-1) integrands, got $(length(weights))"
 
@@ -94,7 +98,7 @@ function integrate(integrand::Function;
 
     #In the MPI mode, progress will only need to track the progress of the root worker.
     Ntotal = niter * block ÷ Nworker
-    progress = Progress(Ntotal; dt=(0.5 + print), enabled=(print >= 0), showspeed=true, desc="Total iterations * blocks $(Ntotal): ", output=printio)
+    progress = Progress(Ntotal; dt=(print >= 0 ? (0.5 + print) : 0.5), enabled=(print >= -1), showspeed=true, desc="Total iterations * blocks $(Ntotal): ", output=printio)
 
     startTime = time()
     for iter in 1:niter
@@ -140,7 +144,7 @@ function integrate(integrand::Function;
             end
 
             if MPI.Comm_rank(comm) == root
-                (print >= 0) && next!(progress)
+                (print >= -1) && next!(progress)
             end
         end
         #################### collect statistics  ####################################
@@ -157,7 +161,7 @@ function integrate(integrand::Function;
 
             ################### self-learning ##########################################
             # (solver == :mcmc || solver == :vegasmc) && doReweight!(summedConfig, gamma)
-            (solver == :mcmc) && doReweight!(summedConfig, gamma, reweight_goal)
+            (solver == :mcmc || solver == :vegasmc) && doReweight!(summedConfig, gamma, reweight_goal)
         end
 
         ######################## syncronize between works ##############################
@@ -185,7 +189,7 @@ function integrate(integrand::Function;
     end
     ################################ IO ######################################
     if MPI.Comm_rank(comm) == root
-        result = Result(results)
+        result = Result(results, ignore_iter)
         if print >= 0
             report(result)
             (print > 0) && println(yellow("$(Dates.now()), Total time: $(time() - startTime) seconds."))
