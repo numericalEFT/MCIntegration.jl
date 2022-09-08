@@ -55,6 +55,13 @@ struct Result{O,C}
         # println(typeof(mean), typeof(config))
         return new{O,typeof(config)}(mean, stdev, chi2, neval, ignore, dof, config, history)
     end
+    function Result(res::Result, ignore::Int)
+        if ignore == res.ignore
+            return res
+        else
+            return Result(res.iterations, ignore)
+        end
+    end
 end
 
 function Base.getindex(result::Result, idx::Int)
@@ -65,8 +72,8 @@ function tostring(mval, merr; pm="±")
     # println(mval, ", ", merr)
 
     if mval isa Real && merr isa Real && isfinite(mval) && isfinite(merr)
-        # return @sprintf("%16.8g %s %.8g", mval, pm, merr)
-        m = measurement(mval, merr)
+        m = @sprintf("%16.8g %s %-16.8g", mval, pm, merr)
+        # m = measurement(mval, merr)
         # return @sprintf("$m")
     elseif mval isa Complex && merr isa Complex && isfinite(mval) && isfinite(merr)
         m = measurement(real(mval), real(merr)) + measurement(imag(mval), imag(merr)) * 1im
@@ -84,18 +91,18 @@ function Base.show(io::IO, result::Result)
 end
 
 """
-    function report(result::Result, pick::Union{Function,AbstractVector}=obs -> real(first(obs)), name=nothing)
+    function report(result::Result, ignore=result.ignore; pick::Union{Function,AbstractVector}=obs -> first(obs), name=nothing, verbose=0)
 
 print the summary of the result. 
 It will first print the configuration from the last iteration, then print the weighted average and standard deviation of the picked observable from each iteration.
 
 # Arguments
 - result: Result object contains the history from each iteration
+- ignore: the ignore the first # iteractions.
 - pick: The pick function is used to select one of the observable to be printed. The return value of pick function must be a Number.
 - name: name of each picked observable. If name is not given, the index of the pick function will be used.
 """
-function report(result::Result, pick::Union{Function,AbstractVector}=obs -> first(obs), name=nothing;
-    verbose=0, ignore=result.ignore)
+function report(result::Result, ignore=result.ignore; pick::Union{Function,AbstractVector}=obs -> first(obs), name=nothing, verbose=0)
     if isnothing(name) == false
         name = collect(name)
     end
@@ -107,10 +114,10 @@ function report(result::Result, pick::Union{Function,AbstractVector}=obs -> firs
         if verbose >= 0
             # barbar = "==============================================     Integral $info    =========================================================="
             # bar = "---------------------------------------------------------------------------------------------------------------------------"
-            barbar = "======================================     Integral $info    =================================================="
-            bar = "-----------------------------------------------------------------------------------------------------------"
+            barbar = "====================================     Integral $info    ================================================"
+            bar = "-------------------------------------------------------------------------------------------------------"
             println(barbar)
-            println(yellow(@sprintf("%6s %40s %40s %16s", "iter", "         integral", "        wgt average", "chi2/dof")))
+            println(yellow(@sprintf("%6s     %-32s     %-32s %16s", "iter", "         integral", "        wgt average", "chi2/dof")))
             println(bar)
             for iter in 1:length(result.iterations)
                 m0, e0 = p(result.iterations[iter][1][i]), p(result.iterations[iter][2][i])
@@ -118,7 +125,7 @@ function report(result::Result, pick::Union{Function,AbstractVector}=obs -> firs
                 m, e, chi2 = p(m[i]), p(e[i]), p(chi2[i])
                 iterstr = iter <= ignore_iter ? "ignore" : "$iter"
                 sm0, sm = tostring(m0, e0), tostring(m, e)
-                println(@sprintf("%6s %40s %40s %16.4f", iterstr, sm0, sm, abs(chi2)))
+                println(@sprintf("%6s %36s %36s %16.4f", iterstr, sm0, sm, abs(chi2)))
             end
             println(bar)
         else

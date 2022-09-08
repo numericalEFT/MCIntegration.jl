@@ -15,30 +15,40 @@ The following examples demonstrate the basic usage of this package.
 ## One-dimensional integral
 We first show an example of highly singular integral. The following command evaluates ∫_0^1 log(x)/√x dx = 4.
 ```julia
-julia> integrate((x, c)->log(x[1])/sqrt(x[1]), solver=:vegas) 
-==================================     Integral 1    ==============================================
-  iter          integral                            wgt average                          chi2/dof
----------------------------------------------------------------------------------------------------
-     1       -4.3455199 ± 0.27334819              -4.3455199 ± 0.27334819                  0.0000
-     2       -3.8784897 ± 0.030889492             -3.8843784 ± 0.030694133                 2.8824
-     3       -3.9967001 ± 0.016241895             -3.9721295 ± 0.014355926                 6.6721
-     4       -4.0025717 ± 0.012134258             -3.9898859 ± 0.0092672832                5.3223
-     5       -4.0090158 ± 0.0042303036            -4.0057171 ± 0.0038483213                4.8733
-     6       -4.0000401 ± 0.0043113376            -4.0031997 ± 0.0028709675                4.0916
-     7       -4.0043599 ± 0.0034347516            -4.0036769 ± 0.0022027999                3.4209
-     8       -4.0023797 ± 0.0026638972            -4.0031501 ± 0.0016975893                2.9523
-     9       -3.9995249 ± 0.0027579019             -4.002154 ± 0.001445668                 2.7399
-    10       -4.0009821 ± 0.0020086867            -4.0017541 ± 0.0011733717                2.4604
----------------------------------------------------------------------------------------------------
-Integral 1 = -4.0017540835419 ± 0.0011733716863794182   (chi2/dof = 2.46)
+julia> res = integrate((x, c)->log(x[1])/sqrt(x[1]), solver=:vegas) 
+====================================     Integral 1    ==========================================
+  iter              integral                            wgt average                      chi2/dof
+-------------------------------------------------------------------------------------------------
+ignore        -3.8394711 ± 0.12101621              -3.8394711 ± 0.12101621                 0.0000
+     2         -3.889894 ± 0.04161423              -3.8394711 ± 0.12101621                 0.0000
+     3        -4.0258398 ± 0.016628525              -4.007122 ± 0.015441393                9.2027
+     4        -4.0010193 ± 0.0097242712            -4.0027523 ± 0.0082285382               4.6573
+     5         -3.990754 ± 0.0055248673            -3.9944823 ± 0.0045868638               3.5933
+     6         -4.000744 ± 0.0025751679            -3.9992433 ± 0.0022454867               3.0492
+     7        -4.0021542 ± 0.005940518             -3.9996072 ± 0.0021004392               2.4814
+     8        -3.9979708 ± 0.0034603885            -3.9991666 ± 0.0017955468               2.0951
+     9         -3.994137 ± 0.0026675679            -3.9975984 ± 0.0014895459               2.1453
+    10        -3.9999099 ± 0.0033455927            -3.9979808 ± 0.0013607691               1.9269
+-------------------------------------------------------------------------------------------------
+Integral 1 = -3.997980772652019 ± 0.0013607691354676158   (chi2/dof = 1.93)
 ```
-By default, the function performs 10 iterations and each iteraction costs about `1e4` evaluations. You may reset these values with `niter` and `neval` keywords arguments.
+- By default, the function performs 10 iterations and each iteraction costs about `1e4` evaluations. You may reset these values with `niter` and `neval` keywords arguments.
 
-Internally, the `integrate` function optimizes the important sampling after each iteration. The results generally improves with iteractions. As long as `neval` is sufficiently large, the estimations from different iteractions should be statistically independent. This will justify an average of different iterations weighted by the inverse variance. The assumption of statically independence can be explicitly checked with chi-square test, namely `chi2/dof` should be about one. 
+- The final result is obtained by inverse-variance-weighted averge of all the iterations except the first one (there is no important sampling yet!). They are stored in the return value`res`, which is a struct [`Result`](https://numericaleft.github.io/MCIntegration.jl/dev/lib/montecarlo/#Main-module). You can access the statistics with `res.mean`, `res.stdev`, `res.chi2`, `res.dof` and `res.iterations` for all the iterations. You can print them on the screen using `report(res)`.
 
-You can pass the keyword arguemnt `solver` to the `integrate` functoin to specify the Monte Carlo algorithm. The above examples uses the Vegas algorithm with `:vegas`. In addition, this package provides two Markov-chain Monte Carlo algorithms for numerical integration. You can call them with `:vegasmc` or `:mcmc`. Check the Algorithm section for more details. 
+-  If you want to exclude more iterations, say the first three iterations, you can get a new result with the call `Result(res, 3)`.  
 
-For `:vegas` and `vegasmc` algorithm, the user-defined integrand function should have two arguments `(x, c)`, where `x` is the integration variable, while `c` is a struct of the MC configuration. It contains additional information which may be needed for integrand evalution. For example, if you pass a keyword argument `userdata` to the `integrate` function, then you can access the userdata within your integrand function using `c.userdata`. 
+- Internally, the `integrate` function optimizes the important sampling after each iteration. The results generally improves with iteractions. As long as `neval` is sufficiently large, the estimations from different iteractions should be statistically independent. This will justify an average of different iterations weighted by the inverse variance. The assumption of statically independence can be explicitly checked with chi-square test, namely `chi2/dof` should be about one. 
+
+- You can pass the keyword arguemnt `solver` to the `integrate` functoin to specify the Monte Carlo algorithm. The above examples uses the Vegas algorithm with `:vegas`. In addition, this package provides two Markov-chain Monte Carlo algorithms for numerical integration. You can call them with `:vegasmc` or `:mcmc`. Check the Algorithm section for more details. 
+
+- For the `:vegas` and `vegasmc` algorithms, the user-defined integrand evaluation function requires two arguments `(x, c)`, where `x` is the integration variable, while `c` is a struct stores the MC configuration. The latter contains additional information which may be needed for integrand evalution.  
+
+- The ['Configuration'](https://numericaleft.github.io/MCIntegration.jl/dev/lib/montecarlo/#Main-module) struct stores the essential state information for the Monte Carlo sampling. Two particularly relavent members are
+  * `userdata` : if you pass a keyword argument `userdata` to the `integrate` function, then it will be stored here, so that you can access it in your integrand evaluation function. 
+  * `var` : A tuple of variables. In the above example, `var = (x, )` so that `var[1] === x`. 
+
+- The result returned by the `integrate` function contains the configuration after integration. If you want a detailed report, call `report(res.config)`. This configuration stores the optimized random variable distributions for the important sampling, which could be useful to evaluate other integrals with similar integrands. To use the optimized distributions, you can either call `integrate(..., config = res.config, ...)` to pass the entire configuration, or call `integrate(..., var = (res.config.var[1], ...), ...)` to pass one or more selected variables.
 
 ## Multi-dimensional integral
 The following example first defines a pool of variables in [0, 1), then evaluates the area of a quarter unit circle (π/4 = 0.785398...).
@@ -46,11 +56,12 @@ The following example first defines a pool of variables in [0, 1), then evaluate
 julia> X=Continuous(0.0, 1.0) #Create a pool of continuous variables. It supports as much as 16 same type of variables. see the section [variable](#variable) for more details.
 Adaptive continuous variable in the domain [0.0, 1.0). Max variable number = 16. Learning rate = 2.0.
 
-julia> integrate((X, c)->(X[1]^2+X[2]^2<1.0); var = X, dof = 2, print=-1) # print=-1 minimizes the output information
-Integral 1 = 0.7832652785953883 ± 0.002149843816733503   (chi2/dof = 1.28)
+julia> res = integrate((X, c)->(X[1]^2+X[2]^2<1.0); var = X, dof = 2, print=-1) # print=-1 minimizes the output information
+Integral 1 = 0.7860119307731648 ± 0.002323473435947719   (chi2/dof = 2.14)
 ```
+Here we suppress the output information by `print=-1`. If you want to see more information after the calculation, simply call `report(res)`. If you want to check the MC configuration, you may call `report(res.config)`.
 
-## Multiple Multi-dimensional integrals
+## Multiple Integrands Simultaneously
 You can calculate multiple integrals simultaneously. If the integrands are similar to each other, evaluating the integrals simultaneously sigificantly reduces cost. The following example calculate the area of a quarter circle and the volume of one-eighth sphere.
 ```julia
 julia> integrate((X, c)->(X[1]^2+X[2]^2<1.0, X[1]^2+X[2]^2+X[3]^2<1.0); var = Continuous(0.0, 1.0), dof = [[2,],[3,]], print=-1)
@@ -68,7 +79,7 @@ julia> integrate(var = Continuous(0.0, 1.0), dof = [[2,], [3,]], print = -1) do 
        end
 ```
 
-## Histogram measurement
+## Measure Histogram
 You may want to study how an integral changes with a tuning parameter. The following example how to solve histogram measurement problem.
 ```julia
 julia> N = 20;
@@ -96,7 +107,7 @@ julia> res = integrate(integrand;
                 var = (Continuous(0.0, 1.0), Discrete(1, N)), # a continuous and a discrete variable pool 
                 dof = [[1,1], [2,1]], 
                 # integral-1: one continuous and one discrete variables, integral-2: two continous and one discrete variables
-                obs = [zeros(N), zeros(N)], # prototype of the observables for each integral
+                obs = [zeros(N), zeros(N)], #  observable prototypes of each integral
                 userdata = grid, neval = 1e5, print = -1)
 Integral 1 = 0.9957805541613277 ± 0.008336657854575344   (chi2/dof = 1.15)
 Integral 2 = 0.7768105610812656 ± 0.006119386106596811   (chi2/dof = 1.4)
