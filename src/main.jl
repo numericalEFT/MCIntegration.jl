@@ -2,7 +2,7 @@
     function integrate(integrand::Function;
         config::Union{Configuration,Nothing}=nothing,
         solver::Symbol=:vegas, # :mcmc, :vegas, or :vegasmc
-        neval=1e5, 
+        neval=1e4, 
         niter=10, 
         block=16, 
         gamma=1.0, 
@@ -25,8 +25,6 @@
               Internally, MC only samples the absolute value of the weight. Therefore, it is also important to define Main.abs for the weight if its type is user-defined. 
 - `solver` :  :vegas, :vegasmc, or :vegasmc. See Readme for more details.
 - `config`:   [`Configuration`](@ref) object to perform the MC integration. If `nothing`, it attempts to create a new one with Configuration(; kwargs...).
-- `measure`:  Function call to measure. It should accept an argument the type [`Configuration`](@ref). Then you can accumulate the measurements with Configuration.obs. 
-              If every integral is expected to be a float number, you can use MCIntegration.simple_measure as the default.
 - `neval`:    Number of evaluations of the integrand per iteration. 
 - `niter`:    Number of iterations. The reweight factor and the variables will be self-adapted after each iteration. 
 - `block`:    Number of blocks. Each block will be evaluated by about neval/block times. Each block is assumed to be statistically independent, and will be used to estimate the error. 
@@ -40,8 +38,8 @@
 
 # Examples
 ```julia-repl
-julia> integrate((x, c)->(X[1]^2+X[2]^2); var = Continuous(0.0, 1.0), dof = 2, print=-1)
-Integral 1 = 0.6830078240204353 ± 0.014960689298028415   (chi2/dof = 1.46)
+julia> integrate((x, c)->(x[1]^2+x[2]^2); var = Continuous(0.0, 1.0), dof = 2, print=-1)
+Integral 1 = 0.6640840471808533 ± 0.000916060916265263   (chi2/dof = 0.945)
 ```
 """
 function integrate(integrand::Function;

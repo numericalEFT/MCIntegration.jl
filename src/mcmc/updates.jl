@@ -36,6 +36,8 @@ function changeIntegrand(config::Configuration{N,V,P,O,T}, integrand, state) whe
         (new == config.norm) ?
         zero(T) :
         (fieldcount(V) == 1) ? integrand(new, config.var[1], config) : integrand(new, config.var, config)
+
+    config.neval += 1
     # integrand_wrap(new, config, integrand)
     newProbability = (new == config.norm) ?
                      config.reweight[new] :
@@ -75,6 +77,9 @@ function changeVariable(config::Configuration{N,V,P,O,T}, integrand, state) wher
     currdof = config.dof[curr]
     vi = rand(config.rng, 1:length(currdof)) # update the variable type of the index vi
     var = config.var[vi]
+    if (var isa Discrete) && (var.size == 1) # there is only one discrete element, there is nothing to sample with.
+        return
+    end
     (currdof[vi] <= 0) && return # return if the var has zero degree of freedom
     idx = var.offset + rand(config.rng, 1:currdof[vi]) # randomly choose one var to update
 
@@ -86,6 +91,9 @@ function changeVariable(config::Configuration{N,V,P,O,T}, integrand, state) wher
     end
 
     weight = (fieldcount(V) == 1) ? integrand(curr, config.var[1], config) : integrand(curr, config.var, config)
+
+    config.neval += 1
+
     newProbability = abs(weight) * config.reweight[curr]
     R = prop * newProbability / state.probability
 
@@ -121,6 +129,9 @@ function swapVariable(config::Configuration{N,V,P,O,T}, integrand, state) where 
     end
 
     weight = (fieldcount(V) == 1) ? integrand(curr, config.var[1], config) : integrand(curr, config.var, config)
+
+    config.neval += 1
+
     newProbability = abs(weight) * config.reweight[curr]
     R = prop * newProbability / state.probability
 

@@ -274,7 +274,7 @@ end
 end
 
 """
-    create!(T::Continuous, idx::Int, rng=GLOBAL_RNG)
+    @inline function create!(T::Continuous, idx::Int, config)
 
 Propose to generate new (uniform) variable randomly in [T.lower, T.lower+T.range), return proposal probability
 
@@ -298,7 +298,7 @@ end
 @inline createRollback!(T::Continuous, idx::Int, config) = nothing
 
 """
-    remove(T::Continuous, idx::Int, rng=GLOBAL_RNG)
+    @inline function remove!(T::Continuous, idx::Int, config)
 
 Propose to remove old variable in [T.lower, T.lower+T.range), return proposal probability
 
@@ -315,7 +315,7 @@ end
 @inline removeRollback!(T::Continuous, idx::Int, config) = nothing
 
 """
-    shift!(T::Continuous, idx::Int, rng=GLOBAL_RNG)
+    function shift!(T::Continuous, idx::Int, config)
 
 Propose to shift an existing variable to a new one, both in [T.lower, T.lower+T.range), return proposal probability
 
@@ -447,7 +447,7 @@ end
 @inline function swapRollback!(T::CompositeVar, idx1::Int, idx2::Int, config)
     T.prob[idx1], T.prob[idx2] = T.prob[idx2], T.prob[idx1]
     for v in T.vars
-        prop *= swapRollback!(v, idx1, idx2, config)
+        swapRollback!(v, idx1, idx2, config)
     end
 end
 

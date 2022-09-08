@@ -1,33 +1,37 @@
 using MCIntegration
 using Documenter
 
-DocMeta.setdocmeta!(MCIntegration, :DocTestSetup, :(using MCIntegration); recursive = true)
+DocMeta.setdocmeta!(MCIntegration, :DocTestSetup, :(using MCIntegration); recursive=true)
 
 makedocs(;
-    modules = [MCIntegration],
-    authors = "Kun Chen, Xiansheng Cai",
-    repo = "https://github.com/numericaleft/MCIntegration.jl/blob/{commit}{path}#{line}",
-    sitename = "MCIntegration.jl",
-    format = Documenter.HTML(;
-        prettyurls = get(ENV, "CI", "false") == "true",
-        canonical = "https://numericaleft.github.io/MCIntegration.jl",
-        assets = String[]
+    modules=[MCIntegration],
+    authors="Kun Chen, Xiansheng Cai",
+    repo="https://github.com/numericaleft/MCIntegration.jl/blob/{commit}{path}#{line}",
+    sitename="MCIntegration.jl",
+    format=Documenter.HTML(;
+        prettyurls=get(ENV, "CI", "false") == "true",
+        canonical="https://numericaleft.github.io/MCIntegration.jl",
+        assets=String[]
     ),
-    pages = [
+    pages=[
         "Home" => "index.md",
         "Manual" => Any[
             "man/important_sampling.md"
         ],
         "Library" => Any[
             "lib/montecarlo.md",
-        # map(s -> "lib/$(s)", sort(readdir(joinpath(@__DIR__, "src/lib"))))
-        # "Internals" => map(s -> "lib/$(s)", sort(readdir(joinpath(@__DIR__, "src/lib"))))
+            "lib/vegasmc.md",
+            "lib/vegas.md",
+            "lib/mcmc.md",
+            "lib/distribution.md",
+            # map(s -> "lib/$(s)", sort(readdir(joinpath(@__DIR__, "src/lib"))))
+            # "Internals" => map(s -> "lib/$(s)", sort(readdir(joinpath(@__DIR__, "src/lib"))))
         ]
     ]
 )
 
 deploydocs(;
-    repo = "github.com/numericalEFT/MCIntegration.jl"
+    repo="github.com/numericalEFT/MCIntegration.jl"
 )
 
 # using Lehmann

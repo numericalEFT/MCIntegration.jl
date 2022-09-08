@@ -1,20 +1,19 @@
 # MCIntegration
 
-Universal Monte Carlo calculator for high-dimensional integral with different types of variables.
+Robust and efficient Monte Carlo calculator for high-dimensional integral.
 
 [![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://numericalEFT.github.io/MCIntegration.jl/stable)
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://numericalEFT.github.io/MCIntegration.jl/dev)
 [![Build Status](https://github.com/numericalEFT/MCIntegration.jl/workflows/CI/badge.svg)](https://github.com/numericalEFT/MCIntegration.jl/actions)
 [![Coverage](https://codecov.io/gh/numericalEFT/MCIntegration.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/numericalEFT/MCIntegration.jl)
 
-MCIntegration provides a Monte Carlo algorithm to calculate high-dimensional integrals that depend on two or more different types of variables (such as momentum vectors, frequencies, and so on). MCIntegration.jl allows the user to choose different important sampling algorithms to efficiently sample different types of variables, which is a huge advantage compared to the commonly used Vegas algorithm:
+MCIntegration.jl provides several Monte Carlo algorithms to calculate regular/singular integrals in finite or inifinite dimensions.  
 
 # Quick start
+The following examples demonstrate the basic usage of this package. 
 
 ## One-dimensional integral
-The following example demonstrates the basic usage of this package. This code calculates the area of a circle and the volume of a sphere using one Markov chain. The code can be found [here](example/sphere.jl).
-
-The program can handle efficiently handle very singular integrals. The following example evaluates ∫_0^1 log(x)/√x dx = 4.
+We first show an example of highly singular integral. The following command evaluates ∫_0^1 log(x)/√x dx = 4.
 ```julia
 julia> integrate((x, c)->log(x[1])/sqrt(x[1]), solver=:vegas) 
 ==================================     Integral 1    ==============================================
@@ -33,7 +32,7 @@ julia> integrate((x, c)->log(x[1])/sqrt(x[1]), solver=:vegas)
 ---------------------------------------------------------------------------------------------------
 Integral 1 = -4.0017540835419 ± 0.0011733716863794182   (chi2/dof = 2.46)
 ```
-By default, the function performs 10 iterations and each iteraction costs about `1e5` evaluations. You may reset these values with `niter` and `neval` keywords arguments.
+By default, the function performs 10 iterations and each iteraction costs about `1e4` evaluations. You may reset these values with `niter` and `neval` keywords arguments.
 
 Internally, the `integrate` function optimizes the important sampling after each iteration. The results generally improves with iteractions. As long as `neval` is sufficiently large, the estimations from different iteractions should be statistically independent. This will justify an average of different iterations weighted by the inverse variance. The assumption of statically independence can be explicitly checked with chi-square test, namely `chi2/dof` should be about one. 
 
@@ -110,24 +109,7 @@ julia> plt = plot(grid, res.mean[1], yerror = res.stdev[1], xlabel="R", label="c
 
 julia> plot!(plt, grid, res.mean[2], yerror = res.stdev[2], label="sphere")
 ```
-![histogram](docs/src/assets/circle_sphere.png?raw=true "Circle and Sphere")
-
-# Variables
-
-The integrals you want to evaluate may have different degrees of freedom, but are probably share the same types of variables. 
-In the above code example, the integral for the circle area and the sphere volume both involve the variable type `Continuous`. The former has dof=2, while the latter has dof=3. 
-
-To evaluate these integrals simultaneouly, it makes sense to create a pool of variables. A pool of two common variables types can created with the following constructors:
-
-- Continous(lower::Float64, upper::Float64): continuous real-valued variables on the domain [lower, upper). MC will optimize the distribution and perform an imporant sampling accordingly.
-- Discrete(lower::Int, upper::Int): integer variables in the closed set [lower, upper]. MC will learn the distribution and perform an imporant sampling accordingly.
-
-The size of pool can be specified by an optional arguments `size`, which is $16$ by default. Once created, you can access to a given variable with stanard vector indexing interface.
-You only need to choose some of them to evaluate a given integral. The others serve as dummy variables. They will not cause any computational overhead.  
-
-After each iteration, the code will try to optimize how the variables are sampled, so that the most important regimes of the integrals will be sampled most frequently. 
-
-More supported variables types can be found in the [source code](src/variable.jl).
+![histogram](assets/circle_sphere.png?raw=true "Circle and Sphere")
 
 # Algorithm
 
@@ -140,13 +122,29 @@ of the grid. The exact details of the algorithm can be found in **_G.P. Lepage, 
 
 - Vegas algorithm based on Markov-chain Monte Carlo (`:vegasmc`): A markov-chain Monte Carlo algorithm that uses the Vegas variance-reduction technique. It is as accurate as the vanilla Vegas algorithm, meanwhile tends to be more robust. For complicated high-dimensional integral, the vanilla Vegas algorithm can fail to learn the piecewise constant weight function. This algorithm uses Metropolis–Hastings algorithm to sample the integrand and improves the weight function learning.
 
-- Vegas algorithm based on Markov-chain Monte Carlo (`:vegasmc`): A markov-chain Monte Carlo algorithm that uses the Vegas variance-reduction technique. It is as accurate as the vanilla Vegas algorithm yet tends to be more robust. The vanilla Vegas algorithm can fail to learn the piecewise constant weight function for complicated high-dimensional integral. This algorithm uses the Metropolis-Hastings algorithm to sample the integrand and improves the weight-function learning.
-
 - Markov-chain Monte Carlo (`:mcmc`): This algorithm is useful for calculating bundled integrands that are too many to calculate at once. Examples are the path-integral of world lines of quantum particles, which involves hundreds and thousands of nested spacetime integrals. This algorithm uses the Metropolis-Hastings algorithm to jump between different integrals so that you only need to evaluate one integrand at each Monte Carlo step. Just as `:vegas` and `:vegasmc`, this algorithm also learns a piecewise constant weight function to reduce the variance. However, because it assumes you can access one integrand at each step, it tends to be less accurate than the other two algorithms for low-dimensional integrals.   
 
 The signature of the integrand and measure functions of the `:mcmc` solver receices an additional index argument than that of the `:vegas` and `:vegasmc` solvers. As shown in the above examples, the integrand and measure functions of the latter two solvers should be like `integrand( vars, config)` and `measure(vars, obs, weights, config)`, where `weights` is a vectors carries the values of the integrands at the current MC step. On the other hand, the `:mcmc` solver requires something like `integrand(idx, vars, config)` and `measure(idx, vars, weight, config)`, where `idx` is the index of the integrand of the current step, and the argument `weight` is a scalar carries the value of the current integrand being sampled.
 
-<!-- The internal algorithm and some simple benchmarks can be found in the [document](docs/src/man/important_sampling.md). -->
+# Variables
+
+The package supports a couple of common types random variables. You can create them using the following constructors,
+
+- `Continous(lower, upper[; adapt = true, alpha = 3.0, ...])`: Continuous real-valued variables on the domain [lower, upper). MC will learn the distribution using the Vegas algorithm and then perform an imporant sampling accordingly.
+- `Discrete(lower::Int, upper::Int[; adapt = true, alpha = 3.0, ...])`: Integer variables in the closed set [lower, upper]. MC will learn the distribution and perform an imporant sampling accordingly.
+
+After each iteration, the code will try to optimize how the variables are sampled, so that the most important regimes of the integrals will be sampled most frequently. Setting `alpha` to be true/false will turn on/off this distribution learning. The parameter `alpha` controls the learning rate.
+
+When you call the above constructor, it creates a unlimited pool of random variables of a given type. The size of the pool will be dynamically determined when you call a solver. All variables in this pool will be sampled with the same distribution. In many high-dimensional integrals, many variables of integration may contribute to the integral in a similar way, then they can be sampled from the same variable pool. For example, in the above code example, the integral for the circle area and the sphere volume both involve the variable type `Continuous`. The former has dof=2, while the latter has dof=3. To evaluate a given integrand, you only need to choose some of variables to evaluate a given integral. The rest of the variables in the pool serve as dummy ones. They will not cause any computational overhead.
+
+The variable pool trick will siginicantly reduce the cost of learning their distribution. It also opens the possibility to calculate integrals with infinite dimensions (for example, the path-integral of particle worldlines in quantum many-body physics). 
+
+If some of the variables are paired with each other (for example, the three continuous variables (r, θ, ϕ) representing a 3D vector), then you can pack them into a joint random variable, which can be constructed with the following constructor,
+- `CompositeVar(var1, var2, ...[; adapt = true, alpha = 3.0, ...])`: A produce of different types of random variables. It samples `var1`, `var2`, ... with their joint distribution. 
+
+The packed variables will be sampled all together in the Markov-chain based solvers (`:vegasmc` and `:mcmc`). Such updates will generate more independent samples compared to the unpacked version. Sometimes, it could reduce the auto-correlation time of the Markov chain and make the algorithm more efficient.
+
+Moreover, packed variables usually indicate nontrivial correlations between their distributions. In the future, it will be interesting to learn such correlation so that one can sample the packed variables more efficiently.
 
 # Parallelization
 
@@ -158,13 +156,4 @@ where `#CPU` is the number of workers. Internally, the MC sampler will send the 
 
 Note that you need to install the package [MPI.jl](https://github.com/JuliaParallel/MPI.jl) to use the MPI mode. See this [link](https://juliaparallel.github.io/MPI.jl/stable/configuration/) for the instruction on the configuration.
 
-The user essentially doesn't need to write additional code to support the parallelization. The only tricky part is the output: only the function `MCIntegratoin.integrate` of the root node returns meaningful estimates, while other workers simply returns `nothing`. 
-
-# Q&A
-
-- Q: What if the integral result makes no sense?
-
-  A: One possible reason is the reweight factor. It is important for the Markov chain to visit the integrals with the similar frequency. However, the weight of different integrals may be order-of-magnitude different. It is thus important to reweight the integrals. Internally, the MC sampler try to reweight for each iteration. However, it could fail either 1) the total MC steps is too small so that reweighting doesn't have enough time to show up; ii) the integrals are simply too different, and the internal reweighting subroutine is not smart enough to figure out such difference. If 1) is the case, one either increase the neval. If 2) is the case, one may mannually provide an array of reweight factors when initializes the `MCIntegration.configuration` struct. More details can be found in the [source code](src/variable.jl). 
-
-
-
+The user essentially doesn't need to write additional code to support the parallelization. The on)y tricky part is the output: only the function `MCIntegratoin.integrate` of the root node returns meaningful estimates, while other workers simply returns `nothing`.)

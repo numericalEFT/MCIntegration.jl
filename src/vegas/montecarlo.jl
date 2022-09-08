@@ -1,10 +1,6 @@
 type_length(tup::Type{T}) where {T<:Tuple} = length(tup.parameters)
 
-"""
-    macro _expanded_integrand(config, integrand, N)
-    
-    return a function call: `integrand(config.var[1], config.var[2], ...config.var[N], config).
-"""
+#return a function call: `integrand(config.var[1], config.var[2], ...config.var[N], config).
 macro _expanded_integrand(config, integrand, N)
     #TODO: right now, it only works for explict N
     para = []
@@ -27,6 +23,60 @@ end
 #     return :($ex + 1)
 # end
 
+"""
+
+    function montecarlo(config::Configuration{Ni,V,P,O,T}, integrand::Function, neval,
+        print=0, save=0, timer=[], debug=false;
+        measure::Union{Nothing,Function}=nothing, measurefreq=1, kwargs...) where {Ni,V,P,O,T}
+
+This algorithm implements the classic Vegas algorithm.
+
+The main idea of the algorithm can be found in this [link](https://vegas.readthedocs.io/en/latest/background.html#importance-sampling).
+
+The algorithm uses a simple important sampling scheme. 
+Consider an one-dimensional integral with the integrand ``f(x)``, the algorithm will try to learn an
+optimized distribution ``\\rho(x)>0`` which mimic the integrand as good as possible (a.k.a, the Vegas map trick, see [`Dist.Continuous`](@ref)) for more detail. 
+
+One then sample the variable ``x`` with the distribution ``\\rho(x)``, and estimate the integral by averging the estimator ``f(x)/\\rho(x)``.
+
+NOTE: If there are more than one integrals, then all integrals are sampled and measured at each Monte Carlo step.
+
+This algorithm is very efficient for low-dimensional integrations, but can be less
+efficient and less robust than the Markov-chain Monte Carlo solvers for high-dimensional integrations.
+
+# Arguments
+- `integrand` : User-defined function with the following signature:
+```julia
+function integrand(var, config)
+    # calculate your integrand values
+    # return integrand1, integrand2, ...
+end
+```
+The first parameter `var` is either a Variable struct if there is only one type of variable, or a tuple of Varibles if there are more than one types of variables.
+The second parameter passes the MC `Configuration` struct to the integrand, so that user has access to userdata, etc.
+
+- `measure` : User-defined function with the following signature:
+```julia
+function measure(var, obs, weights, config)
+    # accumulates the weight into the observable
+    # For example,
+    # obs[1] = weights[1] # integral 1
+    # obs[2] = weights[2] # integral 2
+    # ...
+end
+```
+The first argument `var` is either a Variable struct if there is only one type of variable, or a tuple of Varibles if there are more than one types of variables.
+The second argument passes the user-defined observable to the function, it should be a vector with the length same as the integral number.
+The third argument is the integrand weights to be accumulated to the observable, it is a vector with the length same as the integral number.
+The last argument passes the MC `Configuration` struct to the integrand, so that user has access to userdata, etc.
+
+# Examples
+The following command calls the Vegas solver,
+```julia-repl
+julia> integrate((x, c)->(x[1]^2+x[2]^2); var = Continuous(0.0, 1.0), dof = 2, print=-1, solver=:vegas)
+Integral 1 = 0.667203631824444 ± 0.0005046485925614018   (chi2/dof = 1.46)
+```
+"""
 function montecarlo(config::Configuration{Ni,V,P,O,T}, integrand::Function, neval,
     print=0, save=0, timer=[], debug=false;
     measure::Union{Nothing,Function}=nothing, measurefreq=1, kwargs...) where {Ni,V,P,O,T}

@@ -9,7 +9,7 @@ the returned result of the MC integration.
 - `stdev`: standard deviation of the MC integration
 - `chi2`: chi-square per dof of the MC integration
 - `neval`: number of evaluations of the integrand
-- `ignore_iter`: ignore iterations untill ignore_iter
+- `ignore`: ignore iterations untill `ignore`
 - `dof`: degrees of freedom of the MC integration (number of iterations - 1)
 - `config`: configuration of the MC integration from the last iteration
 - `iterations`: list of tuples [(data, error, Configuration), ...] from each iteration
@@ -19,15 +19,15 @@ struct Result{O,C}
     stdev::O
     chi2::Any
     neval::Int
-    ignore_iter::Int # ignore iterations untill ignore_iter
+    ignore::Int # ignore iterations untill ignore_iter
     dof::Int
     config::C
     iterations::Any
-    function Result(history::AbstractVector, ignore_iter::Int)
+    function Result(history::AbstractVector, ignore::Int)
         # history[end][1] # a vector of avg
         # history[end][2] # a vector of std
         # history[end][3] # a vector of config
-        init = ignore_iter + 1
+        init = ignore + 1
         @assert length(history) > 0
         config = history[end][3]
         dof = (length(history) - init + 1) - 1 # number of effective samples - 1
@@ -53,7 +53,7 @@ struct Result{O,C}
         end
         # println(mean, ", ", stdev, ", ", chi2)
         # println(typeof(mean), typeof(config))
-        return new{O,typeof(config)}(mean, stdev, chi2, neval, ignore_iter, dof, config, history)
+        return new{O,typeof(config)}(mean, stdev, chi2, neval, ignore, dof, config, history)
     end
 end
 
@@ -95,7 +95,7 @@ It will first print the configuration from the last iteration, then print the we
 - name: name of each picked observable. If name is not given, the index of the pick function will be used.
 """
 function report(result::Result, pick::Union{Function,AbstractVector}=obs -> first(obs), name=nothing;
-    verbose=0, ignore=result.ignore_iter)
+    verbose=0, ignore=result.ignore)
     if isnothing(name) == false
         name = collect(name)
     end

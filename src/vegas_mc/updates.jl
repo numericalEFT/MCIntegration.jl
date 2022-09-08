@@ -49,6 +49,9 @@ function changeVariable(config::Configuration{N,V,P,O,T}, integrand,
     maxdof = config.maxdof
     vi = rand(config.rng, 1:length(maxdof)) # update the variable type of the index vi
     var = config.var[vi]
+    if (var isa Discrete) && (var.size == 1) # there is only one discrete element, there is nothing to sample with.
+        return currProbability
+    end
     idx = var.offset + rand(config.rng, 1:maxdof[vi]) # randomly choose one var to update
 
     prop = Dist.shift!(var, idx, config)
@@ -62,6 +65,9 @@ function changeVariable(config::Configuration{N,V,P,O,T}, integrand,
     _weights = (fieldcount(V) == 1) ?
                integrand(config.var[1], config) :
                integrand(config.var, config)
+    # evaulation acutally happens before this step
+    config.neval += 1
+
     for i in 1:N+1
         _padding_probability[i] = Dist.padding_probability(config, i)
     end
