@@ -109,7 +109,7 @@ julia> plt = plot(grid, res.mean[1], yerror = res.stdev[1], xlabel="R", label="c
 
 julia> plot!(plt, grid, res.mean[2], yerror = res.stdev[2], label="sphere")
 ```
-![histogram](assets/circle_sphere.png?raw=true "Circle and Sphere")
+![histogram](docs/src/assets/circle_sphere.png?raw=true "Circle and Sphere")
 
 # Algorithm
 

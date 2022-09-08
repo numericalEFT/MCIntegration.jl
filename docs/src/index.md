@@ -130,8 +130,6 @@ of the grid. The exact details of the algorithm can be found in **_G.P. Lepage, 
 
 The signature of the integrand and measure functions of the `:mcmc` solver receices an additional index argument than that of the `:vegas` and `:vegasmc` solvers. As shown in the above examples, the integrand and measure functions of the latter two solvers should be like `integrand( vars, config)` and `measure(vars, obs, weights, config)`, where `weights` is a vectors carries the values of the integrands at the current MC step. On the other hand, the `:mcmc` solver requires something like `integrand(idx, vars, config)` and `measure(idx, vars, weight, config)`, where `idx` is the index of the integrand of the current step, and the argument `weight` is a scalar carries the value of the current integrand being sampled.
 
-<!-- The internal algorithm and some simple benchmarks can be found in the [document](docs/src/man/important_sampling.md). -->
-
 # Variables
 
 The package supports a couple of common types random variables. You can create them using the following constructors,
