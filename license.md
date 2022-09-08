@@ -1,6 +1,6 @@
 MIT License
 
-Copyright (c) 2022 Numerical EFT
+Copyright (c) 2022: Kun Chen, Xiansheng Cai and Pengcheng Hou, and other contributors: https://github.com/numericalEFT/MCIntegration.jl/graphs/contributors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
