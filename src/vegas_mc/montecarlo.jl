@@ -83,9 +83,10 @@ function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval
         if debug && (isfinite(probability) == false)
             @warn("integrand probability = $(probability) is not finite at step $(neval)")
         end
-        if debug && (all(x -> isfinite(x), weights))
-            @warn("integrand = $(weights) is not all finite at step $(neval)")
-        end
+        # WARNING: Don't turn it on, because some integral may actually vanish (for example, circle are) 
+        # if debug && (all(x -> isfinite(x), weights)) 
+        #     @warn("integrand = $(weights) is not all finite at step $(neval)")
+        # end
 
         ######## accumulate variable and calculate variable probability #################
         for i in 1:N
