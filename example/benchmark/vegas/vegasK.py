@@ -1,10 +1,12 @@
 from scipy import *
 from numpy import *
+import vegas
 
 
 def smfun(x):
     if (x > 0):
         return ((x-1.)/log(x))**(1.5)
+        # return x
     else:
         return 0.
 
@@ -43,7 +45,10 @@ def Smoothen(fxbin):
             return  # can not refine the grid if the function is zero.
         fxb *= 1.0/norm         # we normalize the function.
         # Note that normalization is such that the sum is 1.
+        # print("before: ", idim, ",", fxb[0:10])
         final[idim, :] = vsmfun(fxb)
+        # print("after:", final[0, 0:10])
+    # print("after:", final[0, 0:10])
     return final
 
 
@@ -193,6 +198,7 @@ def Vegas_step3(integrant, unit, maxeval, nstart, nincrease, grid, cum):
                 # Here we make a better approximation for the function, which we are integrating.
                 for i in range(n):  # new2
                     # new2: just bin the function f. We saved the bin position before.
+                    # fxbin[dim, bins[i, dim]] += wfun[i]
                     fxbin[dim, bins[i, dim]] += wfun[i]
 
         w0 = sqrt(cum.sqsum*all_nsamples)  # w0 = sqrt(<fw^2>)
@@ -273,8 +279,8 @@ if __name__ == "__main__":
     cum = Cumulants()
 
     nbins = 1024
-    nstart = 100000
-    nincrease = 5000
+    nstart = int(maxeval/10)
+    nincrease = 0
 
     grid = Grid(ndim, nbins)
 
@@ -285,7 +291,18 @@ if __name__ == "__main__":
     print(cum.avg, '+-', cum.err, 'exact=', exact,
           'real error=', abs(cum.avg-exact)/exact)
 
-    print(grid.g[0, :nbins])
+    m = vegas.AdaptiveMap([grid.g[0, :nbins], ])
+    y = random.random([10000, 1])
+    y = random.random([10000, 1])
+    x = zeros([10000, 1])
+    jac = zeros(10000)
+    m.map(y, x, jac)
+    w = [log(xx)/sqrt(xx)*jac[xi] for xi, xx in enumerate(x[:, 0])]
+    print(w[:10])
+    print(mean(w))
+    print(std(w)/sqrt(len(w)))
+
+    # print(grid.g[0, :nbins])
     # plot(grid.g[0, :nbins])
     # plot(grid.g[1, :nbins])
     # plot(grid.g[2, :nbins])

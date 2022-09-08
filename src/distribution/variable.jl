@@ -1,8 +1,3 @@
-abstract type Variable end
-abstract type Model end
-const MaxOrder = 16
-
-
 mutable struct FermiK{D} <: Variable
     # data::Vector{MVector{D,Float64}}
     data::Matrix{Float64}
@@ -11,6 +6,7 @@ mutable struct FermiK{D} <: Variable
     δk::Float64
     maxK::Float64
     offset::Int
+    prob::Vector{Float64}
     histogram::Vector{Float64}
     function FermiK(dim, kF, δk, maxK, size=MaxOrder; offset=0)
         @assert offset + 1 < size
@@ -18,10 +14,12 @@ mutable struct FermiK{D} <: Variable
         # k0 = MVector{dim,Float64}([kF for i = 1:dim])
         # k0 = @SVector [kF for i = 1:dim]
         # k = [k0 for i = 1:size]
-        return new{dim}(k, kF, δk, maxK, offset, [0.0,])
+        prob = ones(size)
+        return new{dim}(k, kF, δk, maxK, offset, prob, [0.0,])
     end
 end
 
+Base.length(Var::FermiK{D}) where {D} = size(Var.data)[2]
 Base.getindex(Var::FermiK{D}, i::Int) where {D} = view(Var.data, :, i)
 function Base.setindex!(Var::FermiK{D}, v, i::Int) where {D}
     view(Var.data, :, i) .= v
@@ -63,14 +61,13 @@ end
 mutable struct Continuous{G} <: Variable
     data::Vector{Float64}
     gidx::Vector{Int}
+    prob::Vector{Float64} # probability of the given variable. For the vegas map, = dy/dx = 1/N/Δxᵢ = inverse of the Jacobian
     lower::Float64
     range::Float64
     offset::Int
     grid::G
-    width::Vector{Float64}
+    inc::Vector{Float64}
     histogram::Vector{Float64} # length(grid) - 1
-    accumulation::Vector{Float64} # length(grid)
-    distribution::Vector{Float64} # length(grid) - 1
     alpha::Float64
     adapt::Bool
     function Continuous(lower::Float64, upper::Float64, size=MaxOrder; offset=0, grid::G=collect(LinRange(lower, upper, 1000)), alpha=2.0, adapt=true) where {G}
@@ -79,16 +76,13 @@ mutable struct Continuous{G} <: Variable
         @assert upper > lower + 2 * eps(1.0)
         t = LinRange(lower + (upper - lower) / size, upper - (upper - lower) / size, size) #avoid duplication
         gidx = [locate(grid, t[i]) for i = 1:size]
-        # println(gidx)
+        prob = ones(size)
 
         N = length(grid) - 1
-        width = [grid[i+1] - grid[i] for i in 1:N]
-        histogram = ones(N)
+        inc = [grid[i+1] - grid[i] for i in 1:N]
+        histogram = ones(N) * TINY
 
-        var = new{G}(t, gidx, lower, upper - lower, offset, grid, width, histogram, [], [], alpha, adapt)
-
-        train!(var)
-
+        var = new{G}(t, gidx, prob, lower, upper - lower, offset, grid, inc, histogram, alpha, adapt)
         return var
     end
 end
@@ -101,106 +95,49 @@ function Base.show(io::IO, var::Continuous)
     )
 end
 
-function accumulate!(T::Continuous, idx::Int)
+function accumulate!(T::Continuous, idx::Int, weight=1.0)
     if T.adapt
-        T.histogram[T.gidx[idx]] += 1
+        T.histogram[T.gidx[idx]] += weight
     end
 end
-function train_bk!(T::Continuous)
-    distribution = smooth(T.histogram, 6.0)
-    distribution = rescale(distribution, T.alpha)
-    distribution ./= sum(distribution)
-    accumulation = [sum(distribution[1:i]) for i in 1:length(distribution)]
-    T.accumulation = [0.0, accumulation...] # start with 0.0 and end with 1.0
-    T.distribution = distribution ./ T.width
-    # println(T.distribution)
-    # println(T.accumulation)
-    @assert (T.accumulation[1] ≈ 0.0) && (T.accumulation[end] ≈ 1.0) "$(T.accumulation)"
-end
+
+
 """
 Vegas adaptive map
 """
 function train!(T::Continuous)
+    # println("hist:", T.histogram[1:10])
+    if T.adapt == false
+        return
+    end
+    # println(T.histogram)
+    @assert all(x -> isfinite(x), T.histogram) "histogram should be all finite\n histogram =$(T.histogram[findall(x->(!isfinite(x)), T.histogram)]) at $(findall(x->(!isfinite(x)), T.histogram))"
+    @assert all(x -> x > 0, T.histogram) "histogram should be all positive and non-zero\n histogram = $(T.histogram)"
     distribution = smooth(T.histogram, 6.0)
     distribution = rescale(distribution, T.alpha)
     newgrid = similar(T.grid)
     newgrid[1] = T.grid[1]
     newgrid[end] = T.grid[end]
 
-    # nbins = length(T.grid) - 1
-    # avgperbin = sum(distribution) / nbins
-    # # **** redefine the size of each bin  ****
-    # newgrid = zeros(nbins)
-    # thisbin = 0.0
-    # ibin = 0
-    # # we are trying to determine
-    # #   Int[ f(g) dg, {g, g_{i-1},g_i}] == I/N_g
-    # #   where I == avgperbin
-    # for newbin in 2:nbins  # all but the last bin, which is 1.0
-    #     while thisbin < avgperbin
-    #         ibin += 1
-    #         thisbin += distribution[ibin]
-    #         # prev = cur
-    #         # cur = T.grid[ibin]
-    #         # Explanation is in order :
-    #         #   prev    -- g^{old}_{l-1}
-    #         #   cur     -- g^{old}_l
-    #         #   thisbin -- Sm = f_{l-k}+.... +f_{l-2}+f_{l-1}+f_l
-    #         #   we know that  Sm is just a bit more than we need, i.e., I/N_g, hence we need to compute how much more
-    #         #   using linear interpolation :
-    #         #   g^{new} = g_l - (g_l-g_{l-1}) * (f_{l-k}+....+f_{l-2}+f_{l-1}+f_l - I/N_g)/f_l
-    #         #    clearly
-    #         #         if I/N_g == f_{l-k}+....+f_{l-2}+f_{l-1}+f_l
-    #         #            we will get g^{new} = g_l
-    #         #     and if I/N_g == f_{l-k}+....+f_{l-2}+f_{l-1}
-    #         #            we will get g^{new} = g_{l-1}
-    #         #     and if I/N_g  is between the two possibilities, we will get linear interpolation between
-    #         #     g_{l-1} and g_l
-    #         #
-    #         # thisbin <- (f_{l-k}+....+f_{l-2}+f_{l-1}+f_l - I/N_g)
-    #     end
-    #     thisbin -= avgperbin
-    #     # delta <-  (g_l-g_{l-1})*(f_{l-k}+....+f_{l-2}+f_{l-1}+f_l - I/N_g)
-    #     delta = (T.grid[ibin+1] - T.grid[ibin]) * thisbin
-    #     # cur is the closest point from the old mesh, while delta/imp is the correction using linear interpolation.
-    #     newgrid[newbin] = T.grid[ibin+1] - delta / distribution[ibin]
-    # end
-
-
     # See the paper https://arxiv.org/pdf/2009.05112.pdf Eq.(20)-(22).
     j = 0         # self_x index
     acc_f = 0.0   # sum(avg_f) accumulated
     avg_f = distribution
-    # println(distribution)
     # amount of acc_f per new increment
     # the Eq.(20) in the original paper use length(T.grid) as the denominator. It is not correct.
     f_ninc = sum(avg_f) / (length(T.grid) - 1)
     for i in 2:length(T.grid)-1
-        # println("working on i= $i")
         while acc_f < f_ninc
             j += 1
             acc_f += avg_f[j]
-            # println("inner j=$j, acc_f=$acc_f")
         end
         acc_f -= f_ninc
-        # println("outer j=$j, acc_f=$acc_f")
-        # println(j, ", ", length(T.grid))
         newgrid[i] = T.grid[j+1] - (acc_f / avg_f[j]) * (T.grid[j+1] - T.grid[j])
     end
     newgrid[end] = T.grid[end] # make sure the last element is the same as the last element of the original grid
     T.grid = newgrid
 
-    T.distribution = zeros(length(T.grid) - 1)
-    T.accumulation = zeros(length(T.grid))
-    for i in eachindex(T.distribution)
-        T.distribution[i] = 1.0
-        T.accumulation[i] = T.grid[i] - T.grid[1]
-    end
-    T.accumulation[end] = 1.0
-    # println(newgrid)
-    # println(T.distribution)
-    # println(T.accumulation)
-    @assert (T.accumulation[1] ≈ 0.0) && (T.accumulation[end] ≈ 1.0) "$(T.accumulation)"
+    clearStatistics!(T) #remove histogram
 end
 
 mutable struct TauPair <: Variable
@@ -220,6 +157,7 @@ mutable struct Discrete <: Variable
     data::Vector{Int}
     lower::Int
     upper::Int
+    prob::Vector{Float64}
     size::Int
     offset::Int
     histogram::Vector{Float64}
@@ -227,17 +165,34 @@ mutable struct Discrete <: Variable
     distribution::Vector{Float64}
     alpha::Float64
     adapt::Bool
-    function Discrete(bound::Union{Tuple{Int,Int},Vector{Int}}, size=MaxOrder; offset=0, alpha=2.0, adapt=true)
-        return Discrete([bound[0], bound[1]], size; offset=offset, alpha=alpha, adapt=adapt)
+    function Discrete(bound::Union{Tuple{Int,Int},Vector{Int}}, size=MaxOrder; distribution=nothing, offset=0, alpha=2.0, adapt=true)
+        return Discrete([bound[0], bound[1]], size; distribution=distribution, offset=offset, alpha=alpha, adapt=adapt)
     end
-    function Discrete(lower::Int, upper::Int, size=MaxOrder; offset=0, alpha=2.0, adapt=true)
+    function Discrete(lower::Int, upper::Int, size=MaxOrder; distribution=nothing, offset=0, alpha=2.0, adapt=true)
         @assert offset + 1 < size
         size = size + 1 # need one more element as cache for the swap operation
         d = collect(Iterators.take(Iterators.cycle(lower:upper), size)) #avoid dulication
+
         @assert upper >= lower
-        histogram = ones(upper - lower + 1)
-        newVar = new(d, lower, upper, upper - lower + 1, offset, histogram, [], [], alpha, adapt)
-        train!(newVar)
+        histogram = ones(upper - lower + 1) * TINY
+        if isnothing(distribution)
+            distribution = deepcopy(histogram) #very important, makesure histogram is not the same array as the distribution
+        else
+            @assert all(x -> x >= 0.0, distribution) "distribution should be all non-negative!"
+            @assert length(distribution) == length(histogram) "distribution should for the range $lower:$upper, which has the length $(upper-lower+1)"
+        end
+        distribution ./= sum(distribution)
+        accumulation = [sum(distribution[1:i]) for i in 1:length(distribution)]
+        accumulation = [0.0, accumulation...] # start with 0.0 and end with 1.0
+        @assert (accumulation[1] ≈ 0.0) && (accumulation[end] ≈ 1.0) "$(accumulation)"
+        prob = ones(length(d))
+        prob /= sum(prob)
+
+        newVar = new(d, lower, upper, prob, upper - lower + 1, offset, histogram,
+            accumulation, distribution, alpha, adapt)
+
+        @assert !(newVar.distribution === newVar.histogram) "histogram and distribution must be different array!"
+        clearStatistics!(newVar)
         return newVar
     end
 end
@@ -250,15 +205,16 @@ function Base.show(io::IO, var::Discrete)
     )
 end
 
-function accumulate!(T::Discrete, idx::Int)
+function accumulate!(T::Discrete, idx::Int, weight=1.0)
     if T.adapt
         gidx = T[idx] - T.lower + 1
-        T.histogram[gidx] += 1
+        T.histogram[gidx] += weight
     end
 end
 function train!(T::Discrete)
-    # return
-    # distribution = smooth(T.histogram, 6.0)
+    if T.adapt == false
+        return
+    end
     distribution = deepcopy(T.histogram)
     distribution = rescale(distribution, T.alpha)
     distribution ./= sum(distribution)
@@ -266,6 +222,77 @@ function train!(T::Discrete)
     T.accumulation = [0.0, accumulation...] # start with 0.0 and end with 1.0
     T.distribution = distribution
     @assert (T.accumulation[1] ≈ 0.0) && (T.accumulation[end] ≈ 1.0) "$(T.accumulation)"
+    @assert !(T.distribution === T.histogram) "histogram and distribution must be different array!"
+    clearStatistics!(T)
+end
+
+mutable struct CompositeVar{V} <: Variable
+    vars::V
+    prob::Vector{Float64}
+    offset::Int
+    adapt::Bool
+    size::Int
+    _prob_cache::Float64
+    function CompositeVar(vargs...; adapt=true, offset=0, size=MaxOrder)
+        @assert all(v -> (v isa Variable), vargs) "all arguments should variables"
+        @assert all(v -> !(v isa CompositeVar), vargs) "CompositeVar arguments not allowed"
+        for v in vargs
+            v.adapt = adapt
+            v.offset = offset
+            #TODO: resize all variables
+            # @assert length(v) 
+        end
+        vars = Tuple(v for v in vargs)
+        newvar = new{typeof(vars)}(vars, ones(size), offset, adapt, size, 1.0)
+        return newvar
+    end
+end
+
+Base.length(vars::CompositeVar) = length(vars.vars)
+Base.getindex(vars::CompositeVar, i::Int) = vars.vars[i]
+# function Base.setindex!(Var::Variable, v, i::Int)
+#     Var.data[i] = v
+# end
+Base.firstindex(Var::CompositeVar) = 1 # return index, not the value
+Base.lastindex(Var::CompositeVar) = length(Var.vars) # return index, not the value
+
+# CompositeVar iterator is equal to the tuple iterator
+Base.iterate(cvar::CompositeVar) = Base.iterate(cvar.vars)
+Base.iterate(cvar::CompositeVar, state) = Base.iterate(cvar.vars, state)
+
+function accumulate!(vars::CompositeVar, idx, weight)
+    for v in vars.vars
+        accumulate!(v, idx, weight)
+    end
+end
+function train!(vars::CompositeVar)
+    for v in vars.vars
+        train!(v)
+    end
+end
+
+function clearStatistics!(vars::CompositeVar)
+    for v in vars.vars
+        clearStatistics!(v)
+    end
+end
+
+function addStatistics!(target::CompositeVar, income::CompositeVar)
+    for (vi, v) in enumerate(target.vars)
+        addStatistics!(v, income.vars[vi])
+    end
+end
+
+function initialize!(vars::CompositeVar, config)
+    for v in vars.vars
+        initialize!(v, config)
+    end
+    for i = 1+vars.offset:vars.size-2
+        vars.prob[i] = 1.0
+        for v in vars.vars
+            vars.prob[i] *= v.prob[i]
+        end
+    end
 end
 
 # mutable struct ContinuousND{D} <: Variable
@@ -303,13 +330,87 @@ end
 #     end
 # end
 
-accumulate!(var::Variable, idx) = nothing
+################## API for generic variables #######################
+
+accumulate!(var::Variable, idx, weight) = nothing
 # clearStatistics!(Var::Variable) = ing
 train!(Var::Variable) = nothing
 # addStatistics!(target::Variable, income::Variable) = nothing
 clearStatistics!(T::Variable) = fill!(T.histogram, 1.0e-10)
 addStatistics!(target::Variable, income::Variable) = (target.histogram .+= income.histogram)
 
+function initialize!(T::Variable, config)
+    for i = 1+T.offset:length(T)-2
+        create!(T, i, config)
+    end
+end
+
+function total_probability(config)
+    prob = 1.0
+    for (vi, var) in enumerate(config.var)
+        offset = var.offset
+        for pos = 1:config.maxdof[vi]
+            prob *= var.prob[pos+offset]
+        end
+    end
+    if prob < TINY
+        @warn "probability is either too small or negative : $(prob)"
+    end
+    return prob
+end
+
+function probability(config, curr=config.curr)
+    prob = 1.0
+    dof = config.dof[curr]
+    for (vi, var) in enumerate(config.var)
+        offset = var.offset
+        for pos = 1:dof[vi]
+            prob *= var.prob[pos+offset]
+        end
+    end
+    if prob < TINY
+        @warn "probability is either too small or negative : $(prob)"
+    end
+    return prob
+end
+
+function padding_probability(config, curr=config.curr)
+    prob = 1.0
+    dof = config.dof[curr]
+    for (vi, var) in enumerate(config.var)
+        offset = var.offset
+        for pos = dof[vi]+1:config.maxdof[vi]
+            prob *= var.prob[pos+offset]
+        end
+    end
+    if prob < TINY
+        @warn "probability is either too small or negative : $(prob)"
+    end
+    return prob
+end
+
+function delta_probability(config, curr=config.curr; new)
+    prob = 1.0
+    currdof, newdof = config.dof[curr], config.dof[new]
+    for (vi, var) in enumerate(config.var)
+        offset = config.var[vi].offset
+        if (currdof[vi] < newdof[vi]) # more degrees of freedom
+            for pos = currdof[vi]+1:newdof[vi]
+                prob /= var.prob[pos+offset]
+            end
+        elseif (currdof[vi] > newdof[vi]) # less degrees of freedom
+            for pos = newdof[vi]+1:currdof[vi]
+                prob *= var.prob[pos+offset]
+            end
+        end
+    end
+    if prob < TINY
+        @warn "probability is either too small or negative : $(prob)"
+    end
+    return prob
+end
+
+Base.length(Var::Variable) = length(Var.data)
 Base.getindex(Var::Variable, i::Int) = Var.data[i]
 function Base.setindex!(Var::Variable, v, i::Int)
     Var.data[i] = v
