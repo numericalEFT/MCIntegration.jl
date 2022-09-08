@@ -57,7 +57,7 @@ Integral 1 = -3.997980772652019 ± 0.0013607691354676158   (chi2/dof = 1.93)
 ## Multi-dimensional integral
 The following example first defines a pool of variables in [0, 1), then evaluates the area of a quarter unit circle (π/4 = 0.785398...).
 ```julia
-julia> X=Continuous(0.0, 1.0) #Create a pool of continuous variables. It supports as much as 16 same type of variables. see the section [variable](#variable) for more details.
+julia> X=Continuous(0.0, 1.0) #Create a pool of continuous variables. 
 Adaptive continuous variable in the domain [0.0, 1.0). Max variable number = 16. Learning rate = 2.0.
 
 julia> integrate((X, c)->(X[1]^2+X[2]^2<1.0); var = X, dof = 2, print=-1) # print=-1 minimizes the output information
