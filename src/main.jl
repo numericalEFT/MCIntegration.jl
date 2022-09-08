@@ -1,12 +1,13 @@
 """
     function integrate(integrand::Function;
-        config::Union{Configuration,Nothing}=nothing,
         solver::Symbol=:vegas, # :mcmc, :vegas, or :vegasmc
-        neval=1e5, 
+        config::Union{Configuration,Nothing}=nothing,
+        neval=1e4, 
         niter=10, 
         block=16, 
+        print=0, 
         gamma=1.0, 
-        print=-1, 
+        adapt=true,
         debug=false, 
         reweight_goal::Union{Vector{Float64},Nothing}=nothing, 
         ignore::Int=adapt ? 1 : 0,
@@ -23,16 +24,15 @@
 
 - `integrand`:Function call to evaluate the integrand. It should accept an argument of the type [`Configuration`](@ref), and return a weight. 
               Internally, MC only samples the absolute value of the weight. Therefore, it is also important to define Main.abs for the weight if its type is user-defined. 
-- `solver` :  :vegas, :vegasmc, or :vegasmc. See Readme for more details.
+- `solver` :  :vegas, :vegasmc, or :mcmc. See Readme for more details.
 - `config`:   [`Configuration`](@ref) object to perform the MC integration. If `nothing`, it attempts to create a new one with Configuration(; kwargs...).
-- `measure`:  Function call to measure. It should accept an argument the type [`Configuration`](@ref). Then you can accumulate the measurements with Configuration.obs. 
-              If every integral is expected to be a float number, you can use MCIntegration.simple_measure as the default.
 - `neval`:    Number of evaluations of the integrand per iteration. 
 - `niter`:    Number of iterations. The reweight factor and the variables will be self-adapted after each iteration. 
 - `block`:    Number of blocks. Each block will be evaluated by about neval/block times. Each block is assumed to be statistically independent, and will be used to estimate the error. 
               In MPI mode, the blocks are distributed among the workers. If the numebr of workers N is larger than block, then block will be set to be N.
+- `print`:    -1 to not print anything, 0 to print minimal information, >0 to print summary for every `print` seconds.
 - `gamma`:    Learning rate of the reweight factor after each iteraction. Note that alpha <=1, where alpha = 0 means no reweighting.  
-- `print`:    -1 to not print anything, 0 to print minimal information, >0 to print summary for every `print` seconds
+- `adapt`:    Whether to adapt the grid and the reweight factor.
 - `debug`:    Whether to print debug information (type instability, float overflow etc.)
 - `reweight_goal`: The expected distribution of visited times for each integrand after reweighting . If not set, then all factors will be initialized with one. Only useful for the :mcmc solver. 
 - `ignore` : ignore the iteration until the `ignore` round. By default, the first iteration is igonred if adapt=true, and non is ignored if adapt=false.
@@ -40,8 +40,8 @@
 
 # Examples
 ```julia-repl
-julia> integrate((x, c)->(X[1]^2+X[2]^2); var = Continuous(0.0, 1.0), dof = 2, print=-1)
-Integral 1 = 0.6830078240204353 ± 0.014960689298028415   (chi2/dof = 1.46)
+julia> integrate((x, c)->(x[1]^2+x[2]^2); var = Continuous(0.0, 1.0), dof = 2, print=-1)
+Integral 1 = 0.6675734559749492 ± 0.0009252448008132412   (chi2/dof = 1.09)
 ```
 """
 function integrate(integrand::Function;
