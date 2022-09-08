@@ -325,7 +325,7 @@ Propose to shift an existing variable to a new one, both in [T.lower, T.lower+T.
 """
 @inline function shift!(T::Continuous, idx::Int, config)
     (idx >= length(T.data) - 1) && error("$idx overflow!")
-    T[end] = T[idx]
+    T.data[end] = T.data[idx]
     T.gidx[end] = T.gidx[idx]
     T.prob[end] = T.prob[idx]
     currIdx = T.gidx[idx]
@@ -349,26 +349,26 @@ Propose to shift an existing variable to a new one, both in [T.lower, T.lower+T.
     #     y = rand(config.rng) # [0, 1) random number
     # end
     y = rand(config.rng) # [0, 1) random number
-    if (isfinite(y) == false) || (isnan(y) == true)
-        println(y)
-    end
-    if (isfinite(N) == false) || (isnan(N) == true)
-        println("error with N")
-        println(N)
-    end
-    if (isfinite(floor(N * y)) == false) || (isnan(floor(N * y)) == true)
-        println("error with y*N")
-        println(x)
-        println(y)
-        println(N)
-        println(y * N)
-        println(floor(y * N))
-    end
+    # if (isfinite(y) == false) || (isnan(y) == true)
+    #     println(y)
+    # end
+    # if (isfinite(N) == false) || (isnan(N) == true)
+    #     println("error with N")
+    #     println(N)
+    # end
+    # if (isfinite(floor(N * y)) == false) || (isnan(floor(N * y)) == true)
+    #     println("error with y*N")
+    #     println(x)
+    #     println(y)
+    #     println(N)
+    #     println(y * N)
+    #     println(floor(y * N))
+    # end
     # println(y * N)
     iy = Int(floor(y * N)) + 1
     dy = y * N - (iy - 1)
     x = T.grid[iy] + dy * (T.grid[iy+1] - T.grid[iy])
-    T[idx] = x
+    T.data[idx] = x
     T.gidx[idx] = iy
     prob_ratio = (T.grid[currIdx+1] - T.grid[currIdx]) / (T.grid[iy+1] - T.grid[iy])
     T.prob[idx] *= prob_ratio
@@ -377,14 +377,14 @@ end
 
 @inline function shiftRollback!(T::Continuous, idx::Int, config)
     (idx >= length(T.data) - 1) && error("$idx overflow!")
-    T[idx] = T[end]
+    T.data[idx] = T.data[end]
     T.gidx[idx] = T.gidx[end]
     T.prob[idx] = T.prob[end]
 end
 
 @inline function swap!(T::Continuous, idx1::Int, idx2::Int, config)
     ((idx1 >= length(T.data) - 1) || (idx2 >= length(T.data) - 1)) && error("$idx1 or $idx2 overflow!")
-    T[idx1], T[idx2] = T[idx2], T[idx1]
+    T.data[idx1], T.data[idx2] = T.data[idx2], T.data[idx1]
     T.gidx[idx1], T.gidx[idx2] = T.gidx[idx2], T.gidx[idx1]
     T.prob[idx1], T.prob[idx2] = T.prob[idx2], T.prob[idx1]
     return 1.0
@@ -392,10 +392,65 @@ end
 
 @inline function swapRollback!(T::Continuous, idx1::Int, idx2::Int, config)
     ((idx1 >= length(T.data) - 1) || (idx2 >= length(T.data) - 1)) && error("$idx1 or $idx2 overflow!")
-    T[idx1], T[idx2] = T[idx2], T[idx1]
+    T.data[idx1], T.data[idx2] = T.data[idx2], T.data[idx1]
     T.gidx[idx1], T.gidx[idx2] = T.gidx[idx2], T.gidx[idx1]
     T.prob[idx1], T.prob[idx2] = T.prob[idx2], T.prob[idx1]
 end
+
+@inline function create!(T::CompositeVar, idx::Int, config)
+    prop = 1.0
+    T.prob[idx] = 1.0
+    for v in T.vars
+        prop *= create!(v, idx, config)
+        T.prob[idx] *= v.prob[idx]
+    end
+    return prop
+end
+
+@inline createRollback!(T::CompositeVar, idx::Int, config) = nothing
+
+@inline function remove!(T::CompositeVar, idx::Int, config)
+    prop = 1.0
+    for v in T.vars
+        prop *= remove!(v, idx, config)
+    end
+    return prop
+end
+@inline removeRollback!(T::CompositeVar, idx::Int, config) = nothing
+
+@inline function shift!(T::CompositeVar, idx::Int, config)
+    prop = 1.0
+    T._prob_cache = T.prob[idx]
+    T.prob[idx] = 1.0
+    for v in T.vars
+        prop *= shift!(v, idx, config)
+        T.prob[idx] *= v.prob[idx]
+    end
+    return prop
+end
+@inline function shiftRollback!(T::CompositeVar, idx::Int, config)
+    for v in T.vars
+        shiftRollback!(v, idx, config)
+    end
+    T.prob[idx] = T._prob_cache
+end
+
+@inline function swap!(T::CompositeVar, idx1::Int, idx2::Int, config)
+    prop = 1.0
+    T.prob[idx1], T.prob[idx2] = T.prob[idx2], T.prob[idx1]
+    for v in T.vars
+        prop *= swap!(v, idx1, idx2, config)
+    end
+    return prop
+end
+
+@inline function swapRollback!(T::CompositeVar, idx1::Int, idx2::Int, config)
+    T.prob[idx1], T.prob[idx2] = T.prob[idx2], T.prob[idx1]
+    for v in T.vars
+        prop *= swapRollback!(v, idx1, idx2, config)
+    end
+end
+
 
 ############## version with histogram  #####################
 # @inline function create!(T::Continuous, idx::Int, config)

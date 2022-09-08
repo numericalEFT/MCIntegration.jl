@@ -80,6 +80,12 @@ function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval
         _update = rand(config.rng, updates) # randomly select an update
         probability = _update(config, integrand, probability,
             weights, padding_probability, padding_probability_cache)
+        if debug && (isfinite(probability) == false)
+            @warn("integrand probability = $(probability) is not finite at step $(neval)")
+        end
+        if debug && (all(x -> isfinite(x), weights))
+            @warn("integrand = $(weights) is not all finite at step $(neval)")
+        end
 
         ######## accumulate variable and calculate variable probability #################
         for i in 1:N

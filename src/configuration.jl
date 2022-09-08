@@ -95,7 +95,7 @@ By default, it will be set to 0.0 if there is only one integrand (e.g., length(d
 """
 function Configuration(;
     var::Union{Variable,AbstractVector,Tuple}=(Continuous(0.0, 1.0),),
-    dof::Union{Int,AbstractVector,AbstractMatrix}=[ones(Int, length(var)),],
+    dof::Union{Int,AbstractVector,AbstractMatrix}=((var isa Variable) ? 1 : [ones(Int, length(var)),]),
     type=Float64,  # type of the integrand
     obs::AbstractVector=zeros(type, length(dof)),
     reweight::Vector{Float64}=ones(length(dof) + 1),
@@ -136,6 +136,7 @@ function Configuration(;
     Nd = length(dof) # number of integrands + renormalization diagram
     @assert Nd > 1 "At least one integrand is required."
     # make sure dof has the correct size that matches var and neighbor
+    # println(Nv, ", ", dof)
     @assert all(nv -> length(nv) == Nv, dof) "Each element of `dof` should have the same dimension as `var`"
 
     @assert length(obs) == Nd - 1 "The number of observables should be equal to the number of integrands"
@@ -230,6 +231,18 @@ function addConfig!(c::Configuration, ic::Configuration)
 end
 
 function MPIreduceConfig!(c::Configuration, root, comm)
+    function histogram_reduce!(var::Variable)
+        if var isa Dist.CompositeVar
+            for v in var.vars
+                histogram_reduce!(v)
+            end
+        else
+            histogram = MPI.Reduce(var.histogram, MPI.SUM, root, comm)
+            if MPI.Comm_rank(comm) == root
+                var.histogram = histogram
+            end
+        end
+    end
 
     ########## variable that could be a number ##############
     neval = MPI.Reduce(c.neval, MPI.SUM, root, comm)
@@ -240,11 +253,8 @@ function MPIreduceConfig!(c::Configuration, root, comm)
         c.normalization = normalization
         c.observable = observable
     end
-    for vi in 1:length(c.var)
-        histogram = MPI.Reduce(c.var[vi].histogram, MPI.SUM, root, comm)
-        if MPI.Comm_rank(comm) == root
-            c.var[vi].histogram = histogram
-        end
+    for v in c.var
+        histogram_reduce!(v)
     end
 
     ########## variable that are vectors ##############

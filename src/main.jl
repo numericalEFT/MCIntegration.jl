@@ -112,7 +112,6 @@ function integrate(integrand::Function;
             # MPI thread rank will run the block with the indexes: rank, rank+Nworker, rank+2Nworker, ...
             (i % Nworker != rank) && continue
 
-            # reset!(config, config.reweight) # reset configuration, keep the previous reweight factors
             clearStatistics!(config) # reset statistics
 
             if solver == :vegasmc
@@ -170,14 +169,8 @@ function integrate(integrand::Function;
         # 1. config of the root worker
         # 2. config of the other workers
         config.reweight = MPI.bcast(summedConfig.reweight, root, comm) # broadcast reweight factors to all workers
-        for vi in 1:length(config.var)
-            config.var[vi].histogram = MPI.bcast(summedConfig.var[vi].histogram, root, comm)
-            if adapt
-                Dist.train!(config.var[vi])
-                for var in config.var
-                    Dist.initialize!(var, config)
-                end
-            end
+        for (vi, var) in enumerate(config.var)
+            _bcast_histogram!(var, summedConfig.var[vi], config, adapt)
         end
         ################################################################################
         if MPI.Comm_rank(comm) == root
@@ -195,6 +188,22 @@ function integrate(integrand::Function;
             (print > 0) && println(yellow("$(Dates.now()), Total time: $(time() - startTime) seconds."))
         end
         return result
+    end
+end
+
+function _bcast_histogram!(target::V, source::V, config, adapt) where {V}
+    comm = MPI.COMM_WORLD
+    root = 0 # rank of the root worker
+    if target isa Dist.CompositeVar
+        for (vi, v) in enumerate(target.vars)
+            _bcast_histogram!(v, source.vars[vi], config, adapt)
+        end
+    else
+        target.histogram = MPI.bcast(source.histogram, root, comm)
+        if adapt
+            Dist.train!(target)
+            Dist.initialize!(target, config)
+        end
     end
 end
 

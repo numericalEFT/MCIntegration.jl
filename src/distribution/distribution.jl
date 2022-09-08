@@ -14,6 +14,7 @@ export Variable
 export FermiK
 export Continuous
 export Discrete
+export CompositeVar
 export create!, shift!, swap!
 export createRollback!, shiftRollback!, swapRollback!
 end

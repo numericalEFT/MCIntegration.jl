@@ -226,6 +226,75 @@ function train!(T::Discrete)
     clearStatistics!(T)
 end
 
+mutable struct CompositeVar{V} <: Variable
+    vars::V
+    prob::Vector{Float64}
+    offset::Int
+    adapt::Bool
+    size::Int
+    _prob_cache::Float64
+    function CompositeVar(vargs...; adapt=true, offset=0, size=MaxOrder)
+        @assert all(v -> (v isa Variable), vargs) "all arguments should variables"
+        @assert all(v -> !(v isa CompositeVar), vargs) "CompositeVar arguments not allowed"
+        for v in vargs
+            v.adapt = adapt
+            v.offset = offset
+            #TODO: resize all variables
+            # @assert length(v) 
+        end
+        vars = Tuple(v for v in vargs)
+        newvar = new{typeof(vars)}(vars, ones(size), offset, adapt, size, 1.0)
+        return newvar
+    end
+end
+
+Base.length(vars::CompositeVar) = length(vars.vars)
+Base.getindex(vars::CompositeVar, i::Int) = vars.vars[i]
+# function Base.setindex!(Var::Variable, v, i::Int)
+#     Var.data[i] = v
+# end
+Base.firstindex(Var::CompositeVar) = 1 # return index, not the value
+Base.lastindex(Var::CompositeVar) = length(Var.vars) # return index, not the value
+
+# CompositeVar iterator is equal to the tuple iterator
+Base.iterate(cvar::CompositeVar) = Base.iterate(cvar.vars)
+Base.iterate(cvar::CompositeVar, state) = Base.iterate(cvar.vars, state)
+
+function accumulate!(vars::CompositeVar, idx, weight)
+    for v in vars.vars
+        accumulate!(v, idx, weight)
+    end
+end
+function train!(vars::CompositeVar)
+    for v in vars.vars
+        train!(v)
+    end
+end
+
+function clearStatistics!(vars::CompositeVar)
+    for v in vars.vars
+        clearStatistics!(v)
+    end
+end
+
+function addStatistics!(target::CompositeVar, income::CompositeVar)
+    for (vi, v) in enumerate(target.vars)
+        addStatistics!(v, income.vars[vi])
+    end
+end
+
+function initialize!(vars::CompositeVar, config)
+    for v in vars.vars
+        initialize!(v, config)
+    end
+    for i = 1+vars.offset:vars.size-2
+        vars.prob[i] = 1.0
+        for v in vars.vars
+            vars.prob[i] *= v.prob[i]
+        end
+    end
+end
+
 # mutable struct ContinuousND{D} <: Variable
 #     data::Vector{Float64}
 #     lower::Vector{Float64}
@@ -261,7 +330,9 @@ end
 #     end
 # end
 
-accumulate!(var::Variable, idx, wegith) = nothing
+################## API for generic variables #######################
+
+accumulate!(var::Variable, idx, weight) = nothing
 # clearStatistics!(Var::Variable) = ing
 train!(Var::Variable) = nothing
 # addStatistics!(target::Variable, income::Variable) = nothing
