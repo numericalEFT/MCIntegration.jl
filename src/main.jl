@@ -9,7 +9,7 @@
         print=-1, 
         debug=false, 
         reweight_goal::Union{Vector{Float64},Nothing}=nothing, 
-        ignore_iter::Int=1,
+        ignore::Int=adapt ? 1 : 0,
         kwargs...
     )
 
@@ -35,7 +35,7 @@
 - `print`:    -1 to not print anything, 0 to print minimal information, >0 to print summary for every `print` seconds
 - `debug`:    Whether to print debug information (type instability, float overflow etc.)
 - `reweight_goal`: The expected distribution of visited times for each integrand after reweighting . If not set, then all factors will be initialized with one. Only useful for the :mcmc solver. 
-- `ignore_iter` : ignore the iteration until ignore_iter. By default, the first iteration is igonred if adapt=true, and non is ignored if adapt=false.
+- `ignore` : ignore the iteration until the `ignore` round. By default, the first iteration is igonred if adapt=true, and non is ignored if adapt=false.
 - `kwargs`:   Keyword arguments. If `config` is `nothing`, you may need to provide arguments for the `Configuration` constructor, check [`Configuration`](@ref) docs for more details.
 
 # Examples
@@ -55,15 +55,12 @@ function integrate(integrand::Function;
     adapt=true, # whether to adapt the grid and the reweight factor
     debug=false, # whether to print debug information (type instability, etc.)
     reweight_goal::Union{Vector{Float64},Nothing}=nothing, # goal of visited steps of each integrand (include the normalization integral)
-    ignore_iter::Int=adapt ? 1 : 0,
+    ignore::Int=adapt ? 1 : 0,
     kwargs...
 )
     if isnothing(config)
         config = Configuration(; kwargs...)
     end
-    # @assert niter >= ignore_iter + 1 "At least $(ignore_iter + 1) iterations are required."
-    # weights = integrand(config, _integrand)
-    # @assert length(weights) == length(config.dof) - 1 "There should be $(length(config.dof)-1) integrands, got $(length(weights))"
 
     if gamma > 1.0
         @warn(red("learning rate gamma should be less than 1.0"))
@@ -71,7 +68,7 @@ function integrate(integrand::Function;
 
     ############ initialized timer ####################################
     if print > 0
-        push!(timer, StopWatch(print, summary))
+        push!(timer, StopWatch(print, report))
     end
 
     ########### initialized MPI #######################################
@@ -93,8 +90,6 @@ function integrate(integrand::Function;
     # nevalperblock = neval # number of evaluations per block
 
     results = []
-
-    # configVec = Vector{Configuration}[]
 
     #In the MPI mode, progress will only need to track the progress of the root worker.
     Ntotal = niter * block ÷ Nworker
@@ -159,7 +154,6 @@ function integrate(integrand::Function;
             push!(results, (mean, std, summedConfig))
 
             ################### self-learning ##########################################
-            # (solver == :mcmc || solver == :vegasmc) && doReweight!(summedConfig, gamma)
             (solver == :mcmc || solver == :vegasmc) && doReweight!(summedConfig, gamma, reweight_goal)
         end
 
@@ -173,14 +167,9 @@ function integrate(integrand::Function;
             _bcast_histogram!(var, summedConfig.var[vi], config, adapt)
         end
         ################################################################################
-        if MPI.Comm_rank(comm) == root
-            if print >= 0
-                # println(green("Iteration $iter is done. $(time() - startTime) seconds passed."))
-                # next!(progress)
-            end
-        end
     end
-    ################################ IO ######################################
+
+    ##########################  output results   ##############################
     if MPI.Comm_rank(comm) == root
         result = Result(results, ignore_iter)
         if print >= 0
