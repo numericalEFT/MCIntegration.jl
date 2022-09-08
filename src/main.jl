@@ -171,7 +171,7 @@ function integrate(integrand::Function;
 
     ##########################  output results   ##############################
     if MPI.Comm_rank(comm) == root
-        result = Result(results, ignore_iter)
+        result = Result(results, ignore)
         if print >= 0
             report(result)
             (print > 0) && println(yellow("$(Dates.now()), Total time: $(time() - startTime) seconds."))

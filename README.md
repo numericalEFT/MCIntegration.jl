@@ -54,11 +54,20 @@ Integral 1 = 0.7832652785953883 ± 0.002149843816733503   (chi2/dof = 1.28)
 ## Multiple Multi-dimensional integrals
 You can calculate multiple integrals simultaneously. If the integrands are similar to each other, evaluating the integrals simultaneously sigificantly reduces cost. The following example calculate the area of a quarter circle and the volume of one-eighth sphere.
 ```julia
-julia> integrate((X, c)->(X[1]^2+X[2]^2<1.0, X[1]^2+X[2]^2+X[3]^2<1.0); var = X, dof = [[2,],[3,]], print=-1)
-Integral 1 = 0.7879016423030808 ± 0.0022768946478264225   (chi2/dof = 1.5)
-Integral 2 = 0.5266720714184501 ± 0.0024968546356105175   (chi2/dof = 1.22)
+julia> integrate((X, c)->(X[1]^2+X[2]^2<1.0, X[1]^2+X[2]^2+X[3]^2<1.0); var = Continuous(0.0, 1.0), dof = [[2,],[3,]], print=-1)
+Integral 1 = 0.7823432452235586 ± 0.003174967010742156   (chi2/dof = 2.82)
+Integral 2 = 0.5185515421806122 ± 0.003219487569949905   (chi2/dof = 1.41)
 ```
 Here `dof` defines how many (degrees of freedom) variables of each type. For example, [[n1, n2], [m1, m2], ...] means the first integral involves n1 varibales of type 1, and n2 variables of type2, while the second integral involves m1 variables of type 1 and m2 variables of type 2. The `dof` of the integrals can be quite different, the program will figure out how to optimally padding the integrands to match the degrees of freedom. 
+
+You can also use the julia do-syntax to improve the readability of the above example,
+```julia
+julia> integrate(var = Continuous(0.0, 1.0), dof = [[2,], [3,]], print = -1) do X, c
+           r1 = (X[1]^2 + X[2]^2 < 1.0) ? 1.0 : 0.0
+           r2 = (X[1]^2 + X[2]^2 + X[3]^2 < 1.0) ? 1.0 : 0.0
+           return (r1, r2)
+       end
+```
 
 ## Histogram measurement
 You may want to study how an integral changes with a tuning parameter. The following example how to solve histogram measurement problem.
@@ -102,17 +111,6 @@ julia> plt = plot(grid, res.mean[1], yerror = res.stdev[1], xlabel="R", label="c
 julia> plot!(plt, grid, res.mean[2], yerror = res.stdev[2], label="sphere")
 ```
 ![histogram](docs/src/assets/circle_sphere.png?raw=true "Circle and Sphere")
-
-You can also use the julia do-syntax to simplify the integration part in above example:
-```julia
-julia> integrate(var = (Continuous(0.0, 1.0),), dof = [[2,], [3,]], neval = 1e5, niter = 10, print = -1) do X, c
-           r1 = (X[1]^2 + X[2]^2 < 1.0) ? 1.0 : 0.0
-           r2 = (X[1]^2 + X[2]^2 + X[3]^2 < 1.0) ? 1.0 : 0.0
-           return (r1, r2)
-       end
-Integral 1 = 0.7858137468685643 ± 0.0003890543762596982   (chi2/dof = 1.63)
-Integral 2 = 0.5240009569393371 ± 0.00039066497807783214   (chi2/dof = 0.715)
-```
 
 # Variables
 
