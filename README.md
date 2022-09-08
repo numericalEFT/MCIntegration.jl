@@ -140,7 +140,7 @@ When you call the above constructor, it creates a unlimited pool of random varia
 The variable pool trick will siginicantly reduce the cost of learning their distribution. It also opens the possibility to calculate integrals with infinite dimensions (for example, the path-integral of particle worldlines in quantum many-body physics). 
 
 If some of the variables are paired with each other (for example, the three continuous variables (r, θ, ϕ) representing a 3D vector), then you can pack them into a joint random variable, which can be constructed with the following constructor,
-- `CompositeVar(var1, var2, ...[; adapt = true, alpha = 3.0, ...])`: A produce of different types of random variables. It samples `var1`, `var2`, ... with their joint distribution. 
+- `CompositeVar(var1, var2, ...[; adapt = true, alpha = 3.0, ...])`: A produce of different types of random variables. It samples `var1`, `var2`, ... with their producted distribution. 
 
 The packed variables will be sampled all together in the Markov-chain based solvers (`:vegasmc` and `:mcmc`). Such updates will generate more independent samples compared to the unpacked version. Sometimes, it could reduce the auto-correlation time of the Markov chain and make the algorithm more efficient.
 

@@ -9,6 +9,7 @@ Propose to generate new index (uniformly) randomly in [1, size]
 - `size` : up limit of the index
 - `rng=GLOBAL_RNG` : random number generator
 """
+
 @inline function create!(d::Discrete, idx::Int, config)
     (idx >= length(d.data) - 1) && error("$idx overflow!")
     # d[idx] = rand(config.rng, d.lower:d.upper)
@@ -32,6 +33,7 @@ Propose to remove the old index in [1, size]
 - `size` : up limit of the index
 - `rng=GLOBAL_RNG` : random number generator
 """
+
 @inline function remove!(d::Discrete, idx::Int, config)
     (idx >= length(d.data) - 1) && error("$idx overflow!")
     gidx = d[idx] - d.lower + 1
@@ -51,6 +53,7 @@ Propose to shift the old index in [1, size] to a new index
 - `size` : up limit of the index
 - `rng=GLOBAL_RNG` : random number generator
 """
+
 @inline function shift!(d::Discrete, idx::Int, config)
     (idx >= length(d.data) - 1) && error("$idx overflow!")
     # d[end] = d[idx] # save the current variable
@@ -79,6 +82,7 @@ end
  Swap the variables idx1 and idx2
 
 """
+
 @inline function swap!(d::Discrete, idx1::Int, idx2::Int, config)
     ((idx1 >= length(d.data) - 1) || (idx2 >= length(d.data) - 1)) && error("$idx overflow!")
     d[idx1], d[idx2] = d[idx2], d[idx1]
@@ -101,6 +105,7 @@ Propose to generate new Fermi K in [Kf-δK, Kf+δK)
 # Arguments
 - `newK`:  vector of dimension of d=2 or 3
 """
+
 function create!(K::FermiK{D}, idx::Int, config) where {D}
     @assert idx > K.offset
     (idx >= length(K.data) - 1) && error("$idx overflow!")
@@ -148,6 +153,7 @@ Propose to remove an existing Fermi K in [Kf-δK, Kf+δK)
 # Arguments
 - `oldK`:  vector of dimension of d=2 or 3
 """
+
 function remove!(K::FermiK{D}, idx::Int, config) where {D}
     @assert idx > K.offset
     (idx >= length(K.data) - 1) && error("$idx overflow!")
@@ -186,6 +192,7 @@ removeRollback!(K::FermiK{D}, idx::Int, config) where {D} = nothing
 
 Propose to shift oldK to newK. Work for generic momentum vector
 """
+
 function shift!(K::FermiK{D}, idx::Int, config) where {D}
     @assert idx > K.offset
     (idx >= length(K.data) - 1) && error("$idx overflow!")
@@ -282,6 +289,7 @@ Propose to generate new (uniform) variable randomly in [T.lower, T.lower+T.range
 - `T`:  Continuous variable
 - `idx`: T.data[idx] will be updated
 """
+
 @inline function create!(T::Continuous, idx::Int, config)
     (idx >= length(T.data) - 1) && error("$idx overflow!")
     N = length(T.grid) - 1
@@ -306,6 +314,7 @@ Propose to remove old variable in [T.lower, T.lower+T.range), return proposal pr
 - `T`:  Continuous variable
 - `idx`: T.data[idx] will be updated
 """
+
 @inline function remove!(T::Continuous, idx::Int, config)
     (idx >= length(T.data) - 1) && error("$idx overflow!")
     # currIdx = locate(T.grid, T[idx]) - 1
@@ -323,6 +332,7 @@ Propose to shift an existing variable to a new one, both in [T.lower, T.lower+T.
 - `T`:  Continuous variable
 - `idx`: T.data[idx] will be updated
 """
+
 @inline function shift!(T::Continuous, idx::Int, config)
     (idx >= length(T.data) - 1) && error("$idx overflow!")
     T.data[end] = T.data[idx]

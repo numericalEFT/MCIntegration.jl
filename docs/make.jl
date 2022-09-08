@@ -15,10 +15,10 @@ makedocs(;
     ),
     pages=[
         "Home" => "index.md",
-        "Manual" => Any[
-            "man/important_sampling.md"
-        ],
-        "Library" => Any[
+        # "Manual" => Any[
+        # "man/important_sampling.md"
+        # ],
+        "Reference" => Any[
             "lib/montecarlo.md",
             "lib/vegasmc.md",
             "lib/vegas.md",
