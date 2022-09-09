@@ -275,7 +275,12 @@ function report(config::Configuration, total_neval=nothing)
     println()
     println(barbar)
     println(green(Dates.now()))
-    println("\nneval = $(config.neval)")
+    println(bar)
+    println(yellow("Integral num = $(config.N), dof = $(config.dof), with variables:"))
+    # println("\nneval = $(config.neval)")
+    for (vi, var) in enumerate(config.var)
+        println("$vi. $var")
+    end
     println(bar)
 
     totalproposed = 0.0
@@ -315,10 +320,20 @@ function report(config::Configuration, total_neval=nothing)
     println(yellow(@sprintf("%-20s %12s %12s %12s", "ChangeVariable", "Proposed", "Accepted", "Ratio  ")))
     for idx = 1:Nd-1 # normalization diagram don't have variable to change
         for (vi, var) in enumerate(var)
-            typestr = "$(typeof(var))"
-            typestr = split(typestr, ".")[end]
+            if var isa Continuous
+                typestr = "Continuous"
+            elseif var isa Discrete
+                typestr = "Discrete"
+            elseif var isa CompositeVar
+                typestr = "Composite"
+            elseif var isa FermiK
+                typestr = "FermiK"
+            else
+                typestr = "$(typeof(var))"
+                # typestr = split(typestr, ".")[end]
+            end
             @printf(
-                "  %2d / %-10s:   %11.6f%% %11.6f%% %12.6f\n",
+                "  %2d / %-11s:   %11.6f%% %11.6f%% %12.6f\n",
                 idx, typestr,
                 propose[2, idx, vi] / neval * 100.0,
                 accept[2, idx, vi] / neval * 100.0,
@@ -334,10 +349,10 @@ function report(config::Configuration, total_neval=nothing)
         @printf("  Order%2d:     %12i %12.6f\n", idx, visited[idx], reweight[idx])
     end
     println(bar)
-    println(yellow("Total Proposed: $(totalproposed / neval * 100.0)%\n"))
-    if isnothing(total_neval) == false
-        println(yellow(progressBar(neval, total_neval)))
-    end
+    println(yellow("Integrand evaluation = $neval\n"))
+    # if isnothing(total_neval) == false
+    #     println(yellow(progressBar(neval, total_neval)))
+    # end
     # println()
 
 end

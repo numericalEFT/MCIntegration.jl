@@ -22,7 +22,7 @@ include("distribution/distribution.jl")
 using .Dist
 export Dist
 export FermiK
-export Continuous, Discrete
+export Continuous, Discrete, CompositeVar
 
 include("statistics.jl")
 export Result

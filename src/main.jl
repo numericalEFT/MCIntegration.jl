@@ -1,7 +1,10 @@
 """
     function integrate(integrand::Function;
         solver::Symbol=:vegas, # :mcmc, :vegas, or :vegasmc
+<<<<<<< HEAD
         config::Union{Configuration,Nothing}=nothing,
+=======
+>>>>>>> master
         neval=1e4, 
         niter=10, 
         block=16, 
@@ -41,7 +44,7 @@
 # Examples
 ```julia-repl
 julia> integrate((x, c)->(x[1]^2+x[2]^2); var = Continuous(0.0, 1.0), dof = 2, print=-1)
-Integral 1 = 0.6675734559749492 ± 0.0009252448008132412   (chi2/dof = 1.09)
+Integral 1 = 0.6668625385256122 ± 0.0009960142738129768   (chi2/dof = 1.07)
 ```
 """
 function integrate(integrand::Function;

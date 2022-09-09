@@ -1,24 +1,66 @@
 """
+
+    function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval,
+        print=0, debug=false;
+        measurefreq=2, measure::Union{Nothing,Function}=nothing,
+        kwargs...) where {N,V,P,O,T}
+
 This algorithm combines Vegas with Markov-chain Monte Carlo.
 For multiple integrands invoves multiple variables, it finds the best distribution
 ansatz to fit them all together. In additional to the original integral, it also 
 introduces a normalization integral with integrand ~ 1.
 
-Assume f_0(x) and g_0(y) are the ansatz from the Vegas map for x and y, and we want
-to calculate the integral f_1(x) and f_2(x, y)
+Assume we want to calculate the integral ``f_1(x)`` and ``f_2(x, y)``, where x, y are two different types of variables.
+The algorithm will try to learn a distribution ``\\rho_x(x)`` and ``\\rho_y(y)`` so that ``f_1(x)/\\rho_x(x)`` and ``f_2(x, y)/\\rho_x(x)/\\rho_y(y)``
+are as flat as possible. 
 
-Then the following distributions are sampled with Markov-chain Monte Carlo:
-p_0(x, y) = f_0(x) * g_0(y) #normalization
-p_1(x, y) = f_1(x) * g_0(y) #integrand 1 
-p_2(x, y) = f_2(x, y)
-NOTE: All three integral are measured at each Markov-chain Monte Carlo step!
+The algorithm then samples the variables x and y with a joint distribution using the Metropolis-Hastings algorithm,
+``math
+p(x, y) = r_0 \\cdot \\rho_x(x) \\cdot \\rho_y(y) + r_1 \\cdot |f_1(x)| \\cdot \\rho_y(y) + r_2 \\cdot |f_2(x, y)|
+``
+where ``r_i`` are certain reweighting factor to make sure all terms contribute same weights.
+One then estimate the integrals by averaging the observables ``f_1(x)\\rho_y(y)/p(x, y)`` and ``f_2(x, y)/p(x, y)``.
 
-The efficiency is significantly improved compared to the old DiagMC algorithm.
-It is a few times slower than the Vegas algorithm at low dimensions.
-However, the biggest problem is that the algorithm can fail if the integrand
-exactly vanishes in some regime (e.g. circle area x^2+y^2<0).
+This algorithm reduces to the vanilla Vegas algorithm by setting ``r_0 = 1`` and ``r_{i>0} = 0``.
+
+NOTE: If there are more than one integrals,  all of them are sampled and measured at each Markov-chain Monte Carlo step!
+
+This algorithm is as efficient as the Vegas algorithm for low-dimensional integration, and 
+tends to be more robust than the Vegas algorithm for high-dimensional integration. 
+
+# Arguments
+- `integrand` : User-defined function with the following signature:
+```julia
+function integrand(var, config)
+    # calculate your integrand values
+    # return integrand1, integrand2, ...
+end
+```
+The first parameter `var` is either a Variable struct if there is only one type of variable, or a tuple of Varibles if there are more than one types of variables.
+The second parameter passes the MC `Configuration` struct to the integrand, so that user has access to userdata, etc.
+
+- `measure` : User-defined function with the following signature:
+```julia
+function measure(var, obs, weights, config)
+    # accumulates the weight into the observable
+    # For example,
+    # obs[1] = weights[1] # integral 1
+    # obs[2] = weights[2] # integral 2
+    # ...
+end
+```
+The first argument `var` is either a Variable struct if there is only one type of variable, or a tuple of Varibles if there are more than one types of variables.
+The second argument passes the user-defined observable to the function, it should be a vector with the length same as the integral number.
+The third argument is the integrand weights to be accumulated to the observable, it is a vector with the length same as the integral number.
+The last argument passes the MC `Configuration` struct to the integrand, so that user has access to userdata, etc.
+
+# Examples
+The following command calls the MC Vegas solver,
+```julia-repl
+julia> integrate((x, c)->(x[1]^2+x[2]^2); var = Continuous(0.0, 1.0), dof = 2, print=-1, solver=:vegasmc)
+Integral 1 = 0.6640840471808533 ± 0.000916060916265263   (chi2/dof = 0.945)
+```
 """
-
 function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval,
     print=0, save=0, timer=[], debug=false;
     measurefreq=2, measure::Union{Nothing,Function}=nothing,
@@ -76,7 +118,7 @@ function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval
     startTime = time()
 
     for ne = 1:neval
-        config.neval += 1
+        # config.neval += 1
         _update = rand(config.rng, updates) # randomly select an update
         probability = _update(config, integrand, probability,
             weights, padding_probability, padding_probability_cache)

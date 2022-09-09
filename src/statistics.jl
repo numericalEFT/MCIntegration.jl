@@ -9,7 +9,7 @@ the returned result of the MC integration.
 - `stdev`: standard deviation of the MC integration
 - `chi2`: chi-square per dof of the MC integration
 - `neval`: number of evaluations of the integrand
-- `ignore_iter`: ignore iterations untill ignore_iter
+- `ignore`: ignore iterations untill `ignore`
 - `dof`: degrees of freedom of the MC integration (number of iterations - 1)
 - `config`: configuration of the MC integration from the last iteration
 - `iterations`: list of tuples [(data, error, Configuration), ...] from each iteration
@@ -19,15 +19,15 @@ struct Result{O,C}
     stdev::O
     chi2::Any
     neval::Int
-    ignore_iter::Int # ignore iterations untill ignore_iter
+    ignore::Int # ignore iterations untill ignore_iter
     dof::Int
     config::C
     iterations::Any
-    function Result(history::AbstractVector, ignore_iter::Int)
+    function Result(history::AbstractVector, ignore::Int)
         # history[end][1] # a vector of avg
         # history[end][2] # a vector of std
         # history[end][3] # a vector of config
-        init = ignore_iter + 1
+        init = ignore + 1
         @assert length(history) > 0
         config = history[end][3]
         dof = (length(history) - init + 1) - 1 # number of effective samples - 1
@@ -53,7 +53,14 @@ struct Result{O,C}
         end
         # println(mean, ", ", stdev, ", ", chi2)
         # println(typeof(mean), typeof(config))
-        return new{O,typeof(config)}(mean, stdev, chi2, neval, ignore_iter, dof, config, history)
+        return new{O,typeof(config)}(mean, stdev, chi2, neval, ignore, dof, config, history)
+    end
+    function Result(res::Result, ignore::Int)
+        if ignore == res.ignore
+            return res
+        else
+            return Result(res.iterations, ignore)
+        end
     end
 end
 
@@ -65,8 +72,8 @@ function tostring(mval, merr; pm="±")
     # println(mval, ", ", merr)
 
     if mval isa Real && merr isa Real && isfinite(mval) && isfinite(merr)
-        # return @sprintf("%16.8g %s %.8g", mval, pm, merr)
-        m = measurement(mval, merr)
+        m = @sprintf("%16.8g %s %-16.8g", mval, pm, merr)
+        # m = measurement(mval, merr)
         # return @sprintf("$m")
     elseif mval isa Complex && merr isa Complex && isfinite(mval) && isfinite(merr)
         m = measurement(real(mval), real(merr)) + measurement(imag(mval), imag(merr)) * 1im
@@ -84,18 +91,18 @@ function Base.show(io::IO, result::Result)
 end
 
 """
-    function report(result::Result, pick::Union{Function,AbstractVector}=obs -> real(first(obs)), name=nothing)
+    function report(result::Result, ignore=result.ignore; pick::Union{Function,AbstractVector}=obs -> first(obs), name=nothing, verbose=0)
 
 print the summary of the result. 
 It will first print the configuration from the last iteration, then print the weighted average and standard deviation of the picked observable from each iteration.
 
 # Arguments
 - result: Result object contains the history from each iteration
+- ignore: the ignore the first # iteractions.
 - pick: The pick function is used to select one of the observable to be printed. The return value of pick function must be a Number.
 - name: name of each picked observable. If name is not given, the index of the pick function will be used.
 """
-function report(result::Result, pick::Union{Function,AbstractVector}=obs -> first(obs), name=nothing;
-    verbose=0, ignore=result.ignore_iter)
+function report(result::Result, ignore=result.ignore; pick::Union{Function,AbstractVector}=obs -> first(obs), name=nothing, verbose=0)
     if isnothing(name) == false
         name = collect(name)
     end
@@ -107,10 +114,10 @@ function report(result::Result, pick::Union{Function,AbstractVector}=obs -> firs
         if verbose >= 0
             # barbar = "==============================================     Integral $info    =========================================================="
             # bar = "---------------------------------------------------------------------------------------------------------------------------"
-            barbar = "======================================     Integral $info    =================================================="
-            bar = "-----------------------------------------------------------------------------------------------------------"
+            barbar = "====================================     Integral $info    ================================================"
+            bar = "-------------------------------------------------------------------------------------------------------"
             println(barbar)
-            println(yellow(@sprintf("%6s %40s %40s %16s", "iter", "         integral", "        wgt average", "chi2/dof")))
+            println(yellow(@sprintf("%6s     %-32s     %-32s %16s", "iter", "         integral", "        wgt average", "chi2/dof")))
             println(bar)
             for iter in 1:length(result.iterations)
                 m0, e0 = p(result.iterations[iter][1][i]), p(result.iterations[iter][2][i])
@@ -118,7 +125,7 @@ function report(result::Result, pick::Union{Function,AbstractVector}=obs -> firs
                 m, e, chi2 = p(m[i]), p(e[i]), p(chi2[i])
                 iterstr = iter <= ignore_iter ? "ignore" : "$iter"
                 sm0, sm = tostring(m0, e0), tostring(m, e)
-                println(@sprintf("%6s %40s %40s %16.4f", iterstr, sm0, sm, abs(chi2)))
+                println(@sprintf("%6s %36s %36s %16.4f", iterstr, sm0, sm, abs(chi2)))
             end
             println(bar)
         else

@@ -1,9 +1,9 @@
 """
     function locate(accumulation, p)
     
-    Return index of p in accumulation so that accumulation[idx]<=p<accumulation[idx+1]. 
-    If p is not in accumulation (namely accumulation[1] > p or accumulation[end] <= p), return -1.
-    Bisection algorithmn is used so that the time complexity is O(log(n)) with n=length(accumulation).
+Return index of p in accumulation so that accumulation[idx]<=p<accumulation[idx+1]. 
+If p is not in accumulation (namely accumulation[1] > p or accumulation[end] <= p), return -1.
+Bisection algorithmn is used so that the time complexity is O(log(n)) with n=length(accumulation).
 """
 function locate(accumulation::AbstractVector, p::Number)
     n = length(accumulation)
@@ -36,9 +36,9 @@ function locate(accumulation::AbstractVector, p::Number)
 end
 
 """
-function smooth(dist::AbstractVector, factor=6)
+    function smooth(dist::AbstractVector, factor=6)
 
-    Smooth the distribution by averaging two nearest neighbor. The average ratio is given by 1 : factor : 1 for the elements which are not on the boundary.
+Smooth the distribution by averaging two nearest neighbor. The average ratio is given by 1 : factor : 1 for the elements which are not on the boundary.
 """
 function smooth(dist::AbstractVector, factor=6)
     if length(dist) <= 1
@@ -56,12 +56,13 @@ end
 """
 function rescale(dist::AbstractVector, alpha=1.5)
 
-    rescale the dist array to avoid overreacting to atypically large number.
-    There are three steps:
-    1. dist will be first normalize to [0, 1].
-    2. Then the values that are close to 1.0 will not be changed much, while that close to zero will be amplified to a value controlled by alpha.
-    3. In the end, the rescaled dist array will be normalized to [0, 1].
-    Check Eq. (19) of https://arxiv.org/pdf/2009.05112.pdf for more detail
+Rescale the dist array to avoid overreacting to atypically large number.
+
+There are three steps:
+1. dist will be first normalize to [0, 1].
+2. Then the values that are close to 1.0 will not be changed much, while that close to zero will be amplified to a value controlled by alpha.
+3. In the end, the rescaled dist array will be normalized to [0, 1].
+Check Eq. (19) of https://arxiv.org/pdf/2009.05112.pdf for more detail
 """
 function rescale(dist::AbstractVector, alpha=1.5)
     if length(dist) == 1

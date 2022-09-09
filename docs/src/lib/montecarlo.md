@@ -1,4 +1,4 @@
-# Monte Carlo
+# Main module
 
 ```@autodocs
 Modules = [MCIntegration]
