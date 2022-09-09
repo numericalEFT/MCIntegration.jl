@@ -1,6 +1,6 @@
 name = "MCIntegration"
 uuid = "ea1e2de9-7db7-4b42-91ee-0cd1bf6df167"
-authors = ["Kun Chen", "Xiansheng Cai"]
+authors = ["Kun Chen", "Xiansheng Cai", "Pengcheng Hou"]
 version = "0.3.0"
 
 [deps]
