@@ -20,9 +20,9 @@ The algorithm will try to learn a distribution ``\\rho_x(x)`` and ``\\rho_y(y)``
 are as flat as possible. 
 
 The algorithm then samples the variables x and y with a joint distribution using the Metropolis-Hastings algorithm,
-``math
+```math
 p(x, y) = r_0 \\cdot \\rho_x(x) \\cdot \\rho_y(y) + r_1 \\cdot |f_1(x)| \\cdot \\rho_y(y) + r_2 \\cdot |f_2(x, y)|
-``
+```
 where ``r_i`` are certain reweighting factor to make sure all terms contribute same weights.
 One then estimate the integrals by averaging the observables ``f_1(x)\\rho_y(y)/p(x, y)`` and ``f_2(x, y)/p(x, y)``.
 
