@@ -82,6 +82,7 @@ function montecarlo(config::Configuration{Ni,V,P,O,T}, integrand::Function, neva
     measure::Union{Nothing,Function}=nothing, measurefreq=1, kwargs...) where {Ni,V,P,O,T}
 
     relativeWeights = zeros(T, Ni)
+    weights = zeros(T, Ni)
 
     ################## test integrand type stability ######################
     if debug
