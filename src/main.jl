@@ -1,10 +1,7 @@
 """
     function integrate(integrand::Function;
         solver::Symbol=:vegas, # :mcmc, :vegas, or :vegasmc
-<<<<<<< HEAD
         config::Union{Configuration,Nothing}=nothing,
-=======
->>>>>>> master
         neval=1e4, 
         niter=10, 
         block=16, 
