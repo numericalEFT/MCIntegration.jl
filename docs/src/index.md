@@ -83,11 +83,11 @@ julia> integrate(var = Continuous(0.0, 1.0), dof = [[2,], [3,]], print = -1) do 
 ```
 
 ## Measure Histogram
-You may want to study how an integral changes with a tuning parameter. The following example how to solve histogram measurement problem.
+You may want to study how an integral changes with a tuning parameter. The following example is how to solve the histogram measurement problem.
 ```julia
 julia> N = 20;
 
-julia> grid = grid = [i / N for i in 1:N];
+julia> grid = [i / N for i in 1:N];
 
 julia> function integrand(vars, config)
             grid = config.userdata # radius
@@ -115,7 +115,7 @@ julia> res = integrate(integrand;
 Integral 1 = 0.9957805541613277 ± 0.008336657854575344   (chi2/dof = 1.15)
 Integral 2 = 0.7768105610812656 ± 0.006119386106596811   (chi2/dof = 1.4)
 ```
-You can visualize the returned result `res` with `Plots.jl`. The command `res.mean[i]` and `res.stdev[i]` give the mean and stdev of the histogram of the integral `i`.
+You can visualize the returned result `res` with `Plots.jl`. The commands `res.mean[i]` and `res.stdev[i]` give the mean and stdev of the histogram of the `i`-th integral.
 ```julia
 julia> using Plots
 
@@ -138,7 +138,7 @@ of the grid. The exact details of the algorithm can be found in **_G.P. Lepage, 
 
 - Markov-chain Monte Carlo (`:mcmc`): This algorithm is useful for calculating bundled integrands that are too many to calculate at once. Examples are the path-integral of world lines of quantum particles, which involves hundreds and thousands of nested spacetime integrals. This algorithm uses the Metropolis-Hastings algorithm to jump between different integrals so that you only need to evaluate one integrand at each Monte Carlo step. Just as `:vegas` and `:vegasmc`, this algorithm also learns a piecewise constant weight function to reduce the variance. However, because it assumes you can access one integrand at each step, it tends to be less accurate than the other two algorithms for low-dimensional integrals.   
 
-The signature of the integrand and measure functions of the `:mcmc` solver receices an additional index argument than that of the `:vegas` and `:vegasmc` solvers. As shown in the above examples, the integrand and measure functions of the latter two solvers should be like `integrand( vars, config)` and `measure(vars, obs, weights, config)`, where `weights` is a vectors carries the values of the integrands at the current MC step. On the other hand, the `:mcmc` solver requires something like `integrand(idx, vars, config)` and `measure(idx, vars, weight, config)`, where `idx` is the index of the integrand of the current step, and the argument `weight` is a scalar carries the value of the current integrand being sampled.
+The signature of the integrand and measure functions of the `:mcmc` solver receices an additional index argument than that of the `:vegas` and `:vegasmc` solvers. As shown in the above examples, the integrand and measure functions of the latter two solvers should be like `integrand(vars, config)` and `measure(vars, obs, weights, config)`, where `weights` is a vectors carries the values of the integrands at the current MC step. On the other hand, the `:mcmc` solver requires something like `integrand(idx, vars, config)` and `measure(idx, vars, weight, config)`, where `idx` is the index of the integrand of the current step, and the argument `weight` is a scalar carries the value of the current integrand being sampled.
 
 # Variables
 
@@ -149,12 +149,12 @@ The package supports a couple of common types random variables. You can create t
 
 After each iteration, the code will try to optimize how the variables are sampled, so that the most important regimes of the integrals will be sampled most frequently. Setting `alpha` to be true/false will turn on/off this distribution learning. The parameter `alpha` controls the learning rate.
 
-When you call the above constructor, it creates a unlimited pool of random variables of a given type. The size of the pool will be dynamically determined when you call a solver. All variables in this pool will be sampled with the same distribution. In many high-dimensional integrals, many variables of integration may contribute to the integral in a similar way, then they can be sampled from the same variable pool. For example, in the above code example, the integral for the circle area and the sphere volume both involve the variable type `Continuous`. The former has dof=2, while the latter has dof=3. To evaluate a given integrand, you only need to choose some of variables to evaluate a given integral. The rest of the variables in the pool serve as dummy ones. They will not cause any computational overhead.
+When you call the above constructor, it creates an unlimited pool of random variables of a given type. The size of the pool will be dynamically determined when you call a solver. All variables in this pool will be sampled with the same distribution. In many high-dimensional integrals, many integration variables may contribute to the integral in a similar way; then they can be sampled from the same variable pool. For example, in the above code example, the integral for the circle area and the sphere volume both involve the variable type `Continuous`. The former has dof=2, while the latter has dof=3. To evaluate a given integrand, you only need to choose some of the variables to evaluate a given integral. The rest of the variables in the pool serve as dummy ones. They will not cause any computational overhead.
 
-The variable pool trick will siginicantly reduce the cost of learning their distribution. It also opens the possibility to calculate integrals with infinite dimensions (for example, the path-integral of particle worldlines in quantum many-body physics). 
+The variable pool trick will significantly reduce the cost of learning their distribution. It also opens the possibility of calculating integrals with infinite dimensions (for example, the path-integral of particle worldlines in quantum many-body physics). 
 
 If some of the variables are paired with each other (for example, the three continuous variables (r, θ, ϕ) representing a 3D vector), then you can pack them into a joint random variable, which can be constructed with the following constructor,
-- `CompositeVar(var1, var2, ...[; adapt = true, alpha = 3.0, ...])`: A produce of different types of random variables. It samples `var1`, `var2`, ... with their producted distribution. 
+- `CompositeVar(var1, var2, ...[; adapt = true, alpha = 3.0, ...])`: A product of different types of random variables. It samples `var1`, `var2`, ... with their producted distribution. 
 
 The packed variables will be sampled all together in the Markov-chain based solvers (`:vegasmc` and `:mcmc`). Such updates will generate more independent samples compared to the unpacked version. Sometimes, it could reduce the auto-correlation time of the Markov chain and make the algorithm more efficient.
 
@@ -192,7 +192,7 @@ MCIntegration supports MPI parallelization. To run your code in MPI mode, simply
 ```bash
 mpiexec julia -n #NCPU ./your_script.jl
 ```
-where `#CPU` is the number of workers. Internally, the MC sampler will send the blocks (controlled by the argument `Nblock`, see above example code) to different workers, then collect the estimates in the root node. 
+where `#NCPU` is the number of workers. Internally, the MC sampler will send the blocks (controlled by the argument `Nblock`, see above example code) to different workers, then collect the estimates in the root node. 
 
 Note that you need to install the package [MPI.jl](https://github.com/JuliaParallel/MPI.jl) to use the MPI mode. See this [link](https://juliaparallel.github.io/MPI.jl/stable/configuration/) for the instruction on the configuration.
 

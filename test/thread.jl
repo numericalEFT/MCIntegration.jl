@@ -1,6 +1,6 @@
 @testset "Threads" begin
     if Threads.nthreads() == 1
-        @warn "There is only one thread currently. You may want run julia wiht -t auto to enable multithreading."
+        @warn "There is only one thread currently. You may want run julia with -t auto to enable multithreading."
     end
 
     Threads.@threads for i in 1:3

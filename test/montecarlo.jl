@@ -36,7 +36,7 @@ function Sphere2(totalstep, alg; offset=0)
     config = Configuration(var=(T,), dof=dof; neighbor=[(1, 3), (1, 2)])
     @inferred integrand(config.var[1], config) #make sure the type is inferred for the integrand function
     @inferred integrand(1, config.var[1], config) #make sure the type is inferred for the integrand function
-    return integrate(integrand, measure=measure, config=config, neval=totalstep, print=-1, solver=alg, debug=true)
+    return integrate(integrand; config=config, neval=totalstep, print=-1, solver=alg, debug=true, measure)
 end
 
 function TestDiscrete(totalstep, alg)
