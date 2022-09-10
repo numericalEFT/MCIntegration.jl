@@ -8,7 +8,7 @@ end
 
     function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval,
         print=0, save=0, timer=[], debug=false;
-        measurefreq=2, measure::Union{Nothing,Function}=nothing, kwargs...) where {N,V,P,O,T}
+        measurefreq=2, measure::Union{Nothing,Function}=nothing) where {N,V,P,O,T}
 
 This algorithm calculate high-dimensional integrals with a Markov-chain Monte Carlo.
 For multiple integrands invoves multiple variables, it finds the best distribution
@@ -86,12 +86,13 @@ Integral 1 = 0.6757665376867902 ± 0.008655534861083898   (chi2/dof = 0.681)
 """
 function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval,
     print=0, save=0, timer=[], debug=false;
-    measurefreq=2, measure::Union{Nothing,Function}=nothing, kwargs...) where {N,V,P,O,T}
+    measurefreq=2, measure::Union{Nothing,Function}=nothing) where {N,V,P,O,T}
     ##############  initialization  ################################
     # don't forget to initialize the diagram weight
     if isnothing(measure)
         @assert (config.observable isa AbstractVector) && (length(config.observable) == config.N) && (eltype(config.observable) == T) "the default measure can only handle observable as Vector{$T} with $(config.N) elements!"
     end
+    # println("kwargs in mcmc: ", kwargs)
 
     ################## test integrand type stability ######################
     if debug

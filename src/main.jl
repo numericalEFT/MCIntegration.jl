@@ -36,7 +36,9 @@
 - `debug`:    Whether to print debug information (type instability, float overflow etc.)
 - `reweight_goal`: The expected distribution of visited times for each integrand after reweighting . If not set, then all factors will be initialized with one. Only useful for the :mcmc solver. 
 - `ignore` : ignore the iteration until the `ignore` round. By default, the first iteration is igonred if adapt=true, and non is ignored if adapt=false.
-- `kwargs`:   Keyword arguments. If `config` is `nothing`, you may need to provide arguments for the `Configuration` constructor, check [`Configuration`](@ref) docs for more details.
+- `kwargs`:   Keyword arguments. The supported keywords include,
+  * `measure` and `measurefreq`: measurement function and how frequent it is called. See [`Vegas.montecarlo`](@ref), [`VegasMC.montecarlo`](@ref) and [`MCMC.montecarlo`](@ref) for more details.
+  * If `config` is `nothing`, you may need to provide arguments for the `Configuration` constructor, check [`Configuration`](@ref) docs for more details.
 
 # Examples
 ```julia-repl
@@ -58,6 +60,7 @@ function integrate(integrand::Function;
     ignore::Int=adapt ? 1 : 0,
     kwargs...
 )
+    println("kwargs in begin: ", kwargs)
     if isnothing(config)
         config = Configuration(; kwargs...)
     end
@@ -168,6 +171,8 @@ function integrate(integrand::Function;
         end
         ################################################################################
     end
+
+    println("kwargs in end: ", kwargs)
 
     ##########################  output results   ##############################
     if MPI.Comm_rank(comm) == root

@@ -104,6 +104,8 @@ function Configuration(;
     userdata=nothing,
     kwargs...
 )
+    println(dof)
+    println("config: ", kwargs)
     if var isa Variable
         var = (var,)
     elseif var isa AbstractVector
