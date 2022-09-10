@@ -30,7 +30,7 @@
 - `niter`:    Number of iterations. The reweight factor and the variables will be self-adapted after each iteration. 
 - `block`:    Number of blocks. Each block will be evaluated by about neval/block times. Each block is assumed to be statistically independent, and will be used to estimate the error. 
               In MPI mode, the blocks are distributed among the workers. If the numebr of workers N is larger than block, then block will be set to be N.
-- `print`:    -1 to not print anything, 0 to print minimal information, >0 to print summary for every `print` seconds.
+- `print`:    -2 to not print anything; -1 to print minimal information; 0 to print the iteration history in the end; >0 to print MC configuration for every `print` seconds and print the iteration history in the end.
 - `gamma`:    Learning rate of the reweight factor after each iteraction. Note that alpha <=1, where alpha = 0 means no reweighting.  
 - `adapt`:    Whether to adapt the grid and the reweight factor.
 - `debug`:    Whether to print debug information (type instability, float overflow etc.)
@@ -50,7 +50,7 @@ function integrate(integrand::Function;
     neval=1e4, # number of evaluations
     niter=10, # number of iterations
     block=16, # number of blocks
-    print=0, printio=stdout, save=0, saveio=nothing, timer=[],
+    print=-1, printio=stdout, save=0, saveio=nothing, timer=[],
     gamma=1.0, # learning rate of the reweight factor, only used in MCMC solver
     adapt=true, # whether to adapt the grid and the reweight factor
     debug=false, # whether to print debug information (type instability, etc.)

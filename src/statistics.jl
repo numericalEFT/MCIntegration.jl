@@ -122,7 +122,7 @@ function report(result::Result, ignore=result.ignore; pick::Union{Function,Abstr
             for iter in 1:length(result.iterations)
                 m0, e0 = p(result.iterations[iter][1][i]), p(result.iterations[iter][2][i])
                 m, e, chi2 = average(result.iterations, i; init=ignore_iter + 1, max=iter)
-                m, e, chi2 = p(m[i]), p(e[i]), p(chi2[i])
+                m, e, chi2 = p(m), p(e), p(chi2)
                 iterstr = iter <= ignore_iter ? "ignore" : "$iter"
                 sm0, sm = tostring(m0, e0), tostring(m, e)
                 println(@sprintf("%6s %36s %36s %16.4f", iterstr, sm0, sm, abs(chi2)))
