@@ -27,7 +27,7 @@ end
 
     function montecarlo(config::Configuration{Ni,V,P,O,T}, integrand::Function, neval,
         print=0, save=0, timer=[], debug=false;
-        measure::Union{Nothing,Function}=nothing, measurefreq=1, kwargs...) where {Ni,V,P,O,T}
+        measure::Union{Nothing,Function}=nothing, measurefreq::Int=1) where {Ni,V,P,O,T}
 
 This algorithm implements the classic Vegas algorithm.
 
@@ -79,7 +79,10 @@ Integral 1 = 0.667203631824444 ± 0.0005046485925614018   (chi2/dof = 1.46)
 """
 function montecarlo(config::Configuration{Ni,V,P,O,T}, integrand::Function, neval,
     print=0, save=0, timer=[], debug=false;
-    measure::Union{Nothing,Function}=nothing, measurefreq=1, kwargs...) where {Ni,V,P,O,T}
+    measure::Union{Nothing,Function}=nothing, measurefreq::Int=1
+) where {Ni,V,P,O,T}
+
+    @assert measurefreq > 0
 
     relativeWeights = zeros(T, Ni)
     weights = zeros(T, Ni)

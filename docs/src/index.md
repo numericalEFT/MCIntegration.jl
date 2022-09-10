@@ -20,6 +20,9 @@ The following examples demonstrate the basic usage of this package.
 We first show an example of highly singular integral. The following command evaluates ∫_0^1 log(x)/√x dx = 4.
 ```julia
 julia> res = integrate((x, c)->log(x[1])/sqrt(x[1]), solver=:vegas) 
+Integral 1 = -3.997980772652019 ± 0.0013607691354676158   (chi2/dof = 1.93)
+
+julia> report(res) #print out the iteration history
 ====================================     Integral 1    ==========================================
   iter              integral                            wgt average                      chi2/dof
 -------------------------------------------------------------------------------------------------
@@ -34,11 +37,10 @@ ignore        -3.8394711 ± 0.12101621              -3.8394711 ± 0.12101621    
      9         -3.994137 ± 0.0026675679            -3.9975984 ± 0.0014895459               2.1453
     10        -3.9999099 ± 0.0033455927            -3.9979808 ± 0.0013607691               1.9269
 -------------------------------------------------------------------------------------------------
-Integral 1 = -3.997980772652019 ± 0.0013607691354676158   (chi2/dof = 1.93)
 ```
 - By default, the function performs 10 iterations and each iteraction costs about `1e4` evaluations. You may reset these values with `niter` and `neval` keywords arguments.
 
-- The final result is obtained by inverse-variance-weighted averge of all the iterations except the first one (there is no important sampling yet!). They are stored in the return value`res`, which is a struct [`Result`](https://numericaleft.github.io/MCIntegration.jl/dev/lib/montecarlo/#Main-module). You can access the statistics with `res.mean`, `res.stdev`, `res.chi2`, `res.dof` and `res.iterations` for all the iterations. You can print them on the screen using `report(res)`.
+- The final result is obtained by inverse-variance-weighted averge of all the iterations except the first one (there is no important sampling yet!). They are stored in the return value`res`, which is a struct [`Result`](https://numericaleft.github.io/MCIntegration.jl/dev/lib/montecarlo/#Main-module). You can access the statistics with `res.mean`, `res.stdev`, `res.chi2`, `res.dof` and `res.iterations` for all the iterations. 
 
 -  If you want to exclude more iterations, say the first three iterations, you can get a new result with the call `Result(res, 3)`.  
 
@@ -60,14 +62,14 @@ The following example first defines a pool of variables in [0, 1), then evaluate
 julia> X=Continuous(0.0, 1.0) #Create a pool of continuous variables. 
 Adaptive continuous variable in the domain [0.0, 1.0). Max variable number = 16. Learning rate = 2.0.
 
-julia> integrate((X, c)->(X[1]^2+X[2]^2<1.0); var = X, dof = 2, print=-1) # print=-1 minimizes the output information
+julia> integrate((X, c)->(X[1]^2+X[2]^2<1.0); var = X, dof = 2)
 Integral 1 = 0.7832652785953883 ± 0.002149843816733503   (chi2/dof = 1.28)
 ```
 
 ## Multiple Integrands Simultaneously
 You can calculate multiple integrals simultaneously. If the integrands are similar to each other, evaluating the integrals simultaneously sigificantly reduces cost. The following example calculate the area of a quarter circle and the volume of one-eighth sphere.
 ```julia
-julia> integrate((X, c)->(X[1]^2+X[2]^2<1.0, X[1]^2+X[2]^2+X[3]^2<1.0); var = Continuous(0.0, 1.0), dof = [[2,],[3,]], print=-1)
+julia> integrate((X, c)->(X[1]^2+X[2]^2<1.0, X[1]^2+X[2]^2+X[3]^2<1.0); var = Continuous(0.0, 1.0), dof = [[2,],[3,]])
 Integral 1 = 0.7823432452235586 ± 0.003174967010742156   (chi2/dof = 2.82)
 Integral 2 = 0.5185515421806122 ± 0.003219487569949905   (chi2/dof = 1.41)
 ```
@@ -75,7 +77,7 @@ Here `dof` defines how many (degrees of freedom) variables of each type. For exa
 
 You can also use the julia do-syntax to improve the readability of the above example,
 ```julia
-julia> integrate(var = Continuous(0.0, 1.0), dof = [[2,], [3,]], print = -1) do X, c
+julia> integrate(var = Continuous(0.0, 1.0), dof = [[2,], [3,]]) do X, c
            r1 = (X[1]^2 + X[2]^2 < 1.0) ? 1.0 : 0.0
            r2 = (X[1]^2 + X[2]^2 + X[3]^2 < 1.0) ? 1.0 : 0.0
            return (r1, r2)
@@ -111,7 +113,7 @@ julia> res = integrate(integrand;
                 dof = [[1,1], [2,1]], 
                 # integral-1: one continuous and one discrete variables, integral-2: two continous and one discrete variables
                 obs = [zeros(N), zeros(N)], # prototype of the observables for each integral
-                userdata = grid, neval = 1e5, print = -1)
+                userdata = grid, neval = 1e5)
 Integral 1 = 0.9957805541613277 ± 0.008336657854575344   (chi2/dof = 1.15)
 Integral 2 = 0.7768105610812656 ± 0.006119386106596811   (chi2/dof = 1.4)
 ```

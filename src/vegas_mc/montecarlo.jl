@@ -2,8 +2,7 @@
 
     function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval,
         print=0, debug=false;
-        measurefreq=2, measure::Union{Nothing,Function}=nothing,
-        kwargs...) where {N,V,P,O,T}
+        measurefreq::Int=1, measure::Union{Nothing,Function}=nothing) where {N,V,P,O,T}
 
 This algorithm combines Vegas with Markov-chain Monte Carlo.
 For multiple integrands invoves multiple variables, it finds the best distribution
@@ -63,8 +62,10 @@ Integral 1 = 0.6640840471808533 ± 0.000916060916265263   (chi2/dof = 0.945)
 """
 function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval,
     print=0, save=0, timer=[], debug=false;
-    measurefreq=2, measure::Union{Nothing,Function}=nothing,
-    kwargs...) where {N,V,P,O,T}
+    measure::Union{Nothing,Function}=nothing, measurefreq::Int=1
+) where {N,V,P,O,T}
+
+    @assert measurefreq > 0
 
     ################## test integrand type stability ######################
     if debug

@@ -5,12 +5,14 @@
         neval=1e4, 
         niter=10, 
         block=16, 
-        print=0, 
+        print=-1, 
         gamma=1.0, 
         adapt=true,
         debug=false, 
         reweight_goal::Union{Vector{Float64},Nothing}=nothing, 
         ignore::Int=adapt ? 1 : 0,
+        measure::Union{Nothing,Function}=nothing,
+        measurefreq::Int=1,
         kwargs...
     )
 
@@ -30,13 +32,17 @@
 - `niter`:    Number of iterations. The reweight factor and the variables will be self-adapted after each iteration. 
 - `block`:    Number of blocks. Each block will be evaluated by about neval/block times. Each block is assumed to be statistically independent, and will be used to estimate the error. 
               In MPI mode, the blocks are distributed among the workers. If the numebr of workers N is larger than block, then block will be set to be N.
-- `print`:    -1 to not print anything, 0 to print minimal information, >0 to print summary for every `print` seconds.
+- `print`:    -2 to not print anything; -1 to print minimal information; 0 to print the iteration history in the end; >0 to print MC configuration for every `print` seconds and print the iteration history in the end.
 - `gamma`:    Learning rate of the reweight factor after each iteraction. Note that alpha <=1, where alpha = 0 means no reweighting.  
 - `adapt`:    Whether to adapt the grid and the reweight factor.
 - `debug`:    Whether to print debug information (type instability, float overflow etc.)
 - `reweight_goal`: The expected distribution of visited times for each integrand after reweighting . If not set, then all factors will be initialized with one. Only useful for the :mcmc solver. 
-- `ignore` : ignore the iteration until the `ignore` round. By default, the first iteration is igonred if adapt=true, and non is ignored if adapt=false.
-- `kwargs`:   Keyword arguments. If `config` is `nothing`, you may need to provide arguments for the `Configuration` constructor, check [`Configuration`](@ref) docs for more details.
+- `ignore`:   ignore the iteration until the `ignore` round. By default, the first iteration is igonred if adapt=true, and non is ignored if adapt=false.
+- `measure`:  measurement function, See [`Vegas.montecarlo`](@ref), [`VegasMC.montecarlo`](@ref) and [`MCMC.montecarlo`](@ref) for more details.
+- `measurefreq`: how often perform the measurement for ever `measurefreq` MC steps. If a measurement is expansive, you may want to make the measurement less frequent.
+- `kwargs`:   Keyword arguments. The supported keywords include,
+  * `measure` and `measurefreq`: measurement function and how frequent it is called. 
+  * If `config` is `nothing`, you may need to provide arguments for the `Configuration` constructor, check [`Configuration`](@ref) docs for more details.
 
 # Examples
 ```julia-repl
@@ -50,12 +56,14 @@ function integrate(integrand::Function;
     neval=1e4, # number of evaluations
     niter=10, # number of iterations
     block=16, # number of blocks
-    print=0, printio=stdout, save=0, saveio=nothing, timer=[],
+    print=-1, printio=stdout, save=0, saveio=nothing, timer=[],
     gamma=1.0, # learning rate of the reweight factor, only used in MCMC solver
     adapt=true, # whether to adapt the grid and the reweight factor
     debug=false, # whether to print debug information (type instability, etc.)
     reweight_goal::Union{Vector{Float64},Nothing}=nothing, # goal of visited steps of each integrand (include the normalization integral)
-    ignore::Int=adapt ? 1 : 0,
+    ignore::Int=adapt ? 1 : 0, #ignore the first `ignore` iteractions in average
+    measure::Union{Nothing,Function}=nothing,
+    measurefreq::Int=1,
     kwargs...
 )
     if isnothing(config)
@@ -110,11 +118,14 @@ function integrate(integrand::Function;
             clearStatistics!(config) # reset statistics
 
             if solver == :vegasmc
-                config = VegasMC.montecarlo(config, integrand, nevalperblock, print, save, timer, debug; kwargs...)
+                config = VegasMC.montecarlo(config, integrand, nevalperblock, print, save, timer, debug;
+                    measure=measure, measurefreq=measurefreq)
             elseif solver == :vegas
-                config = Vegas.montecarlo(config, integrand, nevalperblock, print, save, timer, debug; kwargs...)
+                config = Vegas.montecarlo(config, integrand, nevalperblock, print, save, timer, debug;
+                    measure=measure, measurefreq=measurefreq)
             elseif solver == :mcmc
-                config = MCMC.montecarlo(config, integrand, nevalperblock, print, save, timer, debug; kwargs...)
+                config = MCMC.montecarlo(config, integrand, nevalperblock, print, save, timer, debug;
+                    measure=measure, measurefreq=measurefreq)
             else
                 error("Solver $solver is not supported!")
             end

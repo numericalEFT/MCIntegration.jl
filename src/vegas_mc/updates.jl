@@ -52,6 +52,9 @@ function changeVariable(config::Configuration{N,V,P,O,T}, integrand,
     if (var isa Discrete) && (var.size == 1) # there is only one discrete element, there is nothing to sample with.
         return currProbability
     end
+    if maxdof[vi] <= 0
+        return currProbability
+    end
     idx = var.offset + rand(config.rng, 1:maxdof[vi]) # randomly choose one var to update
 
     prop = Dist.shift!(var, idx, config)
