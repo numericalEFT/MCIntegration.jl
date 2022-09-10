@@ -19,7 +19,7 @@ using MCIntegration
         me::Float64 = 0.5
 
         kF::Float64 = (dim == 3) ? (9π / (2spin))^(1 / 3) / rs : sqrt(4 / spin) / rs
-        extQ::Vector{SVector{3,Float64}} = [@SVector [q, 0.0, 0.0] for q in LinRange(0.0 * kF, 2.0 * kF, Qsize)]
+        extQ::Vector{SVector{3,Float64}} = [@SVector [q, 0.0, 0.0] for q in LinRange(0.0 * kF, 1.5 * kF, Qsize)]
         β::Float64 = beta / (kF^2 / 2me)
     end
 
@@ -127,9 +127,9 @@ using MCIntegration
         end
     end
 
-    run(Steps, :mcmc, 10.0)
-    run(Steps, :vegas, 20.0)
-    run(Steps, :vegasmc, 10.0)
+    run(Steps, :mcmc, 5.0)
+    run(Steps, :vegas, 10.0)
+    run(Steps, :vegasmc, 5.0)
     # run(Steps, :vegasmc) #currently vegasmc can not handle this 
     # @time run(Steps)
 end
