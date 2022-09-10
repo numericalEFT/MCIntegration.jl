@@ -11,6 +11,8 @@
         debug=false, 
         reweight_goal::Union{Vector{Float64},Nothing}=nothing, 
         ignore::Int=adapt ? 1 : 0,
+        measure::Union{Nothing,Function}=nothing,
+        measurefreq::Int=1,
         kwargs...
     )
 
@@ -35,9 +37,11 @@
 - `adapt`:    Whether to adapt the grid and the reweight factor.
 - `debug`:    Whether to print debug information (type instability, float overflow etc.)
 - `reweight_goal`: The expected distribution of visited times for each integrand after reweighting . If not set, then all factors will be initialized with one. Only useful for the :mcmc solver. 
-- `ignore` : ignore the iteration until the `ignore` round. By default, the first iteration is igonred if adapt=true, and non is ignored if adapt=false.
+- `ignore`:   ignore the iteration until the `ignore` round. By default, the first iteration is igonred if adapt=true, and non is ignored if adapt=false.
+- `measure`:  measurement function, See [`Vegas.montecarlo`](@ref), [`VegasMC.montecarlo`](@ref) and [`MCMC.montecarlo`](@ref) for more details.
+- `measurefreq`: how often perform the measurement for ever `measurefreq` MC steps. If a measurement is expansive, you may want to make the measurement less frequent.
 - `kwargs`:   Keyword arguments. The supported keywords include,
-  * `measure` and `measurefreq`: measurement function and how frequent it is called. See [`Vegas.montecarlo`](@ref), [`VegasMC.montecarlo`](@ref) and [`MCMC.montecarlo`](@ref) for more details.
+  * `measure` and `measurefreq`: measurement function and how frequent it is called. 
   * If `config` is `nothing`, you may need to provide arguments for the `Configuration` constructor, check [`Configuration`](@ref) docs for more details.
 
 # Examples
@@ -57,10 +61,11 @@ function integrate(integrand::Function;
     adapt=true, # whether to adapt the grid and the reweight factor
     debug=false, # whether to print debug information (type instability, etc.)
     reweight_goal::Union{Vector{Float64},Nothing}=nothing, # goal of visited steps of each integrand (include the normalization integral)
-    ignore::Int=adapt ? 1 : 0,
+    ignore::Int=adapt ? 1 : 0, #ignore the first `ignore` iteractions in average
+    measure::Union{Nothing,Function}=nothing,
+    measurefreq::Int=1,
     kwargs...
 )
-    println("kwargs in begin: ", kwargs)
     if isnothing(config)
         config = Configuration(; kwargs...)
     end
@@ -113,11 +118,14 @@ function integrate(integrand::Function;
             clearStatistics!(config) # reset statistics
 
             if solver == :vegasmc
-                config = VegasMC.montecarlo(config, integrand, nevalperblock, print, save, timer, debug; kwargs...)
+                config = VegasMC.montecarlo(config, integrand, nevalperblock, print, save, timer, debug;
+                    measure=measure, measurefreq=measurefreq)
             elseif solver == :vegas
-                config = Vegas.montecarlo(config, integrand, nevalperblock, print, save, timer, debug; kwargs...)
+                config = Vegas.montecarlo(config, integrand, nevalperblock, print, save, timer, debug;
+                    measure=measure, measurefreq=measurefreq)
             elseif solver == :mcmc
-                config = MCMC.montecarlo(config, integrand, nevalperblock, print, save, timer, debug; kwargs...)
+                config = MCMC.montecarlo(config, integrand, nevalperblock, print, save, timer, debug;
+                    measure=measure, measurefreq=measurefreq)
             else
                 error("Solver $solver is not supported!")
             end
@@ -171,8 +179,6 @@ function integrate(integrand::Function;
         end
         ################################################################################
     end
-
-    println("kwargs in end: ", kwargs)
 
     ##########################  output results   ##############################
     if MPI.Comm_rank(comm) == root

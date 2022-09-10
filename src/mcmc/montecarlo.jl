@@ -8,7 +8,7 @@ end
 
     function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval,
         print=0, save=0, timer=[], debug=false;
-        measurefreq=2, measure::Union{Nothing,Function}=nothing) where {N,V,P,O,T}
+        measurefreq::Int=1, measure::Union{Nothing,Function}=nothing, idx::Int=1) where {N,V,P,O,T}
 
 This algorithm calculate high-dimensional integrals with a Markov-chain Monte Carlo.
 For multiple integrands invoves multiple variables, it finds the best distribution
@@ -86,7 +86,13 @@ Integral 1 = 0.6757665376867902 ± 0.008655534861083898   (chi2/dof = 0.681)
 """
 function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval,
     print=0, save=0, timer=[], debug=false;
-    measurefreq=2, measure::Union{Nothing,Function}=nothing) where {N,V,P,O,T}
+    measurefreq::Int=1,
+    measure::Union{Nothing,Function}=nothing,
+    idx::Int=1 # the integral to start with
+) where {N,V,P,O,T}
+
+    @assert measurefreq > 0
+
     ##############  initialization  ################################
     # don't forget to initialize the diagram weight
     if isnothing(measure)
@@ -104,13 +110,7 @@ function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval
     end
     #######################################################################
 
-    if haskey(kwargs, :idx)
-        curr = kwargs[:idx]
-    elseif haskey(kwargs, :curr)
-        curr = kwargs[:curr]
-    else
-        curr = 1
-    end
+    curr = idx
 
     state = _State{T}(curr, zero(T), 1.0)
 
