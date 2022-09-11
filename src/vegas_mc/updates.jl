@@ -43,17 +43,17 @@
 # end
 
 function changeVariable(config::Configuration{N,V,P,O,T}, integrand,
-    currProbability::Float64, weights,
+    currProbability::Float64, weights, _weights,
     padding_probability, _padding_probability) where {N,V,P,O,T}
     # update to change the variables of the current diagrams
     maxdof = config.maxdof
     vi = rand(config.rng, 1:length(maxdof)) # update the variable type of the index vi
     var = config.var[vi]
     if (var isa Discrete) && (var.size == 1) # there is only one discrete element, there is nothing to sample with.
-        return currProbability
+        return currProbability, weights, _weights, padding_probability, _padding_probability
     end
     if maxdof[vi] <= 0
-        return currProbability
+        return currProbability, weights, _weights, padding_probability, _padding_probability
     end
     idx = var.offset + rand(config.rng, 1:maxdof[vi]) # randomly choose one var to update
 
@@ -61,19 +61,32 @@ function changeVariable(config::Configuration{N,V,P,O,T}, integrand,
 
     # sampler may want to reject, then prop has already been set to zero
     if prop <= eps(0.0)
-        return currProbability
+        return currProbability, weights, _weights, padding_probability, _padding_probability
+        # return currProbability
     end
 
     # weights = integrand_wrap(config, integrand)
-    _weights = (fieldcount(V) == 1) ?
-               integrand(config.var[1], config) :
-               integrand(config.var, config)
+    (fieldcount(V) == 1) ?
+    integrand(config.var[1], _weights, config) :
+    integrand(config.var, _weights, config)
     # evaulation acutally happens before this step
     config.neval += 1
 
-    for i in 1:N+1
-        _padding_probability[i] = Dist.padding_probability(config, i)
+    # for i in 1:N+1
+    #     _padding_probability[i] = Dist.padding_probability(config, i)
+    # end
+
+    for i in 1:N
+        if config.dof[i][vi] + var.offset < idx
+            _padding_probability[i] = padding_probability[i] / prop
+        else
+            _padding_probability[i] = padding_probability[i]
+        end
+        # @assert _padding_probability[i] ≈ Dist.padding_probability(config, i) "$(_padding_probability[i]) ≈ $(Dist.padding_probability(config, i))\n $idx, $(config.dof[i][vi])"
     end
+    _padding_probability[config.norm] = padding_probability[config.norm] / prop
+    # @assert _padding_probability[config.norm] ≈ Dist.padding_probability(config, N + 1) "$(_padding_probability[config.norm]) ≈ $(Dist.padding_probability(config, N+1))"
+
     # println(_padding_probability)
     newProbability = config.reweight[config.norm] * _padding_probability[config.norm] #normalization integral
     for i in 1:N #other integrals
@@ -84,17 +97,17 @@ function changeVariable(config::Configuration{N,V,P,O,T}, integrand,
     config.propose[2, 1, vi] += 1.0
     if rand(config.rng) < R
         config.accept[2, 1, vi] += 1.0
-        for i in 1:N # broadcast operator . doesn't work here, because _weights can be a scalar
-            weights[i] = _weights[i]
-        end
-        for i in 1:N+1 # broadcast operator . doesn't work here, because _weights can be a scalar
-            padding_probability[i] = _padding_probability[i]
-        end
+        # for i in 1:N # broadcast operator . doesn't work here, because _weights can be a scalar
+        #     weights[i] = _weights[i]
+        # end
+        # for i in 1:N+1 # broadcast operator . doesn't work here, because _weights can be a scalar
+        #     padding_probability[i] = _padding_probability[i]
+        # end
         # config.probability = newProbability
-        return newProbability
+        return newProbability, _weights, weights, _padding_probability, padding_probability
     else
         Dist.shiftRollback!(var, idx, config)
-        return currProbability
+        return currProbability, weights, _weights, padding_probability, _padding_probability
     end
     # return
 end

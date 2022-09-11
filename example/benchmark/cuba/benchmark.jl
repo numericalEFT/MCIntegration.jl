@@ -72,6 +72,20 @@ function test2(x, c)
     t11(x[1], x[2], x[3])
 end
 
+function test2(x, f::Vector{Float64}, c::Configuration)
+    @inbounds f[1] = t1(x[1], x[2], x[3])
+    @inbounds f[2] = t2(x[1], x[2], x[3])
+    @inbounds f[3] = t3(x[1], x[2], x[3])
+    @inbounds f[4] = t4(x[1], x[2], x[3])
+    @inbounds f[5] = t5(x[1], x[2], x[3])
+    @inbounds f[6] = t6(x[1], x[2], x[3])
+    @inbounds f[7] = t7(x[1], x[2], x[3])
+    @inbounds f[8] = t8(x[1], x[2], x[3])
+    @inbounds f[9] = t9(x[1], x[2], x[3])
+    @inbounds f[10] = t10(x[1], x[2], x[3])
+    @inbounds f[11] = t11(x[1], x[2], x[3])
+end
+
 @info "Performance of Cuba.jl:"
 for alg in (vegas, suave, divonne, cuhre)
     # Run the integrator a first time to compile the function.
@@ -119,6 +133,7 @@ end
 
 @info "Performance of MCIntegration:"
 for alg in (:vegas, :vegasmc)
+    # for alg in (:vegasmc,)
     # Run the integrator a first time to compile the function.
     integrate(test2; dof=[[3,] for i in 1:11], neval=1e4, solver=alg, print=-1)
     start_time = time_ns()
