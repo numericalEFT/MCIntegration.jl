@@ -49,7 +49,7 @@ using MCIntegration
         end
     end
 
-    function integrand(vars, config)
+    function integrand(vars, f, config)
         # @assert idx == 1 "$(idx) is not a valid integrand"
         R, Theta, Phi, T, Ext = vars
         para = config.userdata
@@ -73,12 +73,12 @@ using MCIntegration
         ω2 = (dot(kq, kq) - kF^2) / (2me)
         g2 = green(-τ, ω2, β)
         n = 0 # external Matsubara frequency
-        return g1 * g2 * para.spin * factor * cos(2π * n * τ / β)
+        f[1] = g1 * g2 * para.spin * factor * cos(2π * n * τ / β)
     end
 
-    function integrand(idx, vars, config)
-        return integrand(vars, config)::Float64
-    end
+    # function integrand(idx, vars, config)
+    #     return integrand(vars, config)::Float64
+    # end
 
     function measure(vars, obs, weight, config)
         # para = config.userdata
@@ -110,7 +110,7 @@ using MCIntegration
             neval=steps, print=-1, block=8)
         @time result = integrate(integrand; measure=measure, userdata=para,
             var=(R, θ, ϕ, T, Ext), dof=dof, obs=obs, solver=alg,
-            neval=steps * 10, print=0, block=64, niter=1, config=result.config, debug=true)
+            neval=steps * 10, print=0, block=16, niter=10, config=result.config, debug=true)
 
         if isnothing(result) == false
             avg, std = result.mean, result.stdev
@@ -123,11 +123,12 @@ using MCIntegration
                 @printf("%10.6f  %10.6f ± %10.6f  %10.6f\n", q / kF, avg[idx], std[idx], p)
                 check(avg[idx], std[idx], p, ratio)
             end
+            report(result.config)
             # check(avg[1], std[1], lindhard(extQ[1][1], para))
         end
     end
 
-    run(Steps, :mcmc, 10.0)
+    # run(Steps, :mcmc, 10.0)
     run(Steps, :vegas, 20.0)
     run(Steps, :vegasmc, 10.0)
     # run(Steps, :vegasmc) #currently vegasmc can not handle this 

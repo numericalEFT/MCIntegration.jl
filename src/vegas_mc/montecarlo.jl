@@ -66,13 +66,15 @@ function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval
 ) where {N,V,P,O,T}
 
     @assert measurefreq > 0
+    weights = zeros(T, N)
+    _weights = zeros(T, N)
 
     ################## test integrand type stability ######################
     if debug
         if (length(config.var) == 1)
-            MCUtility.test_type_stability(integrand, (config.var[1], config))
+            MCUtility.test_type_stability(integrand, (config.var[1], weights, config))
         else
-            MCUtility.test_type_stability(integrand, (config.var, config))
+            MCUtility.test_type_stability(integrand, (config.var, weights, config))
         end
     end
     #######################################################################
@@ -80,8 +82,6 @@ function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval
     if isnothing(measure)
         @assert (config.observable isa AbstractVector) && (length(config.observable) == config.N) && (eltype(config.observable) == T) "the default measure can only handle observable as Vector{$T} with $(config.N) elements!"
     end
-    weights = zeros(T, N)
-    _weights = zeros(T, N)
     relativeWeights = zeros(T, N)
     # padding probability for user and normalization integrands
     # should be something like [f_1(x)*g_0(y), f_2(x, y), 1*f_0(x)*g_0(y)], where f_0(x) and g_0(y) are the ansatz from the Vegas map

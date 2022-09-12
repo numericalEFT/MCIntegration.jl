@@ -90,9 +90,9 @@ function montecarlo(config::Configuration{Ni,V,P,O,T}, integrand::Function, neva
     ################## test integrand type stability ######################
     if debug
         if (length(config.var) == 1)
-            MCUtility.test_type_stability(integrand, (config.var[1], config))
+            MCUtility.test_type_stability(integrand, (config.var[1], weights, config))
         else
-            MCUtility.test_type_stability(integrand, (config.var, config))
+            MCUtility.test_type_stability(integrand, (config.var, weights, config))
         end
     end
     #######################################################################
@@ -129,7 +129,7 @@ function montecarlo(config::Configuration{Ni,V,P,O,T}, integrand::Function, neva
         end
         # weights = @_expanded_integrand(config, integrand, 1) # very fast, but requires explicit N
         # weights = integrand_wrap(config, integrand) #make a lot of allocations
-        weights = (fieldcount(V) == 1) ? integrand(config.var[1], config) : integrand(config.var, config)
+        (fieldcount(V) == 1) ? integrand(config.var[1], weights, config) : integrand(config.var, weights, config)
 
         if (ne % measurefreq == 0)
             if isnothing(measure)
