@@ -3,7 +3,7 @@
 
 using LinearAlgebra, Random, Printf
 using StaticArrays
-using MCIntegration
+# using MCIntegration
 # using ProfileView
 # using Infiltrator
 

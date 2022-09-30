@@ -2,7 +2,7 @@
 
 using LinearAlgebra, Random, Printf
 using StaticArrays
-using MCIntegration
+# using MCIntegration
 # using ProfileView
 
 @testset "Free electron polarization" begin
