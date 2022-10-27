@@ -8,6 +8,14 @@ function Sphere1(neval, alg)
     return integrate(f; var=(X,), dof=[[2,],], neval=neval, print=-1, solver=alg)
 end
 
+"""
+Unit test for MCMC integration with reweighting goals specified.
+"""
+function TestMCMCReweight(neval)
+    X = Continuous(0.0, 1.0)
+    return integrate((idx, x, c) -> 1.0; var=(X,), dof=[[1,],], neval=neval, print=-1, solver=:mcmc, reweight_goal=ones(2))
+end
+
 function Sphere2(totalstep, alg; offset=0)
     function integrand(X, config) # return a tuple of two integrands
         i1 = (X[1+offset]^2 + X[2+offset]^2 < 1.0) ? 1.0 : 0.0
@@ -110,6 +118,8 @@ end
     neval = 1000_00
     println("MCMC tests")
 
+    println("Constant with reweight goal")
+    check(TestMCMCReweight(neval), 1)
     println("Sphere 2D")
     check(Sphere1(neval, :mcmc), π / 4.0)
     println("Sphere 2D + 3D")
