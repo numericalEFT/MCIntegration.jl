@@ -79,7 +79,7 @@ Integral 1 = 0.667203631824444 ± 0.0005046485925614018   (chi2/dof = 1.46)
 """
 function montecarlo(config::Configuration{Ni,V,P,O,T}, integrand::Function, neval,
     print=0, save=0, timer=[], debug=false;
-    measure::Union{Nothing,Function}=nothing, measurefreq::Int=1
+    measure::Union{Nothing,Function}=nothing, measurefreq::Int=1, inplace::Bool=false
 ) where {Ni,V,P,O,T}
 
     @assert measurefreq > 0
@@ -89,10 +89,18 @@ function montecarlo(config::Configuration{Ni,V,P,O,T}, integrand::Function, neva
 
     ################## test integrand type stability ######################
     if debug
-        if (length(config.var) == 1)
-            MCUtility.test_type_stability(integrand, (config.var[1], config))
+        if inplace
+            if (length(config.var) == 1)
+                MCUtility.test_type_stability(integrand, (config.var[1], weights, config))
+            else
+                MCUtility.test_type_stability(integrand, (config.var, weights, config))
+            end
         else
-            MCUtility.test_type_stability(integrand, (config.var, config))
+            if (length(config.var) == 1)
+                MCUtility.test_type_stability(integrand, (config.var[1], config))
+            else
+                MCUtility.test_type_stability(integrand, (config.var, config))
+            end
         end
     end
     #######################################################################
@@ -129,7 +137,11 @@ function montecarlo(config::Configuration{Ni,V,P,O,T}, integrand::Function, neva
         end
         # weights = @_expanded_integrand(config, integrand, 1) # very fast, but requires explicit N
         # weights = integrand_wrap(config, integrand) #make a lot of allocations
-        weights = (fieldcount(V) == 1) ? integrand(config.var[1], config) : integrand(config.var, config)
+        if inplace
+            (fieldcount(V) == 1) ? integrand(config.var[1], weights, config) : integrand(config.var, weights, config)
+        else
+            weights = (fieldcount(V) == 1) ? integrand(config.var[1], config) : integrand(config.var, config)
+        end
 
         if (ne % measurefreq == 0)
             if isnothing(measure)

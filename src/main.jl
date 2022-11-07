@@ -24,7 +24,9 @@
 
  # Arguments
 
-- `integrand`:Function call to evaluate the integrand. It should accept an argument of the type [`Configuration`](@ref), and return a weight. 
+- `integrand`:Function call to evaluate the integrand.  
+              If inpace = false, then the signature of the integrand should be `integrand(var, config)`, where `var` is a vector of random variables, and `config` is the [`Configuration`](@ref) struct. It should return one or more weights, corresponding to the value of each component of the integrand for the given `var`.
+              If inpace = true, then the signature of the integrand should be `integrand(var, weights, config)`, where the additional argument `weights` are the value of the components of the integrand for the given `var`.
               Internally, MC only samples the absolute value of the weight. Therefore, it is also important to define Main.abs for the weight if its type is user-defined. 
 - `solver` :  :vegas, :vegasmc, or :mcmc. See Readme for more details.
 - `config`:   [`Configuration`](@ref) object to perform the MC integration. If `nothing`, it attempts to create a new one with Configuration(; kwargs...).
@@ -40,15 +42,18 @@
 - `ignore`:   ignore the iteration until the `ignore` round. By default, the first iteration is igonred if adapt=true, and non is ignored if adapt=false.
 - `measure`:  measurement function, See [`Vegas.montecarlo`](@ref), [`VegasMC.montecarlo`](@ref) and [`MCMC.montecarlo`](@ref) for more details.
 - `measurefreq`: how often perform the measurement for ever `measurefreq` MC steps. If a measurement is expansive, you may want to make the measurement less frequent.
-- `inplace::Bool`: whether to use the inplace version of the integrand. Default is `false`, which is more convenient for integrand with a few return values but may cause type instability. 
+- `inplace`:  whether to use the inplace version of the integrand. Default is `false`, which is more convenient for integrand with a few return values but may cause type instability. Only useful for the :vegas and :vegasmc solver.
 - `kwargs`:   Keyword arguments. The supported keywords include,
   * `measure` and `measurefreq`: measurement function and how frequent it is called. 
   * If `config` is `nothing`, you may need to provide arguments for the `Configuration` constructor, check [`Configuration`](@ref) docs for more details.
 
 # Examples
 ```julia-repl
-julia> integrate((x, c)->(x[1]^2+x[2]^2); var = Continuous(0.0, 1.0), dof = 2, print=-1)
-Integral 1 = 0.6668625385256122 ± 0.0009960142738129768   (chi2/dof = 1.07)
+integrate((x, c)->(x[1]^2+x[2]^2); var = Continuous(0.0, 1.0), dof = 2, print=-2, solver=:vegas)
+Integral 1 = 0.6663652080622751 ± 0.000490978424216832   (chi2/dof = 0.645)
+
+julia> integrate((x, f, c)-> (f=x[1]^2+x[2]^2); var = Continuous(0.0, 1.0), dof = 2, print=-2, solver=:vegas, inplace=true) # inplace version
+Integral 1 = 0.0 ± 3.3333333333333335e-11   (chi2/dof = 0.0)
 ```
 """
 function integrate(integrand::Function;
@@ -121,10 +126,10 @@ function integrate(integrand::Function;
 
             if solver == :vegasmc
                 config = VegasMC.montecarlo(config, integrand, nevalperblock, print, save, timer, debug;
-                    measure=measure, measurefreq=measurefreq)
+                    measure=measure, measurefreq=measurefreq, inplace=inplace)
             elseif solver == :vegas
                 config = Vegas.montecarlo(config, integrand, nevalperblock, print, save, timer, debug;
-                    measure=measure, measurefreq=measurefreq)
+                    measure=measure, measurefreq=measurefreq, inplace=inplace)
             elseif solver == :mcmc
                 config = MCMC.montecarlo(config, integrand, nevalperblock, print, save, timer, debug;
                     measure=measure, measurefreq=measurefreq)

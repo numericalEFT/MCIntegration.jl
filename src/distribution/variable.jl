@@ -115,7 +115,7 @@ J(y) = J_i = N \\Delta x_i
 
 The grid point ``x_i`` is trained after each iteration.
 """
-function Continuous(lower::Float64, upper::Float64, size=MaxOrder; offset=0, alpha=2.0, adapt=true, ninc=1000, grid=collect(LinRange(lower, upper, ninc))) where {G}
+function Continuous(lower::Float64, upper::Float64, size=MaxOrder; offset=0, alpha=2.0, adapt=true, ninc=1000, grid=collect(LinRange(lower, upper, ninc)))
     @assert offset + 1 < size
     size = size + 1 # need one more element as cache for the swap operation
     @assert upper > lower + 2 * eps(1.0)
