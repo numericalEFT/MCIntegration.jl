@@ -52,8 +52,8 @@
 integrate((x, c)->(x[1]^2+x[2]^2); var = Continuous(0.0, 1.0), dof = 2, print=-2, solver=:vegas)
 Integral 1 = 0.6663652080622751 ± 0.000490978424216832   (chi2/dof = 0.645)
 
-julia> integrate((x, f, c)-> (f=x[1]^2+x[2]^2); var = Continuous(0.0, 1.0), dof = 2, print=-2, solver=:vegas, inplace=true) # inplace version
-Integral 1 = 0.0 ± 3.3333333333333335e-11   (chi2/dof = 0.0)
+julia> integrate((x, f, c)-> (f[1] = x[1]^2+x[2]^2); var = Continuous(0.0, 1.0), dof = 2, print=-2, solver=:vegas, inplace=true)
+Integral 1 = 0.6672083165915914 ± 0.0004919147870306026   (chi2/dof = 2.54)
 ```
 """
 function integrate(integrand::Function;
