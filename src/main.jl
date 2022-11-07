@@ -247,7 +247,7 @@ function doReweight!(config, gamma, reweight_goal)
     # println(config.visited)
     # println(config.reweight)
     if isnothing(reweight_goal) == false
-        config.reweight .*= config.reweight_goal
+        config.reweight .*= reweight_goal
     end
     # renoormalize all reweight to be (0.0, 1.0)
     config.reweight ./= sum(config.reweight)
