@@ -84,6 +84,14 @@ julia> integrate(var = Continuous(0.0, 1.0), dof = [[2,], [3,]]) do X, c
        end
 ```
 
+If there are too many components of integrands, it is better to preallocate the integrand weights. The function `integrate` provide an `inplace` key argument to achieve this goal. It is turned off by default, and only applies to the solver `:vegas` and `:vegasmc`. Once `inplace` is turned on, `integrate` will call the user-defined integrand function with a preallocated vector to store the user calculated weights. The following example demonstrates its usage,  
+```julia
+julia> integrate(var = Continuous(0.0, 1.0), dof = [[2,], [3,]], inplace=true) do X, f, c
+           f[1] = (X[1]^2 + X[2]^2 < 1.0) ? 1.0 : 0.0
+           f[2] = (X[1]^2 + X[2]^2 + X[3]^2 < 1.0) ? 1.0 : 0.0
+       end
+```
+
 ## Measure Histogram
 You may want to study how an integral changes with a tuning parameter. The following example is how to solve the histogram measurement problem.
 ```julia
