@@ -62,25 +62,35 @@ Integral 1 = 0.6640840471808533 ± 0.000916060916265263   (chi2/dof = 0.945)
 """
 function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval,
     print=0, save=0, timer=[], debug=false;
-    measure::Union{Nothing,Function}=nothing, measurefreq::Int=1
+    measure::Union{Nothing,Function}=nothing, measurefreq::Int=1, inplace::Bool=false
 ) where {N,V,P,O,T}
 
     @assert measurefreq > 0
-
-    ################## test integrand type stability ######################
-    if debug
-        if (length(config.var) == 1)
-            MCUtility.test_type_stability(integrand, (config.var[1], config))
-        else
-            MCUtility.test_type_stability(integrand, (config.var, config))
-        end
-    end
-    #######################################################################
 
     if isnothing(measure)
         @assert (config.observable isa AbstractVector) && (length(config.observable) == config.N) && (eltype(config.observable) == T) "the default measure can only handle observable as Vector{$T} with $(config.N) elements!"
     end
     weights = zeros(T, N)
+    _weights = zeros(T, N)
+
+    ################## test integrand type stability ######################
+    if debug
+        if inplace
+            if (length(config.var) == 1)
+                MCUtility.test_type_stability(integrand, (config.var[1], weights, config))
+            else
+                MCUtility.test_type_stability(integrand, (config.var, weights, config))
+            end
+        else
+            if (length(config.var) == 1)
+                MCUtility.test_type_stability(integrand, (config.var[1], config))
+            else
+                MCUtility.test_type_stability(integrand, (config.var, config))
+            end
+        end
+    end
+    #######################################################################
+
     relativeWeights = zeros(T, N)
     # padding probability for user and normalization integrands
     # should be something like [f_1(x)*g_0(y), f_2(x, y), 1*f_0(x)*g_0(y)], where f_0(x) and g_0(y) are the ansatz from the Vegas map
@@ -93,7 +103,11 @@ function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval
         Dist.initialize!(var, config)
     end
 
-    _weights = (length(config.var) == 1) ? integrand(config.var[1], config) : integrand(config.var, config)
+    if inplace
+        (length(config.var) == 1) ? integrand(config.var[1], _weights, config) : integrand(config.var, _weights, config)
+    else
+        _weights = (length(config.var) == 1) ? integrand(config.var[1], config) : integrand(config.var, config)
+    end
 
     padding_probability .= [Dist.padding_probability(config, i) for i in 1:N+1]
     probability = config.reweight[config.norm] * padding_probability[config.norm] #normalization integral
@@ -110,8 +124,8 @@ function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval
     # end
     if debug
         for _update in updates
-            MCUtility.test_type_stability(_update, (config, integrand, probability,
-                weights, padding_probability, padding_probability_cache))
+            MCUtility.test_type_stability(_update, (config, integrand, inplace, probability,
+                weights, _weights, padding_probability, padding_probability_cache))
         end
     end
 
@@ -121,8 +135,8 @@ function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval
     for ne = 1:neval
         # config.neval += 1
         _update = rand(config.rng, updates) # randomly select an update
-        probability = _update(config, integrand, probability,
-            weights, padding_probability, padding_probability_cache)
+        probability = _update(config, integrand, inplace, probability,
+            weights, _weights, padding_probability, padding_probability_cache)
         if debug && (isfinite(probability) == false)
             @warn("integrand probability = $(probability) is not finite at step $(neval)")
         end

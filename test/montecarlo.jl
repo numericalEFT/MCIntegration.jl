@@ -114,6 +114,19 @@ function TestComplex2(totalstep, alg)
     return res
 end
 
+function TestComplex2_inplace(totalstep, alg)
+    function integrand(x, f, c) #return a tuple (real, complex) 
+        #the code should handle real -> complex conversion
+        f[1] = x[1]
+        f[2] = x[1]^2 * 1im
+    end
+    res = integrate(integrand; dof=[[1,], [1,]], neval=totalstep, print=-1, type=ComplexF64, solver=alg, inplace=true, debug=true)
+    config = res.config
+    w = zeros(ComplexF64, 2)
+    @inferred integrand(config.var[1], w, config) #make sure the type is inferred for the integrand function
+    return res
+end
+
 @testset "MCMC Sampler" begin
     neval = 1000_00
     println("MCMC tests")
@@ -173,6 +186,8 @@ end
     println("Complex2")
     check_complex(TestComplex2(neval, :vegas), [0.5, 1.0 / 3 * 1im])
 
+    println("inplace Complex2")
+    check_complex(TestComplex2_inplace(neval, :vegas), [0.5, 1.0 / 3 * 1im])
 end
 
 @testset "Markov-Chain Vegas" begin
@@ -208,4 +223,6 @@ end
     println("Complex2")
     check_complex(TestComplex2(neval, :vegasmc), [0.5, 1.0 / 3 * 1im])
 
+    println("inplace Complex2")
+    check_complex(TestComplex2_inplace(neval, :vegasmc), [0.5, 1.0 / 3 * 1im])
 end

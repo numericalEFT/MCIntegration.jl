@@ -42,8 +42,8 @@
 #     return
 # end
 
-function changeVariable(config::Configuration{N,V,P,O,T}, integrand,
-    currProbability::Float64, weights,
+function changeVariable(config::Configuration{N,V,P,O,T}, integrand, inplace,
+    currProbability::Float64, weights, _weights,
     padding_probability, _padding_probability) where {N,V,P,O,T}
     # update to change the variables of the current diagrams
     maxdof = config.maxdof
@@ -64,10 +64,15 @@ function changeVariable(config::Configuration{N,V,P,O,T}, integrand,
         return currProbability
     end
 
-    # weights = integrand_wrap(config, integrand)
-    _weights = (fieldcount(V) == 1) ?
-               integrand(config.var[1], config) :
-               integrand(config.var, config)
+    if inplace
+        (fieldcount(V) == 1) ?
+        integrand(config.var[1], _weights, config) :
+        integrand(config.var, config)
+    else
+        _weights = (fieldcount(V) == 1) ?
+                   integrand(config.var[1], config) :
+                   integrand(config.var, config)
+    end
     # evaulation acutally happens before this step
     config.neval += 1
 
