@@ -40,6 +40,7 @@
 - `ignore`:   ignore the iteration until the `ignore` round. By default, the first iteration is igonred if adapt=true, and non is ignored if adapt=false.
 - `measure`:  measurement function, See [`Vegas.montecarlo`](@ref), [`VegasMC.montecarlo`](@ref) and [`MCMC.montecarlo`](@ref) for more details.
 - `measurefreq`: how often perform the measurement for ever `measurefreq` MC steps. If a measurement is expansive, you may want to make the measurement less frequent.
+- `inplace::Bool`: whether to use the inplace version of the integrand. Default is `false`, which is more convenient for integrand with a few return values but may cause type instability. 
 - `kwargs`:   Keyword arguments. The supported keywords include,
   * `measure` and `measurefreq`: measurement function and how frequent it is called. 
   * If `config` is `nothing`, you may need to provide arguments for the `Configuration` constructor, check [`Configuration`](@ref) docs for more details.
@@ -64,6 +65,7 @@ function integrate(integrand::Function;
     ignore::Int=adapt ? 1 : 0, #ignore the first `ignore` iteractions in average
     measure::Union{Nothing,Function}=nothing,
     measurefreq::Int=1,
+    inplace::Bool=false, # whether to use the inplace version of the integrand
     kwargs...
 )
     if isnothing(config)
