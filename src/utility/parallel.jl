@@ -1,0 +1,118 @@
+# Convenience functions for working with MPI, adapted from DFTK.jl
+"""
+Number of processors used in MPI. Can be called without ensuring initialization.
+"""
+mpi_nprocs(comm=MPI.COMM_WORLD) = (MPI.Init(); MPI.Comm_size(comm))
+mpi_master(comm=MPI.COMM_WORLD) = (MPI.Init(); MPI.Comm_rank(comm) == 0)
+mpi_rank(comm=MPI.COMM_WORLD) = (MPI.Init(); MPI.Comm_rank(comm))
+
+mpi_sum(arr, comm::MPI.Comm) = MPI.Allreduce(arr, +, comm)
+mpi_sum!(arr, comm::MPI.Comm) = MPI.Allreduce!(arr, +, comm)
+mpi_min(arr, comm::MPI.Comm) = MPI.Allreduce(arr, min, comm)
+mpi_min!(arr, comm::MPI.Comm) = MPI.Allreduce!(arr, min, comm)
+mpi_max(arr, comm::MPI.Comm) = MPI.Allreduce(arr, max, comm)
+mpi_max!(arr, comm::MPI.Comm) = MPI.Allreduce!(arr, max, comm)
+mpi_mean(arr, comm::MPI.Comm) = mpi_sum(arr, comm) ./ mpi_nprocs(comm)
+mpi_mean!(arr, comm::MPI.Comm) = (mpi_sum!(arr, comm); arr ./= mpi_nprocs(comm))
+
+function MPIreduce(data)
+    comm = MPI.COMM_WORLD
+    Nworker = MPI.Comm_size(comm)  # number of MPI workers
+    rank = MPI.Comm_rank(comm)  # rank of current MPI worker
+    root = 0 # rank of the root worker
+
+    if Nworker == 1 #no parallelization
+        return data
+    end
+    if typeof(data) <: AbstractArray
+        MPI.Reduce!(data, MPI.SUM, root, comm) # root node gets the sum of observables from all blocks
+        return data
+    else
+        result = [data,]  # MPI.Reduce works for array only
+        MPI.Reduce!(result, MPI.SUM, root, comm) # root node gets the sum of observables from all blocks
+        return result[1]
+    end
+end
+
+function choose_parallel(parallel::Symbol)
+    if parallel == :auto
+        if mpi_nprocs() > 1
+            return :mpi
+        else
+            if Threads.nthreads() > 1
+                return :thread  # use threads only if MPI is not available
+            else
+                return :serial  # use threads only if MPI is not available
+            end
+        end
+    else
+        return parallel
+    end
+end
+
+function check_parallel(parallel::Symbol)
+    if parallel == :mpi
+        # @assert mpi_nprocs() > 1 "MPI is not available"
+        # julia may start with -t N, but we don't want to use threads
+        # should work for MPI worker >=1
+        return
+    elseif parallel == :thread
+        @assert mpi_nprocs() == 1 "MPI and threads cannot be used together"
+    elseif parallel == :serial
+        @assert mpi_nprocs() == 1 "MPI should not be used for serial calculations"
+        # julia may start with -t N, but we don't want to use threads
+    else
+        error("Unknown parallelization mode: $(parallel)")
+    end
+end
+
+# actual number of threads used
+function nthreads(parallel::Symbol)
+    if parallel == :thread
+        return Threads.nthreads()
+    else
+        return 1
+    end
+end
+
+function is_root_worker(parallel::Symbol) # only one thread of each MPI worker is the root
+    return mpi_master() && (Threads.threadid() == 1)
+end
+
+# function root(parallel::Symbol) # only one thread of each MPI worker is the root
+#     if parallel == :mpi
+#         return mpi_master()
+#     elseif parallel == :thread
+#         return 1
+#     elseif parallel == :serial
+#         return 1
+#     else
+#         error("Unknown parallelization mode: $(parallel)")
+#     end
+# end
+
+# rank of the current worker for both MPI and threads
+function rank(parallel::Symbol)
+    if parallel == :mpi
+        return mpi_rank()
+    elseif parallel == :thread
+        return Threads.threadid()
+    elseif parallel == :serial
+        return 1
+    else
+        error("Unknown parallelization mode: $(parallel)")
+    end
+end
+
+# number of total workers for both MPI and threads
+function nproc(parallel::Symbol)
+    if parallel == :mpi
+        return mpi_nprocs()
+    elseif parallel == :thread
+        return Threads.nthreads()
+    elseif parallel == :serial
+        return 1
+    else
+        error("Unknown parallelization mode: $(parallel)")
+    end
+end
