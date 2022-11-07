@@ -25,8 +25,8 @@
  # Arguments
 
 - `integrand`:Function call to evaluate the integrand.  
-              If inpace = false, then the signature of the integrand should be `integrand(var, config)`, where `var` is a vector of random variables, and `config` is the [`Configuration`](@ref) struct. It should return one or more weights, corresponding to the value of each component of the integrand for the given `var`.
-              If inpace = true, then the signature of the integrand should be `integrand(var, weights, config)`, where the additional argument `weights` are the value of the components of the integrand for the given `var`.
+              If `inplace = false`, then the signature of the integrand is `integrand(var, config)`, where `var` is a vector of random variables, and `config` is the [`Configuration`](@ref) struct. It should return one or more weights, corresponding to the value of each component of the integrand for the given `var`.
+              If `inplace = true``, then the signature of the integrand is `integrand(var, weights, config)`, where the additional argument `weights` is the value of the integrand components for the given `var`.
               Internally, MC only samples the absolute value of the weight. Therefore, it is also important to define Main.abs for the weight if its type is user-defined. 
 - `solver` :  :vegas, :vegasmc, or :mcmc. See Readme for more details.
 - `config`:   [`Configuration`](@ref) object to perform the MC integration. If `nothing`, it attempts to create a new one with Configuration(; kwargs...).
