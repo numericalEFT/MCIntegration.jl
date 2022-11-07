@@ -11,6 +11,8 @@ export StopWatch, check
 include("color.jl")
 export black, red, green, yellow, blue, magenta, cyan, white
 
+include("MPI.jl")
+
 export progressBar, locate, smooth, rescale
 """
     progressBar(step, total)
