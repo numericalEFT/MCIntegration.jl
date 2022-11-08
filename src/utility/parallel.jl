@@ -16,7 +16,7 @@ mpi_max!(arr, comm::MPI.Comm) = MPI.Allreduce!(arr, max, comm)
 mpi_mean(arr, comm::MPI.Comm) = mpi_sum(arr, comm) ./ mpi_nprocs(comm)
 mpi_mean!(arr, comm::MPI.Comm) = (mpi_sum!(arr, comm); arr ./= mpi_nprocs(comm))
 
-function MPIreduce(data)
+function MPIreduce(data, op = MPI.SUM)
     comm = MPI.COMM_WORLD
     Nworker = MPI.Comm_size(comm)  # number of MPI workers
     rank = MPI.Comm_rank(comm)  # rank of current MPI worker
@@ -26,12 +26,22 @@ function MPIreduce(data)
         return data
     end
     if typeof(data) <: AbstractArray
-        MPI.Reduce!(data, MPI.SUM, root, comm) # root node gets the sum of observables from all blocks
-        return data
+        return MPI.Reduce(data, MPI.SUM, root, comm) # root node gets the sum of observables from all blocks
     else
-        result = [data,]  # MPI.Reduce works for array only
-        MPI.Reduce!(result, MPI.SUM, root, comm) # root node gets the sum of observables from all blocks
-        return result[1]
+        # result = [data,]  # MPI.Reduce works for array only
+        return MPI.Reduce(data, MPI.SUM, root, comm) # root node gets the sum of observables from all blocks
+        # return output
+    end
+end
+
+function MPIreduce!(data::AbstractArray, op = MPI.SUM)
+    comm = MPI.COMM_WORLD
+    Nworker = MPI.Comm_size(comm)  # number of MPI workers
+    rank = MPI.Comm_rank(comm)  # rank of current MPI worker
+    root = 0 # rank of the root worker
+
+    if Nworker > 1 
+        MPI.Reduce!(data, MPI.SUM, root, comm) # root node gets the sum of observables from all blocks
     end
 end
 
@@ -45,10 +55,10 @@ function MPIbcast(data)
         return data
     end
     if typeof(data) <: AbstractArray
-        return MPI.bcast(data, MPI.SUM, root, comm) # root node gets the sum of observables from all blocks
+        return MPI.bcast(data, root, comm) # root node gets the sum of observables from all blocks
     else
         # MPI.Reduce works for array only
-        result = MPI.bcast([data, ], MPI.SUM, root, comm) # root node gets the sum of observables from all blocks
+        result = MPI.bcast([data, ], root, comm) # root node gets the sum of observables from all blocks
         return result[1]
     end
 end
