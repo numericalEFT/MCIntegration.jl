@@ -16,6 +16,12 @@ mpi_max!(arr, comm::MPI.Comm) = MPI.Allreduce!(arr, max, comm)
 mpi_mean(arr, comm::MPI.Comm) = mpi_sum(arr, comm) ./ mpi_nprocs(comm)
 mpi_mean!(arr, comm::MPI.Comm) = (mpi_sum!(arr, comm); arr ./= mpi_nprocs(comm))
 
+"""
+    function MPIreduce(data, op = MPI.SUM)
+
+Reduce data from MPI workers to root with the operation `op`. `data` can be an array or a scalar.
+The root node returns the reduced data with the operation `op`, and other nodes return their own data.
+"""
 function MPIreduce(data, op = MPI.SUM)
     comm = MPI.COMM_WORLD
     Nworker = MPI.Comm_size(comm)  # number of MPI workers
@@ -36,6 +42,11 @@ function MPIreduce(data, op = MPI.SUM)
     end
 end
 
+"""
+    function MPIreduce!(data::AbstractArray, op = MPI.SUM)
+
+Reduce data from MPI workers to root with the operation `op`. `data` should be an array.
+"""
 function MPIreduce!(data::AbstractArray, op = MPI.SUM)
     comm = MPI.COMM_WORLD
     Nworker = MPI.Comm_size(comm)  # number of MPI workers
@@ -47,6 +58,12 @@ function MPIreduce!(data::AbstractArray, op = MPI.SUM)
     end
 end
 
+"""
+    function MPIbcast(data)
+
+Broadcast data from MPI root to other nodes. `data` can be an array or a scalar.
+The root node its own data, and other nodes return the broadcasted data from the root.
+"""
 function MPIbcast(data)
     comm = MPI.COMM_WORLD
     Nworker = MPI.Comm_size(comm)  # number of MPI workers
@@ -65,6 +82,11 @@ function MPIbcast(data)
     end
 end
 
+"""
+    function MPIbcast!(data::AbstractArray)
+
+Broadcast data from MPI root to other nodes. `data` is an array.
+"""
 function MPIbcast!(data::AbstractArray)
     comm = MPI.COMM_WORLD
     Nworker = MPI.Comm_size(comm)  # number of MPI workers

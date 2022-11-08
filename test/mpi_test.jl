@@ -80,65 +80,67 @@ end
     X = Continuous(0.0, 1.0)
     Y = Continuous(0.0, 1.0)
     Z = Continuous(0.0, 1.0)
-    X.histogram[1] = 1.0
-    Y.histogram[1] = 1.0
-    Z.histogram[1] = 1.0
+    X.histogram[1] = 1.1
+    Y.histogram[1] = 1.2
+    Z.histogram[1] = 1.3
     cvar = CompositeVar(Y, Z)
     obs = [1.0,]
     config = Configuration(var = (X, cvar), dof=[[1, 1], ], obs=obs)
-    config.normalization = 1.0
-    config.visited[1] = 1.0
-    config.propose[1, 1, 1] = 1.0
-    config.accept[1, 1, 1] = 1.0
+    config.neval = 101
+    config.normalization = 1.1
+    config.visited[1] = 1.2
+    config.propose[1, 1, 1] = 1.3
+    config.accept[1, 1, 1] = 1.4
 
     MCIntegration.MPIreduceConfig!(config)
     if rank == root
         @test config.observable[1] == Nworker
-        @test config.normalization == Nworker
-        @test config.visited[1] == Nworker
-        @test config.propose[1, 1, 1] == Nworker
-        @test config.accept[1, 1, 1] == Nworker
-        @test config.var[1].histogram[1] == Nworker
-        cvar = config.var[2]
-        @test cvar[1].histogram[1] == Nworker
-        @test cvar[2].histogram[1] == Nworker
+        @test config.neval == Nworker*101
+        @test config.normalization ≈ Nworker*1.1
+        @test config.visited[1] ≈ Nworker*1.2
+        @test config.propose[1, 1, 1] ≈ Nworker*1.3
+        @test config.accept[1, 1, 1] ≈ Nworker*1.4
+
+        @test config.var[1].histogram[1] ≈ Nworker*1.1 # X
+        cvar = config.var[2] #compositevar
+        @test cvar[1].histogram[1] ≈ Nworker *1.2 #Y
+        @test cvar[2].histogram[1] ≈ Nworker*1.3 #Z
     end
 end
 
-# @testset "MPI bcast histogram" begin
-#     (MPI.Initialized() == false) && MPI.Init()
-#     comm = MPI.COMM_WORLD
-#     Nworker = MPI.Comm_size(comm)  # number of MPI workers
-#     rank = MPI.Comm_rank(comm)  # rank of current MPI worker
-#     root = 0 # rank of the root worker
+@testset "MPI bcast histogram" begin
+    (MPI.Initialized() == false) && MPI.Init()
+    comm = MPI.COMM_WORLD
+    Nworker = MPI.Comm_size(comm)  # number of MPI workers
+    rank = MPI.Comm_rank(comm)  # rank of current MPI worker
+    root = 0 # rank of the root worker
 
-#     X = Continuous(0.0, 1.0)
-#     Y = Continuous(0.0, 1.0)
-#     Z = Continuous(0.0, 1.0)
-#     cvar = CompositeVar(Y, Z)
+    X = Continuous(0.0, 1.0)
+    Y = Continuous(0.0, 1.0)
+    Z = Continuous(0.0, 1.0)
+    cvar = CompositeVar(Y, Z)
 
-#     if rank == root
-#         X.histogram[1] = rank
-#         Y.histogram[1] = rank
-#         Z.histogram[1] = rank
-#     else
-#         X.histogram[1] = rank
-#         Y.histogram[1] = rank
-#         Z.histogram[1] = rank
-#     end
+    if rank == root
+        X.histogram[1] = 1.1
+        Y.histogram[1] = 1.2
+        Z.histogram[1] = 1.3
+    else
+        X.histogram[1] = rank
+        Y.histogram[1] = rank
+        Z.histogram[1] = rank
+    end
 
-#     config = Configuration(var = (X, cvar), dof=[[1, 1], ])
+    config = Configuration(var = (X, cvar), dof=[[1, 1], ])
+    config.reweight = [1.1, 1.2]
 
-#     MCIntegration._bcast_histogram(config)
+    MCIntegration.MPIbcastConfig!(config)
 
-#     if rank == root
-#         @test config.normalization == Nworker
-#         @test config.visited[1] == Nworker
-#         @test config.propose[1, 1, 1] == Nworker
-#         @test config.accept[1, 1, 1] == Nworker
-#         @test config.var[1].histogram[1] == Nworker
-#         cvar = config.var[2]
-#         @test cvar[1].histogram[1] == Nworker
-#         @test cvar[2].histogram[1] == Nworker
-#     end
-# end
+    if rank != root
+        @test config.reweight ≈ [1.1, 1.2]
+
+        @test config.var[1].histogram[1] ≈ 1.1 # X
+        cvar = config.var[2] #compositevar
+        @test cvar[1].histogram[1] ≈ 1.2 #Y
+        @test cvar[2].histogram[1] ≈ 1.3 #Z
+    end
+end
