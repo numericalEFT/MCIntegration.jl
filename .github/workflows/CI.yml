@@ -42,7 +42,8 @@ jobs:
           '
 
       - uses: julia-actions/julia-runtest@v1
-
+        env:
+          JULIA_NUM_THREADS: 4
       # - name: Execute MPI-parallel tests
       #   run: |
       #     julia --project -e '
