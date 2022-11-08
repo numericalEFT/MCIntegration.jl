@@ -26,10 +26,12 @@ function MPIreduce(data, op = MPI.SUM)
         return data
     end
     if typeof(data) <: AbstractArray
-        return MPI.Reduce(data, MPI.SUM, root, comm) # root node gets the sum of observables from all blocks
+        d = MPI.Reduce(data, MPI.SUM, root, comm) # root node gets the sum of observables from all blocks
+        return rank == root ? d : data
     else
-        # result = [data,]  # MPI.Reduce works for array only
-        return MPI.Reduce(data, MPI.SUM, root, comm) # root node gets the sum of observables from all blocks
+        # MPI.Reduce works for array only in old verison of MPI.jl
+        d = MPI.Reduce([data, ], MPI.SUM, root, comm) # root node gets the sum of observables from all blocks
+        return rank == root ? d[1] : data
         # return output
     end
 end
@@ -60,6 +62,17 @@ function MPIbcast(data)
         # MPI.Reduce works for array only
         result = MPI.bcast([data, ], root, comm) # root node gets the sum of observables from all blocks
         return result[1]
+    end
+end
+
+function MPIbcast!(data::AbstractArray)
+    comm = MPI.COMM_WORLD
+    Nworker = MPI.Comm_size(comm)  # number of MPI workers
+    rank = MPI.Comm_rank(comm)  # rank of current MPI worker
+    root = 0 # rank of the root worker
+
+    if Nworker > 1 #no parallelization
+        return MPI.Bcast!(data, root, comm) # root node gets the sum of observables from all blocks
     end
 end
 

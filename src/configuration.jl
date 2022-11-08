@@ -238,30 +238,28 @@ function MPIreduceConfig!(c::Configuration, root=0, comm=MPI.COMM_WORLD)
                 histogram_reduce!(v)
             end
         else
-            histogram = MPI.Reduce(var.histogram, MPI.SUM, root, comm)
-            if MPI.Comm_rank(comm) == root
-                var.histogram = histogram
-            end
+            MCUtility.MPIreduce!(var.histogram)
         end
     end
 
     ########## variable that could be a number ##############
-    neval = MPI.Reduce(c.neval, MPI.SUM, root, comm)
-    normalization = MPI.Reduce(c.normalization, MPI.SUM, root, comm)
-    observable = [MPI.Reduce(c.observable[o], MPI.SUM, root, comm) for o in eachindex(c.observable)]
-    if MPI.Comm_rank(comm) == root
-        c.neval = neval
-        c.normalization = normalization
-        c.observable = observable
+    c.neval = MCUtility.MPIreduce(c.neval)
+    c.normalization = MCUtility.MPIreduce(c.normalization)
+    for o in eachindex(c.observable)
+        if c.observable[o] isa AbstractArray
+            MCUtility.MPIreduce!(c.observable[o]) # avoid memory allocation
+        else
+            c.observable[o] = MCUtility.MPIreduce(c.observable[o])
+        end
     end
     for v in c.var
         histogram_reduce!(v)
     end
 
     ########## variable that are vectors ##############
-    MPI.Reduce!(c.visited, MPI.SUM, root, comm)
-    MPI.Reduce!(c.propose, MPI.SUM, root, comm)
-    MPI.Reduce!(c.accept, MPI.SUM, root, comm)
+    MCUtility.MPIreduce!(c.visited)
+    MCUtility.MPIreduce!(c.propose)
+    MCUtility.MPIreduce!(c.accept)
 end
 
 function report(config::Configuration, total_neval=nothing)
