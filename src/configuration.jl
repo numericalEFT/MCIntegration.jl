@@ -230,7 +230,8 @@ function addConfig!(c::Configuration, ic::Configuration)
     end
 end
 
-function MPIreduceConfig!(c::Configuration, root, comm)
+function MPIreduceConfig!(c::Configuration, root=0, comm=MPI.COMM_WORLD)
+    
     function histogram_reduce!(var::Variable)
         if var isa Dist.CompositeVar
             for v in var.vars

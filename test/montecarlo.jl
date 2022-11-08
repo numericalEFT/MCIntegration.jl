@@ -3,7 +3,7 @@ Demostrate do syntax for Monte Carlo simulation.
 """
 function Sphere1(neval, alg)
     X = Continuous(0.0, 1.0)
-    f(x, c) = (X[1]^2 + X[2]^2 < 1.0) ? 1.0 : 0.0
+    f(x, c) = (x[1]^2 + x[2]^2 < 1.0) ? 1.0 : 0.0
     f(idx, x, c)::Float64 = f(x, c)
     return integrate(f; var=(X,), dof=[[2,],], neval=neval, print=-1, solver=alg)
 end

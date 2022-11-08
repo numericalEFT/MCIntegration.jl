@@ -73,7 +73,7 @@ function integrate(integrand::Function;
     measure::Union{Nothing,Function}=nothing,
     measurefreq::Int=1,
     inplace::Bool=false, # whether to use the inplace version of the integrand
-    parallel::Symbol=:auto, # :auto, :mpi, or :thread, or :serial
+    parallel::Symbol=:nothread, # :auto, :mpi, or :thread, or :serial
     kwargs...
 )
     if isnothing(config)
@@ -96,8 +96,8 @@ function integrate(integrand::Function;
     ############# figure out the best parallelization mode ############
     parallel = MCUtility.choose_parallel(parallel)
 
-    Nworker = MCUtility.nproc() # actual number of workers
-    Nthread = MCUtility.nthreads() # numebr of threads, each thread require its own workspace
+    Nworker = MCUtility.nworker(parallel) # actual number of workers
+    Nthread = MCUtility.nthreads(parallel) # numebr of threads, threads share the same memory
 
     ############# figure out evaluations in each block ################
     block = _standardize_block(block, Nworker)
@@ -128,17 +128,19 @@ function integrate(integrand::Function;
 
         if parallel == :thread
             Threads.@threads for i = 1:block
-                _block(configs, obsSum, obsSquaredSum, summedConfig,
-                    integrand, nevalperblock, print, saver, timer, debug,
+                _block!(i ,configs, obsSum, obsSquaredSum, summedConfig, solver, progress,
+                    integrand, nevalperblock, print, save, timer, debug,
                     measure, measurefreq, inplace, parallel)
             end
         else
             for i = 1:block
-                _block(configs, obsSum, obsSquaredSum, summedConfig,
-                    integrand, nevalperblock, print, saver, timer, debug,
+                _block!(i, configs, obsSum, obsSquaredSum, summedConfig, solver, progress,
+                    integrand, nevalperblock, print, save, timer, debug,
                     measure, measurefreq, inplace, parallel)
             end
         end
+
+        # println(configs[1].normalization)
 
         for i in 2:Nthread
             obsSum[1] += obsSum[i]
@@ -150,7 +152,7 @@ function integrate(integrand::Function;
         obsSum[1] = [MCUtility.MPIreduce(osum) for osum in obsSum[1]]
         obsSquaredSum[1] = [MCUtility.MPIreduce(osumsq) for osumsq in obsSquaredSum[1]]
         # collect all statistics to summedConfig of the root worker
-        MPIreduceConfig!(summedConfig[1], root, comm)
+        MPIreduceConfig!(summedConfig[1])
 
 
         if MCUtility.mpi_master() # only the master process will output results, no matter parallel = :mpi or :thread or :serial
@@ -160,7 +162,7 @@ function integrate(integrand::Function;
             push!(results, (mean, std, summedConfig[1]))
 
             ################### self-learning ##########################################
-            (solver == :mcmc || solver == :vegasmc) && doReweight!(summedConfig, gamma, reweight_goal)
+            (solver == :mcmc || solver == :vegasmc) && doReweight!(summedConfig[1], gamma, reweight_goal)
         end
 
         ######################## syncronize between works ##############################
@@ -168,7 +170,8 @@ function integrate(integrand::Function;
         # broadcast the reweight and var.histogram of the summedConfig of the root worker to two targets:
         # 1. config of the root worker
         # 2. config of the other workers
-        config.reweight = MPI.bcast(summedConfig[1].reweight, root, comm) # broadcast reweight factors to all workers
+        # config.reweight = MPI.bcast(summedConfig[1].reweight, root, comm) # broadcast reweight factors to all workers
+        config.reweight = MCUtility.MPIbcast(summedConfig[1].reweight)
         for (vi, var) in enumerate(config.var)
             _bcast_histogram!(var, summedConfig[1].var[vi], config, adapt)
         end
@@ -198,37 +201,43 @@ function _standardize_block(nblock, Nworker)
     return nblock
 end
 
-function _block(configs, obsSum, obsSquaredSum, summedConfig,  
-    integrand, nevalperblock, print, saver, timer, debug,
+function _block!(iblock, configs, obsSum, obsSquaredSum, summedConfig, solver, progress, 
+    integrand, nevalperblock, print, save, timer, debug,
      measure, measurefreq, inplace, parallel)
 
     # rank core will run the block with the indexes: rank, rank+Nworker, rank+2Nworker, ...
     rank = MCUtility.rank(parallel)
-    (i % Nworker != rank ) && continue
+    Nworker = MCUtility.nworker(parallel)
+    # println(iblock, " ", rank, " ", Nworker)
+
+    (iblock % Nworker != rank-1 ) && return
 
     config_n = configs[rank] # configuration for the worker with rank `rank`
     clearStatistics!(config_n) # reset statistics
 
     if solver == :vegasmc
-        config_n = VegasMC.montecarlo(config_n, integrand, nevalperblock, print, save, timer, debug;
+        VegasMC.montecarlo(config_n, integrand, nevalperblock, print, save, timer, debug;
             measure=measure, measurefreq=measurefreq, inplace=inplace)
     elseif solver == :vegas
-        config_n = Vegas.montecarlo(config_n, integrand, nevalperblock, print, save, timer, debug;
+        Vegas.montecarlo(config_n, integrand, nevalperblock, print, save, timer, debug;
             measure=measure, measurefreq=measurefreq, inplace=inplace)
     elseif solver == :mcmc
-        config_n = MCMC.montecarlo(config_n, integrand, nevalperblock, print, save, timer, debug;
+        MCMC.montecarlo(config_n, integrand, nevalperblock, print, save, timer, debug;
             measure=measure, measurefreq=measurefreq)
     else
         error("Solver $solver is not supported!")
     end
 
-    addConfig!(summedConfig[rank], config_n) # collect statistics from the config of each block to summedConfig
+    # println(config_n.normalization)
+
 
     if (config_n.normalization > 0.0) == false #in case config.normalization is not a number
         error("normalization of block $i is $(config_n.normalization), which is not positively defined!")
     end
 
-    for o in 1:config.N
+    addConfig!(summedConfig[rank], config_n) # collect statistics from the config of each block to summedConfig
+
+    for o in 1:config_n.N
         if obsSum[rank][o] isa AbstractArray
             m = config_n.observable[o] ./ config_n.normalization
             obsSum[rank][o] += m
@@ -240,7 +249,7 @@ function _block(configs, obsSum, obsSquaredSum, summedConfig,
         end
     end
 
-    if MCUtility.is_root_worker(parallel)
+    if MCUtility.is_root(parallel)
         (print >= -1) && next!(progress)
     end
 end
