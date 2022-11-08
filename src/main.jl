@@ -121,8 +121,8 @@ function integrate(integrand::Function;
     for iter in 1:niter
 
         for i in 1:Nthread
-            fill!(obsSum[i], zero(eltype(obsSum[1])))
-            fill!(obsSquaredSum[i], zero(eltype(obsSquaredSum[1])))
+            fill!(obsSum[i], zero(obsSum[1][1]))
+            fill!(obsSquaredSum[i], zero(obsSquaredSum[1][1]))
             clearStatistics!(summedConfig[i])
         end
 
@@ -145,7 +145,7 @@ function integrate(integrand::Function;
         for i in 2:Nthread
             obsSum[1] += obsSum[i]
             obsSquaredSum[1] += obsSquaredSum[i]
-            addConfig(summedConfig[1], summedConfig[i])
+            addConfig!(summedConfig[1], summedConfig[i])
         end
 
         #################### collect statistics  ####################################
@@ -178,7 +178,6 @@ function integrate(integrand::Function;
                 for v in config.var
                     Dist.train!(v)
                     Dist.initialize!(v, config)
-                    println(v.grid[2])
                 end
             end
         end

@@ -296,8 +296,18 @@ function bcastConfig!(dest::Configuration, src::Configuration)
     ########## variable that could be a number ##############
     dest.reweight .= src.reweight
 
+    function histogram_bcast!(dest::Variable, src::Variable)
+        if dest isa Dist.CompositeVar
+            for i in 1:length(dest.vars)
+                histogram_bcast!(dest.vars[i], src.vars[i])
+            end
+        else
+            dest.histogram .= src.histogram
+        end
+    end
+
     for i in 1:length(dest.var)
-        copy!(dest.var[i], src.var[i])
+        histogram_bcast!(dest.var[i], src.var[i])
     end
 end
 
