@@ -289,6 +289,18 @@ function MPIbcastConfig!(c::Configuration, root=0, comm=MPI.COMM_WORLD)
     end
 end
 
+function bcastConfig!(dest::Configuration, src::Configuration)
+    # need to broadcast from root to workers:
+    # reweight
+    # var.histogram
+    ########## variable that could be a number ##############
+    dest.reweight .= src.reweight
+
+    for i in 1:length(dest.var)
+        copy!(dest.var[i], src.var[i])
+    end
+end
+
 function report(config::Configuration, total_neval=nothing)
     neval, visited, reweight, propose, accept = config.neval, config.visited, config.reweight, config.propose, config.accept
     var, neighbor = config.var, config.neighbor

@@ -33,6 +33,17 @@ function Base.setindex!(Var::FermiK{D}, v, i::Int) where {D}
 end
 Base.lastindex(Var::FermiK{D}) where {D} = size(Var.data)[2] # return index, not the value
 
+function Base.copy!(dest::FermiK{D}, src::FermiK{D}) where {D}
+    dest.data .= src.data
+    dest.kF = src.kF
+    dest.δk = src.δk
+    dest.maxK = src.maxK
+    dest.offset = src.offset
+    dest.prob .= src.prob
+    dest.histogram .= src.histogram
+    return dest
+end
+
 mutable struct RadialFermiK <: Variable
     data::Vector{Float64}
     kF::Float64
@@ -145,6 +156,21 @@ function accumulate!(T::Continuous, idx::Int, weight=1.0)
     if T.adapt
         T.histogram[T.gidx[idx]] += weight
     end
+end
+
+function Base.copy!(dest::Continuous, src::Continuous)
+    dest.data .= src.data
+    dest.gidx .= src.gidx
+    dest.prob .= src.prob
+    dest.lower = src.lower
+    dest.range = src.range
+    dest.offset = src.offset
+    dest.grid = src.grid
+    dest.inc .= src.inc
+    dest.histogram .= src.histogram
+    dest.alpha = src.alpha
+    dest.adapt = src.adapt
+    return dest
 end
 
 
@@ -287,6 +313,21 @@ function train!(T::Discrete)
     clearStatistics!(T)
 end
 
+function Base.copy!(T::Discrete, T2::Discrete)
+    T.data .= T2.data
+    T.lower = T2.lower
+    T.upper = T2.upper
+    T.prob .= T2.prob
+    T.size = T2.size
+    T.offset = T2.offset
+    T.histogram .= T2.histogram
+    T.accumulation .= T2.accumulation
+    T.distribution .= T2.distribution
+    T.alpha = T2.alpha
+    T.adapt = T2.adapt
+    return T
+end
+
 mutable struct CompositeVar{V} <: Variable
     vars::V
     prob::Vector{Float64}
@@ -337,6 +378,18 @@ Base.lastindex(Var::CompositeVar) = length(Var.vars) # return index, not the val
 # CompositeVar iterator is equal to the tuple iterator
 Base.iterate(cvar::CompositeVar) = Base.iterate(cvar.vars)
 Base.iterate(cvar::CompositeVar, state) = Base.iterate(cvar.vars, state)
+
+function Base.copy!(T::CompositeVar, T2::CompositeVar)
+    for i in 1:length(T.vars)
+        copy!(T.vars[i], T2.vars[i])
+    end
+    T.prob .= T2.prob
+    T.offset = T2.offset
+    T.adapt = T2.adapt
+    T.size = T2.size
+    T._prob_cache = T2._prob_cache
+    return T
+end
 
 function accumulate!(vars::CompositeVar, idx, weight)
     for v in vars.vars

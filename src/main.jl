@@ -171,12 +171,22 @@ function integrate(integrand::Function;
         # 1. config of the root worker
         # 2. config of the other workers
         # config.reweight = MPI.bcast(summedConfig[1].reweight, root, comm) # broadcast reweight factors to all workers
-        config.reweight = MCUtility.MPIbcast(summedConfig[1].reweight)
-        for (vi, var) in enumerate(config.var)
-            _bcast_histogram!(var, summedConfig[1].var[vi], config, adapt)
+        # config.reweight = MCUtility.MPIbcast(summedConfig[1].reweight)
+        # for (vi, var) in enumerate(config.var)
+        #     _bcast_histogram!(var, summedConfig[1].var[vi], config, adapt)
+        # end
+        MPIbcastConfig!(summedConfig[1])
+
+        for config in configs
+            bcastConfig!(config, summedConfig[1])
+            if adapt
+                for v in config.var
+                    Dist.train!(v)
+                    Dist.initialize!(v, config)
+                    # println(v.grid[2])
+                end
+            end
         end
-        #TODO: replace this with a more efficient way
-        configs = [deepcopy(config) for i in 1:Nthread] # configurations for each worker
         ################################################################################
     end
 
@@ -202,8 +212,8 @@ function _standardize_block(nblock, Nworker)
 end
 
 function _block!(iblock, configs, obsSum, obsSquaredSum, summedConfig, solver, progress, 
-    integrand, nevalperblock, print, save, timer, debug,
-     measure, measurefreq, inplace, parallel)
+    integrand::Function, nevalperblock, print, save, timer, debug::Bool,
+     measure::Union{Nothing, Function}, measurefreq, inplace, parallel)
 
     # rank core will run the block with the indexes: rank, rank+Nworker, rank+2Nworker, ...
     rank = MCUtility.rank(parallel)
@@ -254,21 +264,21 @@ function _block!(iblock, configs, obsSum, obsSquaredSum, summedConfig, solver, p
     end
 end
 
-function _bcast_histogram!(target::V, source::V, config, adapt) where {V}
-    comm = MPI.COMM_WORLD
-    root = 0 # rank of the root worker
-    if target isa Dist.CompositeVar
-        for (vi, v) in enumerate(target.vars)
-            _bcast_histogram!(v, source.vars[vi], config, adapt)
-        end
-    else
-        target.histogram = MPI.bcast(source.histogram, root, comm)
-        if adapt
-            Dist.train!(target)
-            Dist.initialize!(target, config)
-        end
-    end
-end
+# function _bcast_histogram!(target::V, source::V, config, adapt) where {V}
+#     comm = MPI.COMM_WORLD
+#     root = 0 # rank of the root worker
+#     if target isa Dist.CompositeVar
+#         for (vi, v) in enumerate(target.vars)
+#             _bcast_histogram!(v, source.vars[vi], config, adapt)
+#         end
+#     else
+#         target.histogram = MPI.bcast(source.histogram, root, comm)
+#         if adapt
+#             Dist.train!(target)
+#             Dist.initialize!(target, config)
+#         end
+#     end
+# end
 
 function _mean_std(obsSum, obsSquaredSum, block)
     function _sqrt(x)
