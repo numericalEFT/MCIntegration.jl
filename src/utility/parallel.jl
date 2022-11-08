@@ -7,15 +7,6 @@ mpi_master(comm=MPI.COMM_WORLD) = (MPI.Init(); MPI.Comm_rank(comm) == 0)
 mpi_root(comm=MPI.COMM_WORLD) = 0
 mpi_rank(comm=MPI.COMM_WORLD) = (MPI.Init(); MPI.Comm_rank(comm))
 
-mpi_sum(arr, comm::MPI.Comm) = MPI.Allreduce(arr, +, comm)
-mpi_sum!(arr, comm::MPI.Comm) = MPI.Allreduce!(arr, +, comm)
-mpi_min(arr, comm::MPI.Comm) = MPI.Allreduce(arr, min, comm)
-mpi_min!(arr, comm::MPI.Comm) = MPI.Allreduce!(arr, min, comm)
-mpi_max(arr, comm::MPI.Comm) = MPI.Allreduce(arr, max, comm)
-mpi_max!(arr, comm::MPI.Comm) = MPI.Allreduce!(arr, max, comm)
-mpi_mean(arr, comm::MPI.Comm) = mpi_sum(arr, comm) ./ mpi_nprocs(comm)
-mpi_mean!(arr, comm::MPI.Comm) = (mpi_sum!(arr, comm); arr ./= mpi_nprocs(comm))
-
 """
     function MPIreduce(data, op = MPI.SUM)
 
@@ -98,34 +89,6 @@ function MPIbcast!(data::AbstractArray)
     end
 end
 
-function choose_parallel(parallel::Symbol)
-    if parallel == :auto
-        if Threads.nthreads() > 1
-            return :thread  # use threads only if MPI is not available
-        else
-            return :nothread  # use threads only if MPI is not available
-        end
-    else
-        return parallel
-    end
-end
-
-# function check_parallel(parallel::Symbol)
-#     if parallel == :mpi
-#         # @assert mpi_nprocs() > 1 "MPI is not available"
-#         # julia may start with -t N, but we don't want to use threads
-#         # should work for MPI worker >=1
-#         return
-#     elseif parallel == :thread
-#         @assert mpi_nprocs() == 1 "MPI and threads cannot be used together"
-#     elseif parallel == :serial
-#         @assert mpi_nprocs() == 1 "MPI should not be used for serial calculations"
-#         # julia may start with -t N, but we don't want to use threads
-#     else
-#         error("Unknown parallelization mode: $(parallel)")
-#     end
-# end
-
 # actual number of threads used
 function nthreads(parallel::Symbol)
     if parallel == :thread
@@ -137,26 +100,30 @@ end
 
 # only one thread of each MPI worker is the root
 function is_root(parallel::Symbol) 
-    return mpi_master() && (Threads.threadid() == 1)
+    if parallel == :thread
+        return mpi_master() && (Threads.threadid() == 1)
+    else
+        return mpi_master()
+    end
 end
-
-# function root(parallel::Symbol) # only one thread of each MPI worker is the root
-#     if parallel == :mpi
-#         return mpi_master()
-#     elseif parallel == :thread
-#         return 1
-#     elseif parallel == :serial
-#         return 1
-#     else
-#         error("Unknown parallelization mode: $(parallel)")
-#     end
-# end
 
 # rank of the current worker for both MPI and threads
 function rank(parallel::Symbol)
     #if thread is off, then nthreads must be one. Only mpi_rank contributes
     # mpi_rank() always start with 0
-    return Threads.threadid()*(nthreads(parallel)-1)+mpi_rank()+1
+    if parallel == :thread
+        return Threads.threadid()+((nthreads(parallel)-1)*mpi_rank())
+    else
+        return mpi_rank()+1
+    end
+end
+
+function threadid(parallel::Symbol)
+    if parallel == :thread
+        return Threads.threadid()
+    else
+        return 1
+    end
 end
 
 # number of total workers for both MPI and threads

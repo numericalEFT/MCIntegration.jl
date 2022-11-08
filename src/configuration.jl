@@ -167,6 +167,11 @@ function Configuration(;
     )
 end
 
+function reset_seed!(cfg::Configuration, seed::Int)
+    cfg.seed = seed
+    cfg.rng = MersenneTwister(seed)
+end
+
 function _neighbor(neighbor, Nd)
     if isnothing(neighbor)
         # By default, only the order-1 and order+1 diagrams are considered to be the neighbors

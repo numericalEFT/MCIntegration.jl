@@ -93,27 +93,28 @@ function integrate(integrand::Function;
     (MPI.Initialized() == false) && MPI.Init()
     comm = MPI.COMM_WORLD
 
-    ############# figure out the best parallelization mode ############
-    parallel = MCUtility.choose_parallel(parallel)
-
-    Nworker = MCUtility.nworker(parallel) # actual number of workers
-    Nthread = MCUtility.nthreads(parallel) # numebr of threads, threads share the same memory
+    # numebr of threads within MCIntegration, threads share the same memory
+    # >1 only in the :thread parallel mode
+    Nthread = MCUtility.nthreads(parallel) 
 
     ############# figure out evaluations in each block ################
-    block = _standardize_block(block, Nworker)
-    @assert block % Nworker == 0
-    nevalperblock = neval ÷ block # number of evaluations per block
+    nevalperblock, block = _standardize_block(neval, block)
+    @assert block % MCUtility.mpi_nprocs() == 0
 
     ########## initialize the progress bar ############################
     #In the MPI/thread mode, progress will only need to track the progress of the root worker.
-    Ntotal = niter * block ÷ Nworker
+    Ntotal = niter * block ÷ MCUtility.nworker(parallel)
     progress = Progress(Ntotal; dt=(print >= 0 ? (0.5 + print) : 0.5), enabled=(print >= -1), showspeed=true, desc="Total iterations * blocks $(Ntotal): ", output=printio)
 
     # initialize temp variables
-    configs = [deepcopy(config) for i in 1:Nthread] # configurations for each worker
+    configs = [deepcopy(config) for _ in 1:Nthread] # configurations for each thread
+    summedConfig = [deepcopy(config) for _ in 1:Nthread] # summed configuration for each thread from different blocks
     obsSum = [[zero(o) for o in config.observable] for _ in 1:Nthread] # sum of observables for each worker
     obsSquaredSum = [[zero(o) for o in config.observable] for _ in 1:Nthread] # sum of squared observables for each worker
-    summedConfig = [deepcopy(config) for i in 1:Nthread] # summed configuration for each thread
+
+    for _config in configs
+        reset_seed!(_config, rand(config.rng, 1:1000000))
+    end
 
     startTime = time()
     results=[]
@@ -126,17 +127,19 @@ function integrate(integrand::Function;
             clearStatistics!(summedConfig[i])
         end
 
-        if parallel == :thread
-            Threads.@threads for i = 1:block
-                _block!(i ,configs, obsSum, obsSquaredSum, summedConfig, solver, progress,
-                    integrand, nevalperblock, print, save, timer, debug,
-                    measure, measurefreq, inplace, parallel)
-            end
-        else
-            for i = 1:block
-                _block!(i, configs, obsSum, obsSquaredSum, summedConfig, solver, progress,
-                    integrand, nevalperblock, print, save, timer, debug,
-                    measure, measurefreq, inplace, parallel)
+        for _ in MCUtility.mpi_nprocs()
+            if parallel == :thread
+                Threads.@threads for _ in 1:block/MCUtility.mpi_nprocs()
+                    _block!(configs, obsSum, obsSquaredSum, summedConfig, solver, progress,
+                        integrand, nevalperblock, print, save, timer, debug,
+                        measure, measurefreq, inplace, parallel)
+                end
+            else
+                for _ in 1:block/MCUtility.mpi_nprocs()
+                    _block!(configs, obsSum, obsSquaredSum, summedConfig, solver, progress,
+                        integrand, nevalperblock, print, save, timer, debug,
+                        measure, measurefreq, inplace, parallel)
+                end
             end
         end
 
@@ -201,28 +204,31 @@ function integrate(integrand::Function;
     end
 end
 
-function _standardize_block(nblock, Nworker)
+function _standardize_block(neval, nblock)
     #########  construct configurations for each block ################
+    @assert neval > nblock "neval=$neval should be larger than nblock = $nblock"
+    # standardize nblock according to MPI workers
+    Nworker = MCUtility.mpi_nprocs() # number of MPI workers
     if nblock > Nworker
-        nblock = (nblock ÷ Nworker) * Nworker # make Nblock % size ==0, error estimation assumes this relation
+        # make Nblock % nworker ==0, error estimation assumes this relation
+        nblock = (nblock ÷ Nworker) * Nworker 
     else
         nblock = Nworker  # each worker should handle at least one block
     end
-    return nblock
+
+    nevalperblock = neval ÷ nblock # make sure each block has the same nevalperblock, error estimation assumes this relation
+    return nevalperblock, nblock
 end
 
-function _block!(iblock, configs, obsSum, obsSquaredSum, summedConfig, solver, progress, 
+function _block!(configs, obsSum, obsSquaredSum, summedConfig, 
+    solver, progress, 
     integrand::Function, nevalperblock, print, save, timer, debug::Bool,
      measure::Union{Nothing, Function}, measurefreq, inplace, parallel)
 
-    # rank core will run the block with the indexes: rank, rank+Nworker, rank+2Nworker, ...
-    rank = MCUtility.rank(parallel)
-    Nworker = MCUtility.nworker(parallel)
-    # println(iblock, " ", rank, " ", Nworker)
+    rank = MCUtility.threadid(parallel)
+    # println(rank)
 
-    (iblock % Nworker != rank-1 ) && return
-
-    config_n = configs[rank] # configuration for the worker with rank `rank`
+    config_n = configs[rank] # configuration for the worker with thread id `rank`
     clearStatistics!(config_n) # reset statistics
 
     if solver == :vegasmc
