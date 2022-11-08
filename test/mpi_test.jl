@@ -84,7 +84,8 @@ end
     Y.histogram[1] = 1.0
     Z.histogram[1] = 1.0
     cvar = CompositeVar(Y, Z)
-    config = Configuration(var = (X, cvar), dof=[[1, 1], ])
+    obs = [1.0,]
+    config = Configuration(var = (X, cvar), dof=[[1, 1], ], obs=obs)
     config.normalization = 1.0
     config.visited[1] = 1.0
     config.propose[1, 1, 1] = 1.0
@@ -92,6 +93,7 @@ end
 
     MCIntegration.MPIreduceConfig!(config)
     if rank == root
+        @test config.observable[1] == Nworker
         @test config.normalization == Nworker
         @test config.visited[1] == Nworker
         @test config.propose[1, 1, 1] == Nworker
