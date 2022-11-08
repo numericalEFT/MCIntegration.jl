@@ -25,6 +25,7 @@ end
 # Write your tests here.
 if isempty(ARGS)
     include("utility.jl")
+    include("statistics.jl")
     include("montecarlo.jl")
     include("thread.jl")
     include("bubble.jl")

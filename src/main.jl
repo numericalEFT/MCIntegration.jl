@@ -264,22 +264,8 @@ function _block!(configs, obsSum, obsSquaredSum, summedConfig,
     end
 end
 
-# function _bcast_histogram!(target::V, source::V, config, adapt) where {V}
-#     comm = MPI.COMM_WORLD
-#     root = 0 # rank of the root worker
-#     if target isa Dist.CompositeVar
-#         for (vi, v) in enumerate(target.vars)
-#             _bcast_histogram!(v, source.vars[vi], config, adapt)
-#         end
-#     else
-#         target.histogram = MPI.bcast(source.histogram, root, comm)
-#         if adapt
-#             Dist.train!(target)
-#             Dist.initialize!(target, config)
-#         end
-#     end
-# end
-
+#obsSum or obsSquaredSum can be scalar or vector of float or complex
+#the return value is always a vector of float or complex
 function _mean_std(obsSum, obsSquaredSum, block)
     function _sqrt(x)
         return x < 0.0 ? 0.0 : sqrt(x)
