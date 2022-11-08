@@ -169,6 +169,7 @@ Moreover, packed variables usually indicate nontrivial correlations between thei
 
 # Parallelization
 
+## MPI
 MCIntegration supports MPI parallelization. To run your code in MPI mode, simply use the command
 ```bash
 mpiexec julia -n #NCPU ./your_script.jl
@@ -178,3 +179,13 @@ where `#NCPU` is the number of workers. Internally, the MC sampler will send the
 Note that you need to install the package [MPI.jl](https://github.com/JuliaParallel/MPI.jl) to use the MPI mode. See this [link](https://juliaparallel.github.io/MPI.jl/stable/configuration/) for the instruction on the configuration.
 
 The user essentially doesn't need to write additional code to support the parallelization. The only tricky part is the output: only the function `MCIntegratoin.integrate` of the root node returns meaningful estimates, while other workers simply returns `nothing`.
+
+## Multi-threading
+
+MCIntegration supports multi-threading with or without MPI. To run your code with multiple threads, start the julia with
+```bash
+julia -t #NCPU ./your_script.jl
+```
+Note that all threads will share the same memory, the user-defined `integrand` and `measure` functions should be implemented in a thread safe way (for example, be very careful about reading any data if another thread might write to it). We recommend the user to read the Julia official [documentation](https://docs.julialang.org/en/v1/manual/multi-threading/).
+
+With multiple threads, you have an option to parallelize the blocks in the function call `integrate` by providing a key argument `parallel = :thread`. For example,

@@ -44,7 +44,7 @@
 - `measure`:  measurement function, See [`Vegas.montecarlo`](@ref), [`VegasMC.montecarlo`](@ref) and [`MCMC.montecarlo`](@ref) for more details.
 - `measurefreq`: how often perform the measurement for ever `measurefreq` MC steps. If a measurement is expansive, you may want to make the measurement less frequent.
 - `inplace`:  whether to use the inplace version of the integrand. Default is `false`, which is more convenient for integrand with a few return values but may cause type instability. Only useful for the :vegas and :vegasmc solver.
-- `parallel`: :auto will automatically choose the best parallelization mode. :mpi will use MPI.jl to run the MC in parallel. :thread will use Threads.@threads to run the MC in parallel. Default is :auto.
+- `parallel`: :thread will use Threads.@threads to run different blocks in parallel. Default is :nothread.
 - `kwargs`:   Keyword arguments. The supported keywords include,
   * `measure` and `measurefreq`: measurement function and how frequent it is called. 
   * If `config` is `nothing`, you may need to provide arguments for the `Configuration` constructor, check [`Configuration`](@ref) docs for more details.
@@ -73,7 +73,7 @@ function integrate(integrand::Function;
     measure::Union{Nothing,Function}=nothing,
     measurefreq::Int=1,
     inplace::Bool=false, # whether to use the inplace version of the integrand
-    parallel::Symbol=:nothread, # :auto, :mpi, or :thread, or :serial
+    parallel::Symbol=:nothread, # :thread or :nothread
     kwargs...
 )
     if isnothing(config)
