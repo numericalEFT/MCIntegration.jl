@@ -156,11 +156,6 @@ function integrate(integrand::Function;
 
 
         if MCUtility.mpi_master() # only the master process will output results, no matter parallel = :mpi or :thread or :serial
-            ##################### Extract Statistics  ################################
-            # println("mean: ", mean, ", std: ", std)
-            mean, std = _mean_std(obsSum[1], obsSquaredSum[1], block)
-            push!(results, (mean, std, summedConfig[1]))
-
             ################### self-learning ##########################################
             (solver == :mcmc || solver == :vegasmc) && doReweight!(summedConfig[1], gamma, reweight_goal)
         end
@@ -183,9 +178,15 @@ function integrate(integrand::Function;
                 for v in config.var
                     Dist.train!(v)
                     Dist.initialize!(v, config)
-                    # println(v.grid[2])
+                    println(v.grid[2])
                 end
             end
+        end
+
+        if MCUtility.mpi_master() # only the master process will output results, no matter parallel = :mpi or :thread or :serial
+            ##################### Extract Statistics  ################################
+            mean, std = _mean_std(obsSum[1], obsSquaredSum[1], block)
+            push!(results, (mean, std, configs[1])) # configs has tried grid
         end
         ################################################################################
     end
