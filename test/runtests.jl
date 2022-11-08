@@ -29,6 +29,7 @@ if isempty(ARGS)
     include("thread.jl")
     include("bubble.jl")
     include("bubble_FermiK.jl")
+    include("mpi.jl")
 else
     include(ARGS[1])
 end

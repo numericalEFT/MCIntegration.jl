@@ -113,7 +113,7 @@ function integrate(integrand::Function;
     obsSquaredSum = [[zero(o) for o in config.observable] for _ in 1:Nthread] # sum of squared observables for each worker
 
     for _config in configs
-        reset_seed!(_config, rand(config.rng, 1:1000000))
+        reset_seed!(_config, rand(config.rng, 1:1000000)) # reset the seed for each thread
     end
 
     startTime = time()
@@ -165,17 +165,11 @@ function integrate(integrand::Function;
 
         ######################## syncronize between works ##############################
 
-        # broadcast the reweight and var.histogram of the summedConfig of the root worker to two targets:
-        # 1. config of the root worker
-        # 2. config of the other workers
-        # config.reweight = MPI.bcast(summedConfig[1].reweight, root, comm) # broadcast reweight factors to all workers
-        # config.reweight = MCUtility.MPIbcast(summedConfig[1].reweight)
-        # for (vi, var) in enumerate(config.var)
-        #     _bcast_histogram!(var, summedConfig[1].var[vi], config, adapt)
-        # end
+        # broadcast the reweight and var.histogram of the summedConfig[1] from the root to all workers
         MPIbcastConfig!(summedConfig[1])
 
         for config in configs
+            # broadcast the reweight and var.histogram of the summedConfig[1] to config of all threads
             bcastConfig!(config, summedConfig[1])
             if adapt
                 for v in config.var
