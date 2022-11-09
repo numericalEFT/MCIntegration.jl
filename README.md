@@ -173,7 +173,7 @@ MCIntegration supports both MPI and multi-thread parallelization. You can even m
 ## MPI
 To run your code in MPI mode, simply use the command,
 ```bash
-mpiexec julia -n #NCPU ./your_script.jl
+mpiexec -n #NCPU julia ./your_script.jl
 ```
 where `#NCPU` is the number of workers. Internally, the MC sampler will send the blocks (controlled by the argument `Nblock`, see above example code) to different workers, then collect the estimates in the root node. 
 

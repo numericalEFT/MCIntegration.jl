@@ -14,6 +14,7 @@
         measure::Union{Nothing,Function}=nothing,
         measurefreq::Int=1,
         inplace::Bool=false,
+        parallel::Symbol=:nothread,
         kwargs...
     )
 
