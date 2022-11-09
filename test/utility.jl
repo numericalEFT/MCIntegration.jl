@@ -21,6 +21,7 @@ end
 
     config = Configuration(var=(X, Y, Z), dof=[[1, 1, 1], [2, 3, 3],])
     println(config)
+    report(config)
     for vi in config.var
         Dist.initialize!(vi, config)
     end
