@@ -63,7 +63,7 @@ Integral 1 = 0.7860119307731648 ± 0.002323473435947719   (chi2/dof = 2.14)
 ```
 Here we suppress the output information by `print=-1`. If you want to see more information after the calculation, simply call `report(res)`. If you want to check the MC configuration, you may call `report(res.config)`.
 
-## Multiple Integrands Simultaneously
+## Evaluate Multiple Integrands Simultaneously
 You can calculate multiple integrals simultaneously. If the integrands are similar to each other, evaluating the integrals simultaneously sigificantly reduces cost. The following example calculate the area of a quarter circle and the volume of one-eighth sphere.
 ```julia
 julia> integrate((X, c)->(X[1]^2+X[2]^2<1.0, X[1]^2+X[2]^2+X[3]^2<1.0); var = Continuous(0.0, 1.0), dof = [[2,],[3,]])
