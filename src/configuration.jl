@@ -167,6 +167,11 @@ function Configuration(;
     )
 end
 
+function reset_seed!(cfg::Configuration, seed::Int)
+    cfg.seed = seed
+    cfg.rng = MersenneTwister(seed)
+end
+
 function _neighbor(neighbor, Nd)
     if isnothing(neighbor)
         # By default, only the order-1 and order+1 diagrams are considered to be the neighbors
@@ -230,37 +235,85 @@ function addConfig!(c::Configuration, ic::Configuration)
     end
 end
 
-function MPIreduceConfig!(c::Configuration, root, comm)
+function MPIreduceConfig!(c::Configuration, root=0, comm=MPI.COMM_WORLD)
+    # Need to reduce from workers:
+    # neval
+    # var.histogram
+    # visited, propose, accept
+    # normalization, observable
+    
     function histogram_reduce!(var::Variable)
         if var isa Dist.CompositeVar
             for v in var.vars
                 histogram_reduce!(v)
             end
         else
-            histogram = MPI.Reduce(var.histogram, MPI.SUM, root, comm)
-            if MPI.Comm_rank(comm) == root
-                var.histogram = histogram
-            end
+            MCUtility.MPIreduce!(var.histogram)
         end
     end
 
     ########## variable that could be a number ##############
-    neval = MPI.Reduce(c.neval, MPI.SUM, root, comm)
-    normalization = MPI.Reduce(c.normalization, MPI.SUM, root, comm)
-    observable = [MPI.Reduce(c.observable[o], MPI.SUM, root, comm) for o in eachindex(c.observable)]
-    if MPI.Comm_rank(comm) == root
-        c.neval = neval
-        c.normalization = normalization
-        c.observable = observable
+    c.neval = MCUtility.MPIreduce(c.neval) # reduce the amount of the commuication
+    c.normalization = MCUtility.MPIreduce(c.normalization) # reduce the amount of the commuication
+    for o in eachindex(c.observable)
+        if c.observable[o] isa AbstractArray
+            MCUtility.MPIreduce!(c.observable[o]) # avoid memory allocation
+        else
+            c.observable[o] = MCUtility.MPIreduce(c.observable[o])
+        end
     end
     for v in c.var
         histogram_reduce!(v)
     end
 
     ########## variable that are vectors ##############
-    MPI.Reduce!(c.visited, MPI.SUM, root, comm)
-    MPI.Reduce!(c.propose, MPI.SUM, root, comm)
-    MPI.Reduce!(c.accept, MPI.SUM, root, comm)
+    MCUtility.MPIreduce!(c.visited)
+    MCUtility.MPIreduce!(c.propose)
+    MCUtility.MPIreduce!(c.accept)
+end
+
+function MPIbcastConfig!(c::Configuration, root=0, comm=MPI.COMM_WORLD)
+    # need to broadcast from root to workers:
+    # reweight
+    # var.histogram
+    function histogram_bcast!(var::Variable)
+        if var isa Dist.CompositeVar
+            for v in var.vars
+                histogram_bcast!(v)
+            end
+        else
+            MCUtility.MPIbcast!(var.histogram)
+        end
+    end
+
+    ########## variable that could be a number ##############
+    MCUtility.MPIbcast(c.reweight)
+
+    for v in c.var
+        histogram_bcast!(v)
+    end
+end
+
+function bcastConfig!(dest::Configuration, src::Configuration)
+    # need to broadcast from root to workers:
+    # reweight
+    # var.histogram
+    ########## variable that could be a number ##############
+    dest.reweight .= src.reweight
+
+    function histogram_bcast!(dest::Variable, src::Variable)
+        if dest isa Dist.CompositeVar
+            for i in 1:length(dest.vars)
+                histogram_bcast!(dest.vars[i], src.vars[i])
+            end
+        else
+            dest.histogram .= src.histogram
+        end
+    end
+
+    for i in 1:length(dest.var)
+        histogram_bcast!(dest.var[i], src.var[i])
+    end
 end
 
 function report(config::Configuration, total_neval=nothing)

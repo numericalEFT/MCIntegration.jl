@@ -121,9 +121,9 @@ function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval
         end
     end
     if (state.curr != config.norm) && state.probability ≈ 0.0
-        error("Cannot find the variables that makes the $(state.curr) integrand nonzero!")
+        error("Cannot find the variables that makes the #$(state.curr) integrand nonzero!")
     elseif (state.curr != config.norm) && state.probability < TINY
-        @warn("Cannot find the variables that makes the $(state.curr) integrand >1e-10!")
+        @warn("Cannot find the variables that makes the #$(state.curr) integrand >1e-10!")
     end
 
     # updates = [changeIntegrand,] # TODO: sample changeVariable more often
@@ -208,6 +208,7 @@ function initialize!(config::Configuration{N,V,P,O,T}, integrand, state) where {
     if curr != config.norm
         # config.weights[curr] = integrand_wrap(curr, config, integrand)
         state.weight = (length(config.var) == 1) ? integrand(curr, config.var[1], config) : integrand(curr, config.var, config)
+        # println(config.var[1][1], ", ", config.var[1][2], ", ", integrand(curr, config.var[1], config))
         state.probability = abs(state.weight) * config.reweight[curr]
     else
         state.weight = zero(T)

@@ -13,6 +13,8 @@
         ignore::Int=adapt ? 1 : 0,
         measure::Union{Nothing,Function}=nothing,
         measurefreq::Int=1,
+        inplace::Bool=false,
+        parallel::Symbol=:nothread,
         kwargs...
     )
 
@@ -43,6 +45,7 @@
 - `measure`:  measurement function, See [`Vegas.montecarlo`](@ref), [`VegasMC.montecarlo`](@ref) and [`MCMC.montecarlo`](@ref) for more details.
 - `measurefreq`: how often perform the measurement for ever `measurefreq` MC steps. If a measurement is expansive, you may want to make the measurement less frequent.
 - `inplace`:  whether to use the inplace version of the integrand. Default is `false`, which is more convenient for integrand with a few return values but may cause type instability. Only useful for the :vegas and :vegasmc solver.
+- `parallel`: :thread will use Threads.@threads to run different blocks in parallel. Default is :nothread.
 - `kwargs`:   Keyword arguments. The supported keywords include,
   * `measure` and `measurefreq`: measurement function and how frequent it is called. 
   * If `config` is `nothing`, you may need to provide arguments for the `Configuration` constructor, check [`Configuration`](@ref) docs for more details.
@@ -71,6 +74,7 @@ function integrate(integrand::Function;
     measure::Union{Nothing,Function}=nothing,
     measurefreq::Int=1,
     inplace::Bool=false, # whether to use the inplace version of the integrand
+    parallel::Symbol=:nothread, # :thread or :nothread
     kwargs...
 )
     if isnothing(config)
@@ -89,106 +93,103 @@ function integrate(integrand::Function;
     ########### initialized MPI #######################################
     (MPI.Initialized() == false) && MPI.Init()
     comm = MPI.COMM_WORLD
-    Nworker = MPI.Comm_size(comm)  # number of MPI workers
-    rank = MPI.Comm_rank(comm)  # rank of current MPI worker
-    root = 0 # rank of the root worker
-    # MPI.Barrier(comm)
 
-    #########  construct configurations for each block ################
-    if block > Nworker
-        block = (block ÷ Nworker) * Nworker # make Nblock % size ==0, error estimation assumes this relation
-    else
-        block = Nworker  # each worker should handle at least one block
-    end
-    @assert block % Nworker == 0
-    nevalperblock = neval ÷ block # number of evaluations per block
-    # nevalperblock = neval # number of evaluations per block
+    # numebr of threads within MCIntegration, threads share the same memory
+    # >1 only in the :thread parallel mode
+    Nthread = MCUtility.nthreads(parallel) 
 
-    results = []
+    ############# figure out evaluations in each block ################
+    nevalperblock, block = _standardize_block(neval, block)
+    @assert block % MCUtility.mpi_nprocs() == 0
 
-    #In the MPI mode, progress will only need to track the progress of the root worker.
-    Ntotal = niter * block ÷ Nworker
+    ########## initialize the progress bar ############################
+    #In the MPI/thread mode, progress will only need to track the progress of the root worker.
+    Ntotal = niter * block ÷ MCUtility.nworker(parallel)
     progress = Progress(Ntotal; dt=(print >= 0 ? (0.5 + print) : 0.5), enabled=(print >= -1), showspeed=true, desc="Total iterations * blocks $(Ntotal): ", output=printio)
 
+    # initialize temp variables
+    configs = [deepcopy(config) for _ in 1:Nthread] # configurations for each thread
+    summedConfig = [deepcopy(config) for _ in 1:Nthread] # summed configuration for each thread from different blocks
+    obsSum = [[zero(o) for o in config.observable] for _ in 1:Nthread] # sum of observables for each worker
+    obsSquaredSum = [[zero(o) for o in config.observable] for _ in 1:Nthread] # sum of squared observables for each worker
+
+    for _config in configs
+        reset_seed!(_config, rand(config.rng, 1:1000000)) # reset the seed for each thread
+    end
+
     startTime = time()
+    results=[]
+
     for iter in 1:niter
 
-        obsSum = [zero(o) for o in config.observable]
-        obsSquaredSum = [zero(o) for o in config.observable]
-        # summed configuration of all blocks, but changes in each iteration
-        summedConfig = deepcopy(config)
+        for i in 1:Nthread
+            fill!(obsSum[i], zero(obsSum[1][1]))
+            fill!(obsSquaredSum[i], zero(obsSquaredSum[1][1]))
+            clearStatistics!(summedConfig[i])
+        end
 
-        for i = 1:block
-            # MPI thread rank will run the block with the indexes: rank, rank+Nworker, rank+2Nworker, ...
-            (i % Nworker != rank) && continue
-
-            clearStatistics!(config) # reset statistics
-
-            if solver == :vegasmc
-                config = VegasMC.montecarlo(config, integrand, nevalperblock, print, save, timer, debug;
-                    measure=measure, measurefreq=measurefreq, inplace=inplace)
-            elseif solver == :vegas
-                config = Vegas.montecarlo(config, integrand, nevalperblock, print, save, timer, debug;
-                    measure=measure, measurefreq=measurefreq, inplace=inplace)
-            elseif solver == :mcmc
-                config = MCMC.montecarlo(config, integrand, nevalperblock, print, save, timer, debug;
-                    measure=measure, measurefreq=measurefreq)
+        for _ in MCUtility.mpi_nprocs()
+            if parallel == :thread
+                Threads.@threads for _ in 1:block/MCUtility.mpi_nprocs()
+                    _block!(configs, obsSum, obsSquaredSum, summedConfig, solver, progress,
+                        integrand, nevalperblock, print, save, timer, debug,
+                        measure, measurefreq, inplace, parallel)
+                end
             else
-                error("Solver $solver is not supported!")
-            end
-
-            addConfig!(summedConfig, config) # collect statistics from the config of each block to summedConfig
-
-            if (config.normalization > 0.0) == false #in case config.normalization is not a number
-                error("normalization of block $i is $(config.normalization), which is not positively defined!")
-            end
-
-            for o in 1:config.N
-                if obsSum[o] isa AbstractArray
-                    m = config.observable[o] ./ config.normalization
-                    obsSum[o] += m
-                    obsSquaredSum[o] += (eltype(m) <: Complex) ? (@. (real(m))^2 + (imag(m))^2 * 1im) : m .^ 2
-                else
-                    m = config.observable[o] / config.normalization
-                    obsSum[o] += m
-                    obsSquaredSum[o] += (eltype(m) <: Complex) ? (real(m))^2 + (imag(m))^2 * 1im : m^2
+                for _ in 1:block/MCUtility.mpi_nprocs()
+                    _block!(configs, obsSum, obsSquaredSum, summedConfig, solver, progress,
+                        integrand, nevalperblock, print, save, timer, debug,
+                        measure, measurefreq, inplace, parallel)
                 end
             end
-
-            if MPI.Comm_rank(comm) == root
-                (print >= -1) && next!(progress)
-            end
         end
+
+        # println(configs[1].normalization)
+
+        for i in 2:Nthread
+            obsSum[1] += obsSum[i]
+            obsSquaredSum[1] += obsSquaredSum[i]
+            addConfig!(summedConfig[1], summedConfig[i])
+        end
+
         #################### collect statistics  ####################################
-        obsSum = [MCUtility.MPIreduce(osum) for osum in obsSum]
-        obsSquaredSum = [MCUtility.MPIreduce(osumsq) for osumsq in obsSquaredSum]
+        obsSum[1] = [MCUtility.MPIreduce(osum) for osum in obsSum[1]]
+        obsSquaredSum[1] = [MCUtility.MPIreduce(osumsq) for osumsq in obsSquaredSum[1]]
         # collect all statistics to summedConfig of the root worker
-        MPIreduceConfig!(summedConfig, root, comm)
+        MPIreduceConfig!(summedConfig[1])
 
-        if MPI.Comm_rank(comm) == root
-            ##################### Extract Statistics  ################################
-            # println("mean: ", mean, ", std: ", std)
-            mean, std = _mean_std(obsSum, obsSquaredSum, block)
-            push!(results, (mean, std, summedConfig))
 
+        if MCUtility.mpi_master() # only the master process will output results, no matter parallel = :mpi or :thread or :serial
             ################### self-learning ##########################################
-            (solver == :mcmc || solver == :vegasmc) && doReweight!(summedConfig, gamma, reweight_goal)
+            (solver == :mcmc || solver == :vegasmc) && doReweight!(summedConfig[1], gamma, reweight_goal)
         end
 
         ######################## syncronize between works ##############################
 
-        # broadcast the reweight and var.histogram of the summedConfig of the root worker to two targets:
-        # 1. config of the root worker
-        # 2. config of the other workers
-        config.reweight = MPI.bcast(summedConfig.reweight, root, comm) # broadcast reweight factors to all workers
-        for (vi, var) in enumerate(config.var)
-            _bcast_histogram!(var, summedConfig.var[vi], config, adapt)
+        # broadcast the reweight and var.histogram of the summedConfig[1] from the root to all workers
+        MPIbcastConfig!(summedConfig[1])
+
+        for config in configs
+            # broadcast the reweight and var.histogram of the summedConfig[1] to config of all threads
+            bcastConfig!(config, summedConfig[1])
+            if adapt
+                for v in config.var
+                    Dist.train!(v)
+                    Dist.initialize!(v, config)
+                end
+            end
+        end
+
+        if MCUtility.mpi_master() # only the master process will output results, no matter parallel = :mpi or :thread or :serial
+            ##################### Extract Statistics  ################################
+            mean, std = _mean_std(obsSum[1], obsSquaredSum[1], block)
+            push!(results, (mean, std, configs[1])) # configs has tried grid
         end
         ################################################################################
     end
 
     ##########################  output results   ##############################
-    if MPI.Comm_rank(comm) == root
+    if MCUtility.mpi_master() # only the master process will output results, no matter parallel = :mpi or :thread or :serial
         result = Result(results, ignore)
         if print >= 0
             report(result)
@@ -198,22 +199,74 @@ function integrate(integrand::Function;
     end
 end
 
-function _bcast_histogram!(target::V, source::V, config, adapt) where {V}
-    comm = MPI.COMM_WORLD
-    root = 0 # rank of the root worker
-    if target isa Dist.CompositeVar
-        for (vi, v) in enumerate(target.vars)
-            _bcast_histogram!(v, source.vars[vi], config, adapt)
-        end
+function _standardize_block(neval, nblock)
+    #########  construct configurations for each block ################
+    @assert neval > nblock "neval=$neval should be larger than nblock = $nblock"
+    # standardize nblock according to MPI workers
+    Nworker = MCUtility.mpi_nprocs() # number of MPI workers
+    if nblock > Nworker
+        # make Nblock % nworker ==0, error estimation assumes this relation
+        nblock = (nblock ÷ Nworker) * Nworker 
     else
-        target.histogram = MPI.bcast(source.histogram, root, comm)
-        if adapt
-            Dist.train!(target)
-            Dist.initialize!(target, config)
+        nblock = Nworker  # each worker should handle at least one block
+    end
+
+    nevalperblock = neval ÷ nblock # make sure each block has the same nevalperblock, error estimation assumes this relation
+    return nevalperblock, nblock
+end
+
+function _block!(configs, obsSum, obsSquaredSum, summedConfig, 
+    solver, progress, 
+    integrand::Function, nevalperblock, print, save, timer, debug::Bool,
+     measure::Union{Nothing, Function}, measurefreq, inplace, parallel)
+
+    rank = MCUtility.threadid(parallel)
+    # println(rank)
+
+    config_n = configs[rank] # configuration for the worker with thread id `rank`
+    clearStatistics!(config_n) # reset statistics
+
+    if solver == :vegasmc
+        VegasMC.montecarlo(config_n, integrand, nevalperblock, print, save, timer, debug;
+            measure=measure, measurefreq=measurefreq, inplace=inplace)
+    elseif solver == :vegas
+        Vegas.montecarlo(config_n, integrand, nevalperblock, print, save, timer, debug;
+            measure=measure, measurefreq=measurefreq, inplace=inplace)
+    elseif solver == :mcmc
+        MCMC.montecarlo(config_n, integrand, nevalperblock, print, save, timer, debug;
+            measure=measure, measurefreq=measurefreq)
+    else
+        error("Solver $solver is not supported!")
+    end
+
+    # println(config_n.normalization)
+
+
+    if (config_n.normalization > 0.0) == false #in case config.normalization is not a number
+        error("normalization of block $i is $(config_n.normalization), which is not positively defined!")
+    end
+
+    addConfig!(summedConfig[rank], config_n) # collect statistics from the config of each block to summedConfig
+
+    for o in 1:config_n.N
+        if obsSum[rank][o] isa AbstractArray
+            m = config_n.observable[o] ./ config_n.normalization
+            obsSum[rank][o] += m
+            obsSquaredSum[rank][o] += (eltype(m) <: Complex) ? (@. (real(m))^2 + (imag(m))^2 * 1im) : m .^ 2
+        else
+            m = config_n.observable[o] / config_n.normalization
+            obsSum[rank][o] += m
+            obsSquaredSum[rank][o] += (eltype(m) <: Complex) ? (real(m))^2 + (imag(m))^2 * 1im : m^2
         end
+    end
+
+    if MCUtility.is_root(parallel)
+        (print >= -1) && next!(progress)
     end
 end
 
+#obsSum or obsSquaredSum can be scalar or vector of float or complex
+#the return value is always a vector of float or complex
 function _mean_std(obsSum, obsSquaredSum, block)
     function _sqrt(x)
         return x < 0.0 ? 0.0 : sqrt(x)

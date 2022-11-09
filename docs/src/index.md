@@ -197,13 +197,45 @@ Moreover, packed variables usually indicate nontrivial correlations between thei
     over the infinite interval ``(-\infty, \infty)`` is zero.
 
 # Parallelization
+MCIntegration supports both MPI and multi-thread parallelization. You can even mix them if necessary.
 
-MCIntegration supports MPI parallelization. To run your code in MPI mode, simply use the command
+## MPI
+To run your code in MPI mode, simply use the command,
 ```bash
-mpiexec julia -n #NCPU ./your_script.jl
+mpiexec -n #NCPU julia ./your_script.jl
 ```
 where `#NCPU` is the number of workers. Internally, the MC sampler will send the blocks (controlled by the argument `Nblock`, see above example code) to different workers, then collect the estimates in the root node. 
 
 Note that you need to install the package [MPI.jl](https://github.com/JuliaParallel/MPI.jl) to use the MPI mode. See this [link](https://juliaparallel.github.io/MPI.jl/stable/configuration/) for the instruction on the configuration.
 
-The user essentially doesn't need to write additional code to support the parallelization. The only tricky part is the output: only the function `MCIntegratoin.integrate` of the root node returns meaningful estimates, while other workers simply returns `nothing`. 
+The user essentially doesn't need to write additional code to support the parallelization. The only tricky part is the output: only the function `MCIntegratoin.integrate` of the root node returns meaningful estimates, while other workers simply returns `nothing`.
+
+## Multi-threading
+
+MCIntegration supports multi-threading with or without MPI. To run your code with multiple threads, start Julia with
+```bash
+julia -t #NCPU ./your_script.jl
+```
+Note that all threads will share the same memory. The user-defined `integrand` and `measure` functions should be implemented thread-safe (for example, be very careful about reading any data if another thread might write to it). We recommend the user read Julia's official [documentation](https://docs.julialang.org/en/v1/manual/multi-threading/).
+
+There are two different ways to parallelize your code with multiple threads. 
+
+1. If you need to evaluate multiple integrals, each thread can call the function `MCIntegration.integrate` to do one integral. In the following example, we use three threads to evaluate three integrals altogether. Note that only three threads will be used even if you initialize Julia with more than three threads.
+```julia
+julia> Threads.@threads for i = 1:3
+       println("Thread $(Threads.threadid()) returns ", integrate((x, c) -> x[1]^i, print=-2))
+       end
+Thread 2 returns Integral 1 = 0.24995156136254149 ± 6.945088534643841e-5   (chi2/dof = 2.95)
+Thread 3 returns Integral 1 = 0.3334287563137184 ± 9.452648803649706e-5   (chi2/dof = 1.35)
+Thread 1 returns Integral 1 = 0.5000251243601586 ± 0.00013482206569391864   (chi2/dof = 1.58)
+```
+
+2. Only the main thread calls the function `MCIntegration.integrate`, then parallelize the internal blocks with multiple threads. To do that, you need to call the function `MCIntegration.integrate` with a key argument `parallel = :thread`. This approach will utilize all Julia threads.  For example,
+```julia
+julia> for i = 1:3
+       println("Thread $(Threads.threadid()) return ", integrate((x, c) -> x[1]^i, print=-2, parallel=:thread))
+       end
+Thread 1 return Integral 1 = 0.5001880440214347 ± 0.00015058935731086765   (chi2/dof = 0.397)
+Thread 1 return Integral 1 = 0.33341068551139696 ± 0.00010109649819894601   (chi2/dof = 1.94)
+Thread 1 return Integral 1 = 0.24983868976137244 ± 8.546009018501706e-5   (chi2/dof = 1.54)
+```

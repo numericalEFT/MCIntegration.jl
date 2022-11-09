@@ -147,7 +147,6 @@ function accumulate!(T::Continuous, idx::Int, weight=1.0)
     end
 end
 
-
 """
 Vegas adaptive map
 """
