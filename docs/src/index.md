@@ -66,7 +66,7 @@ julia> integrate((X, c)->(X[1]^2+X[2]^2<1.0); var = X, dof = 2)
 Integral 1 = 0.7832652785953883 ± 0.002149843816733503   (chi2/dof = 1.28)
 ```
 
-## Multiple Integrands Simultaneously
+## Evaluate Multiple Integrands Simultaneously
 You can calculate multiple integrals simultaneously. If the integrands are similar to each other, evaluating the integrals simultaneously sigificantly reduces cost. The following example calculate the area of a quarter circle and the volume of one-eighth sphere.
 ```julia
 julia> integrate((X, c)->(X[1]^2+X[2]^2<1.0, X[1]^2+X[2]^2+X[3]^2<1.0); var = Continuous(0.0, 1.0), dof = [[2,],[3,]])
