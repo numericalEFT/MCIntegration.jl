@@ -107,16 +107,16 @@ function is_root(parallel::Symbol)
     end
 end
 
-# rank of the current worker for both MPI and threads
-function rank(parallel::Symbol)
-    #if thread is off, then nthreads must be one. Only mpi_rank contributes
-    # mpi_rank() always start with 0
-    if parallel == :thread
-        return Threads.threadid()+((nthreads(parallel)-1)*mpi_rank())
-    else
-        return mpi_rank()+1
-    end
-end
+# # rank of the current worker for both MPI and threads
+# function rank(parallel::Symbol)
+#     #if thread is off, then nthreads must be one. Only mpi_rank contributes
+#     # mpi_rank() always start with 0
+#     if parallel == :thread
+#         return Threads.threadid()+((nthreads(parallel)-1)*mpi_rank())
+#     else
+#         return mpi_rank()+1
+#     end
+# end
 
 function threadid(parallel::Symbol)
     if parallel == :thread

@@ -20,6 +20,7 @@ end
     Z = Discrete(1, 6; distribution=rand(6))
 
     config = Configuration(var=(X, Y, Z), dof=[[1, 1, 1], [2, 3, 3],])
+    println(config)
     for vi in config.var
         Dist.initialize!(vi, config)
     end

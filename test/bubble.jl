@@ -124,6 +124,7 @@ using StaticArrays
                 check(avg[idx], std[idx], p, ratio)
             end
             # check(avg[1], std[1], lindhard(extQ[1][1], para))
+            report(result)
         end
     end
 
