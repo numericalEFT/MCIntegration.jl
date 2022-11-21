@@ -76,7 +76,8 @@ function tostring(mval, merr; pm="±")
         # m = measurement(mval, merr)
         # return @sprintf("$m")
     elseif mval isa Complex && merr isa Complex && isfinite(mval) && isfinite(merr)
-        m = measurement(real(mval), real(merr)) + measurement(imag(mval), imag(merr)) * 1im
+        m = @sprintf("%16.6g(%6g) + %16.6g(%6g)im", real(mval), real(merr), imag(mval), imag(merr))
+        # m = measurement(real(mval), real(merr)) + measurement(imag(mval), imag(merr)) * 1im
         # return @sprintf("%16.6g(%6g) + %16.6g(%6g)im", real(mval), real(merr), imag(mval), imag(merr))
     else
         m = "$mval $pm $merr"
