@@ -127,6 +127,21 @@ function TestComplex2_inplace(totalstep, alg)
     return res
 end
 
+@testset "Report" begin
+    neval = 1000_00
+    results = [
+        Sphere1(neval, :vegas),
+        Sphere2(neval, :vegas),
+        TestComplex1(neval, :vegas),
+        TestComplex2(neval, :vegas),
+    ]
+    for result in results
+        @test redirect_stdout(devnull) do
+            isnothing(report(result))
+        end
+    end
+end
+
 @testset "MCMC Sampler" begin
     neval = 1000_00
     println("MCMC tests")
