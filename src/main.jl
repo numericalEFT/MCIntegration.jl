@@ -96,7 +96,7 @@ function integrate(integrand::Function;
 
     # numebr of threads within MCIntegration, threads share the same memory
     # >1 only in the :thread parallel mode
-    Nthread = MCUtility.nthreads(parallel) 
+    Nthread = MCUtility.nthreads(parallel)
 
     ############# figure out evaluations in each block ################
     nevalperblock, block = _standardize_block(neval, block)
@@ -118,7 +118,7 @@ function integrate(integrand::Function;
     end
 
     startTime = time()
-    results=[]
+    results = []
 
     for iter in 1:niter
 
@@ -206,7 +206,7 @@ function _standardize_block(neval, nblock)
     Nworker = MCUtility.mpi_nprocs() # number of MPI workers
     if nblock > Nworker
         # make Nblock % nworker ==0, error estimation assumes this relation
-        nblock = (nblock ÷ Nworker) * Nworker 
+        nblock = (nblock ÷ Nworker) * Nworker
     else
         nblock = Nworker  # each worker should handle at least one block
     end
@@ -215,10 +215,10 @@ function _standardize_block(neval, nblock)
     return nevalperblock, nblock
 end
 
-function _block!(configs, obsSum, obsSquaredSum, summedConfig, 
-    solver, progress, 
+function _block!(configs, obsSum, obsSquaredSum, summedConfig,
+    solver, progress,
     integrand::Function, nevalperblock, print, save, timer, debug::Bool,
-     measure::Union{Nothing, Function}, measurefreq, inplace, parallel)
+    measure::Union{Nothing,Function}, measurefreq, inplace, parallel)
 
     rank = MCUtility.threadid(parallel)
     # println(rank)
@@ -243,7 +243,7 @@ function _block!(configs, obsSum, obsSquaredSum, summedConfig,
 
 
     if (config_n.normalization > 0.0) == false #in case config.normalization is not a number
-        error("normalization of block $i is $(config_n.normalization), which is not positively defined!")
+        error("Block normalization = $(config_n.normalization) is not positively defined!")
     end
 
     addConfig!(summedConfig[rank], config_n) # collect statistics from the config of each block to summedConfig
