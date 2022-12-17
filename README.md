@@ -38,13 +38,13 @@ ignore        -3.8394711 ± 0.12101621              -3.8394711 ± 0.12101621    
 
 - The final result is obtained by inverse-variance-weighted averge of all the iterations except the first one (there is no important sampling yet!). They are stored in the return value`res`, which is a struct [`Result`](https://numericaleft.github.io/MCIntegration.jl/dev/lib/montecarlo/#Main-module). You can access the statistics with `res.mean`, `res.stdev`, `res.chi2`, `res.dof` and `res.iterations` for all the iterations. 
 
--  If you want to exclude more iterations, say the first three iterations, you can get a new result with the call `Result(res, 3)`.  
+-  If you want to exclude more iterations, say the first three iterations, you can call `Result(res, 3)` to get a new result.  
 
 - Internally, the `integrate` function optimizes the important sampling after each iteration. The results generally improves with iteractions. As long as `neval` is sufficiently large, the estimations from different iteractions should be statistically independent. This will justify an average of different iterations weighted by the inverse variance. The assumption of statically independence can be explicitly checked with chi-square test, namely `chi2/dof` should be about one. 
 
 - You can pass the keyword arguemnt `solver` to the `integrate` functoin to specify the Monte Carlo algorithm. The above examples uses the Vegas algorithm with `:vegas`. In addition, this package provides two Markov-chain Monte Carlo algorithms for numerical integration. You can call them with `:vegasmc` or `:mcmc`. Check the Algorithm section for more details. 
 
-- For the `:vegas` and `vegasmc` algorithms, the user-defined integrand evaluation function requires two arguments `(x, c)`, where `x` is the integration variable, while `c` is a struct stores the MC configuration. The latter contains additional information which may be needed for integrand evalution.  
+- For the `:vegas` and `:vegasmc` algorithms, the user-defined integrand evaluation function requires two arguments `(x, c)`, where `x` is the integration variable, while `c` is a struct stores the MC configuration. The latter contains additional information which may be needed for integrand evalution.  
 
 - The ['Configuration'](https://numericaleft.github.io/MCIntegration.jl/dev/lib/montecarlo/#Main-module) struct stores the essential state information for the Monte Carlo sampling. Two particularly relavent members are
   * `userdata` : if you pass a keyword argument `userdata` to the `integrate` function, then it will be stored here, so that you can access it in your integrand evaluation function. 
