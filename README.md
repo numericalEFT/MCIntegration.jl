@@ -12,10 +12,10 @@ MCIntegration.jl provides several Monte Carlo algorithms to calculate regular/si
 # Quick start
 The following examples demonstrate the basic usage of this package. 
 
-## One-dimensional integral
+## Example 1. One-dimensional integral
 We first show an example of highly singular integral. The following command evaluates $\int_0^1 \frac{\operatorname{log}(x)}{\sqrt{x}} dx = 4$.
 ```julia
-julia> res = integrate((x, c)->log(x[1])/sqrt(x[1]), solver=:vegas) 
+julia> res = integrate((x, c)->log(x[1])/sqrt(x[1]), solver=:vegas, print=0) 
 Integral 1 = -3.997980772652019 ± 0.0013607691354676158   (chi2/dof = 1.93)
 
 julia> report(res) #print out the iteration history
@@ -42,17 +42,38 @@ ignore        -3.8394711 ± 0.12101621              -3.8394711 ± 0.12101621    
 
 - Internally, the `integrate` function optimizes the important sampling after each iteration. The results generally improves with iteractions. As long as `neval` is sufficiently large, the estimations from different iteractions should be statistically independent. This will justify an average of different iterations weighted by the inverse variance. The assumption of statically independence can be explicitly checked with chi-square test, namely `chi2/dof` should be about one. 
 
-- You can pass the keyword arguemnt `solver` to the `integrate` functoin to specify the Monte Carlo algorithm. The above examples uses the Vegas algorithm with `:vegas`. In addition, this package provides two Markov-chain Monte Carlo algorithms for numerical integration. You can call them with `:vegasmc` or `:mcmc`. Check the Algorithm section for more details. 
+- You can pass the keyword arguemnt `solver` to the `integrate` functoin to specify the Monte Carlo algorithm. The above examples uses the Vegas algorithm with `:vegas`. In addition, this package provides two Markov-chain Monte Carlo algorithms for numerical integration. You can call them with `:vegasmc` or `:mcmc`. Check the section [Algorithm](#Algorithm) for more details. 
 
-- For the `:vegas` and `:vegasmc` algorithms, the user-defined integrand evaluation function requires two arguments `(x, c)`, where `x` is the integration variable, while `c` is a struct stores the MC configuration. The latter contains additional information which may be needed for integrand evalution.  
+- The user-defined integrand evaluation function requires two arguments `(x, c)`
+  * `x` is the integration variable in [0, 1) by default. Note that, the variable should be regarded as a pool of same type of variables. Calling `x[i]` accesses the i-th random variable. See Example 2 and the section [Variables](#Variables) for more details.
+  * `c` is a struct stores the MC configuration. It contains additional information which may be needed for integrand evalution. See Example 5 for more details. 
 
-- The ['Configuration'](https://numericaleft.github.io/MCIntegration.jl/dev/lib/montecarlo/#Main-module) struct stores the essential state information for the Monte Carlo sampling. Two particularly relavent members are
-  * `userdata` : if you pass a keyword argument `userdata` to the `integrate` function, then it will be stored here, so that you can access it in your integrand evaluation function. 
-  * `var` : A tuple of variables. In the above example, `var = (x, )` so that `var[1] === x`. 
+- For complex-valued integral, say with the type `ComplexF64`, you need to call `integrate(..., dtype = ComplexF64)` to specify the integrand data type. The error  of the real part and the imaginary part will be estimated independently. 
 
-- The result returned by the `integrate` function contains the configuration after integration. If you want a detailed report, call `report(res.config)`. This configuration stores the optimized random variable distributions for the important sampling, which could be useful to evaluate other integrals with similar integrands. To use the optimized distributions, you can either call `integrate(..., config = res.config, ...)` to pass the entire configuration, or call `integrate(..., var = (res.config.var[1], ...), ...)` to pass one or more selected variables.
+- You can suppress the output information by setting `print=-1`. If you want to see more information after the calculation, simply call `report(res)`. If you want to check the MC configuration, you may call `report(res.config)`.
 
-## Multi-dimensional integral
+## Example 2. Multi-dimensional integral: Symmetric Variables
+
+In `MCIntegration.jl`, a variable is defined as a pool of random numbers sampled from the same distribution. For example, you can explicitly initialize a pool of variables in [0, 1) as follows, 
+```julia
+julia> x=Continuous(0.0, 1.0) #Create a pool of continuous variables. 
+Adaptive continuous variable in the domain [0.0, 1.0). Max variable number = 16. Learning rate = 2.0.
+```
+
+This design choice makes it simple to evaluate:
+
+- High-dimensional integrals involves multiple variables which are symmetric with each other. For example, the area of a quarter unit circle (π/4 = 0.785398...), 
+```julia
+julia> res = integrate((x, c)->(x[1]^2+x[2]^2<1.0); var = x, dof = 2) 
+Integral 1 = 0.7860119307731648 ± 0.002323473435947719   (chi2/dof = 2.14)
+```
+- To take advantage of vectorization, sometimes it makes sense to evaluate several copies of integrand simultaneously. 
+```julia
+julia> res = integrate((x, c)->(x[1]^2+x[2]^2<1.0); var = x, dof = 2) 
+Integral 1 = 0.7860119307731648 ± 0.002323473435947719   (chi2/dof = 2.14)
+```
+
+## Example 3. Multi-dimensional integral: Generic Variables
 The following example first defines a pool of variables in [0, 1), then evaluates the area of a quarter unit circle (π/4 = 0.785398...).
 ```julia
 julia> X=Continuous(0.0, 1.0) #Create a pool of continuous variables. 
@@ -63,7 +84,8 @@ Integral 1 = 0.7860119307731648 ± 0.002323473435947719   (chi2/dof = 2.14)
 ```
 Here we suppress the output information by `print=-1`. If you want to see more information after the calculation, simply call `report(res)`. If you want to check the MC configuration, you may call `report(res.config)`.
 
-## Evaluate Multiple Integrands Simultaneously
+
+## Example 4. Evaluate Multiple Integrands Simultaneously
 You can calculate multiple integrals simultaneously. If the integrands are similar to each other, evaluating the integrals simultaneously sigificantly reduces cost. The following example calculate the area of a quarter circle and the volume of one-eighth sphere.
 ```julia
 julia> integrate((X, c)->(X[1]^2+X[2]^2<1.0, X[1]^2+X[2]^2+X[3]^2<1.0); var = Continuous(0.0, 1.0), dof = [[2,],[3,]])
@@ -89,7 +111,16 @@ julia> integrate(var = Continuous(0.0, 1.0), dof = [[2,], [3,]], inplace=true) d
        end
 ```
 
-## Measure Histogram
+## Example 5. Passing Data with `Configuration`
+
+- The ['Configuration'](https://numericaleft.github.io/MCIntegration.jl/dev/lib/montecarlo/#Main-module) struct stores the essential state information for the Monte Carlo sampling. Two particularly relavent members are
+  * `userdata` : if you pass a keyword argument `userdata` to the `integrate` function, then it will be stored here, so that you can access it in your integrand evaluation function. 
+  * `var` : A tuple of variables. In the above example, `var = (x, )` so that `var[1] === x`. 
+
+- The result returned by the `integrate` function contains the configuration after integration. If you want a detailed report, call `report(res.config)`. This configuration stores the optimized random variable distributions for the important sampling, which could be useful to evaluate other integrals with similar integrands. To use the optimized distributions, you can either call `integrate(..., config = res.config, ...)` to pass the entire configuration, or call `integrate(..., var = (res.config.var[1], ...), ...)` to pass one or more selected variables.
+
+
+## Example 6. Measure Histogram
 You may want to study how an integral changes with a tuning parameter. The following example is how to solve the histogram measurement problem.
 ```julia
 julia> N = 20;
