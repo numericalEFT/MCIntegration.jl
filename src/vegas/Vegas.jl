@@ -9,7 +9,7 @@ import ..clearStatistics!
 import ..TINY
 
 using ..Dist
-import ..Variable
+# import ..Variable
 
 using ..MCUtility
 

@@ -1,4 +1,4 @@
-mutable struct FermiK{D} <: Variable
+mutable struct FermiK{D} <: AbstractVectorVariable{Float64}
     # data::Vector{MVector{D,Float64}}
     data::Matrix{Float64}
     # data::Vector{Vector{Float64}}
@@ -27,24 +27,25 @@ function Base.show(io::IO, var::FermiK{D}) where {D}
 end
 
 Base.length(Var::FermiK{D}) where {D} = size(Var.data)[2]
+Base.size(Var::FermiK{D}) where {D} = (length(Var),)
 Base.getindex(Var::FermiK{D}, i::Int) where {D} = view(Var.data, :, i)
 function Base.setindex!(Var::FermiK{D}, v, i::Int) where {D}
     view(Var.data, :, i) .= v
 end
 Base.lastindex(Var::FermiK{D}) where {D} = size(Var.data)[2] # return index, not the value
 
-mutable struct RadialFermiK <: Variable
-    data::Vector{Float64}
-    kF::Float64
-    δk::Float64
-    offset::Int
-    histogram::Vector{Float64}
-    function RadialFermiK(kF=1.0, δk=0.01, size=MaxOrder; offset=0)
-        @assert offset + 1 < size
-        k = [kF * (i - 0.5) / size for i = 1:size] #avoid duplication
-        return new(k, kF, δk, offset, [0.0,])
-    end
-end
+# mutable struct RadialFermiK <: Variable
+#     data::Vector{Float64}
+#     kF::Float64
+#     δk::Float64
+#     offset::Int
+#     histogram::Vector{Float64}
+#     function RadialFermiK(kF=1.0, δk=0.01, size=MaxOrder; offset=0)
+#         @assert offset + 1 < size
+#         k = [kF * (i - 0.5) / size for i = 1:size] #avoid duplication
+#         return new(k, kF, δk, offset, [0.0,])
+#     end
+# end
 
 ### variables that uses a vegas+ algorithm for impotrant sampling ###
 # mutable struct Vegas{D,G} <: Variable
@@ -65,7 +66,7 @@ end
 #     adapt::Bool
 # end
 
-mutable struct Continuous{G} <: Variable
+mutable struct Continuous{G} <: AbstractVectorVariable{Float64}
     data::Vector{Float64}
     gidx::Vector{Int}
     prob::Vector{Float64} # probability of the given variable. For the vegas map, = dy/dx = 1/N/Δxᵢ = inverse of the Jacobian
@@ -186,7 +187,7 @@ function train!(T::Continuous)
     clearStatistics!(T) #remove histogram
 end
 
-mutable struct TauPair <: Variable
+mutable struct TauPair <: AbstractVectorVariable{MVector{2,Float64}}
     data::Vector{MVector{2,Float64}}
     λ::Float64
     β::Float64
@@ -199,7 +200,7 @@ mutable struct TauPair <: Variable
     end
 end
 
-mutable struct Discrete <: Variable
+mutable struct Discrete <: AbstractVectorVariable{Int}
     data::Vector{Int}
     lower::Int
     upper::Int
@@ -286,7 +287,7 @@ function train!(T::Discrete)
     clearStatistics!(T)
 end
 
-mutable struct CompositeVar{V} <: Variable
+mutable struct CompositeVar{V}
     vars::V
     prob::Vector{Float64}
     offset::Int
@@ -305,7 +306,7 @@ Create a product of different types of random variables. The bundled variables w
 - `adapt`  : turn on or off the adaptive map
 """
 function CompositeVar(vargs...; adapt=true, offset=0, size=MaxOrder)
-    @assert all(v -> (v isa Variable), vargs) "all arguments should variables"
+    @assert all(v -> is_variable(typeof(v)), vargs) "all arguments should variables"
     @assert all(v -> !(v isa CompositeVar), vargs) "CompositeVar arguments not allowed"
     for v in vargs
         v.adapt = adapt
@@ -325,7 +326,9 @@ function Base.show(io::IO, var::CompositeVar)
     )
 end
 
+is_variable(::Type{CompositeVar{V}}) where {V} = true
 Base.length(vars::CompositeVar) = length(vars.vars)
+Base.size(vars::CompositeVar) = (length(vars.vars),)
 Base.getindex(vars::CompositeVar, i::Int) = vars.vars[i]
 # function Base.setindex!(Var::Variable, v, i::Int)
 #     Var.data[i] = v
@@ -410,34 +413,34 @@ end
 ################## API for generic variables #######################
 
 """
-    accumulate!(var::Variable, idx, weight) = nothing
+    accumulate!(var, idx, weight) = nothing
 
 Accumulate a new sample with the a given `weight` for the `idx`-th element of the Variable pool `var`.
 """
-accumulate!(var::Variable, idx, weight) = nothing
+accumulate!(var, idx, weight) = nothing
 
 """
-    train!(Var::Variable)
+    train!(Var)
 
 Train the distribution of the variables in the pool.
 """
-train!(Var::Variable) = nothing
+train!(Var) = nothing
 
 """
-    clearStatistics!(T::Variable)
+    clearStatistics!(T)
 
 Clear the accumulated samples in the Variable.
 """
-clearStatistics!(T::Variable) = fill!(T.histogram, 1.0e-10)
+clearStatistics!(T) = fill!(T.histogram, 1.0e-10)
 
-addStatistics!(target::Variable, income::Variable) = (target.histogram .+= income.histogram)
+addStatistics!(target, income) = (target.histogram .+= income.histogram)
 
 """
-    initialize!(T::Variable, config)
+    initialize!(T, config)
 
 Initialize the variable pool with random variables.
 """
-function initialize!(T::Variable, config)
+function initialize!(T, config)
     for i = 1+T.offset:length(T)-2
         create!(T, i, config)
     end
@@ -525,13 +528,13 @@ function delta_probability(config, curr=config.curr; new)
     return prob
 end
 
-Base.length(Var::Variable) = length(Var.data)
-Base.getindex(Var::Variable, i::Int) = Var.data[i]
-function Base.setindex!(Var::Variable, v, i::Int)
-    Var.data[i] = v
-end
-Base.firstindex(Var::Variable) = 1 # return index, not the value
-Base.lastindex(Var::Variable) = length(Var.data) # return index, not the value
+# Base.length(Var::Variable) = length(Var.data)
+# Base.getindex(Var::Variable, i::Int) = Var.data[i]
+# function Base.setindex!(Var::Variable, v, i::Int)
+#     Var.data[i] = v
+# end
+# Base.firstindex(Var::Variable) = 1 # return index, not the value
+# Base.lastindex(Var::Variable) = length(Var.data) # return index, not the value
 
 
 
