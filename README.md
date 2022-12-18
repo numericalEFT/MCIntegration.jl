@@ -42,7 +42,7 @@ ignore        -3.8394711 ± 0.12101621              -3.8394711 ± 0.12101621    
 
 - Internally, the `integrate` function optimizes the important sampling after each iteration. The results generally improves with iteractions. As long as `neval` is sufficiently large, the estimations from different iteractions should be statistically independent. This will justify an average of different iterations weighted by the inverse variance. The assumption of statically independence can be explicitly checked with chi-square test, namely `chi2/dof` should be about one. 
 
-- You can pass the keyword arguemnt `solver` to the `integrate` functoin to specify the Monte Carlo algorithm. The above examples uses the Vegas algorithm with `:vegas`. In addition, this package provides two Markov-chain Monte Carlo algorithms for numerical integration. You can call them with `:vegasmc` or `:mcmc`. Check the section [Algorithm](#Algorithm) for more details. 
+- You can pass the keyword arguemnt `solver` to the `integrate` functoin to specify the Monte Carlo (MC) algorithm. The above examples uses the Vegas algorithm with `:vegas`. In addition, this package provides two Markov-chain Monte Carlo (MCMC) algorithms for numerical integration. You can call them with `:vegasmc` or `:mcmc`. In general, `:vegas` tends to be slightly more accurate than `vegasmc`, but much less robust. Therefore, `integrate` uses `:vegasmc` by default. Check the section [Algorithm](#Algorithm) for more details. 
 
 - The user-defined integrand evaluation function requires two arguments `(x, c)`
   * `x` is the integration variable in [0, 1) by default. Note that, the variable should be regarded as a pool of same type of variables. Calling `x[i]` accesses the i-th random variable. See Example 2 and the section [Variables](#Variables) for more details.
@@ -59,31 +59,38 @@ In `MCIntegration.jl`, a variable is defined as a pool of random numbers sampled
 julia> x=Continuous(0.0, 1.0) #Create a pool of continuous variables. 
 Adaptive continuous variable in the domain [0.0, 1.0). Max variable number = 16. Learning rate = 2.0.
 ```
-
-This design choice makes it simple to evaluate:
-
-- High-dimensional integrals involves multiple variables which are symmetric with each other. For example, the area of a quarter unit circle (π/4 = 0.785398...), 
-```julia
-julia> res = integrate((x, c)->(x[1]^2+x[2]^2<1.0); var = x, dof = 2) 
-Integral 1 = 0.7860119307731648 ± 0.002323473435947719   (chi2/dof = 2.14)
-```
-- To take advantage of vectorization, sometimes it makes sense to evaluate several copies of integrand simultaneously. 
+This design choice makes it simple to evaluate high-dimensional integrals involves multiple symmetric variables. For example, the area of a quarter unit circle (π/4 = 0.785398...), 
 ```julia
 julia> res = integrate((x, c)->(x[1]^2+x[2]^2<1.0); var = x, dof = 2) 
 Integral 1 = 0.7860119307731648 ± 0.002323473435947719   (chi2/dof = 2.14)
 ```
 
 ## Example 3. Multi-dimensional integral: Generic Variables
-The following example first defines a pool of variables in [0, 1), then evaluates the area of a quarter unit circle (π/4 = 0.785398...).
+If the variables in a multi-dimensional integrand are not symmetric, it is better to define them as different types so that they can be sampled with different adaptive distributions,
 ```julia
-julia> X=Continuous(0.0, 1.0) #Create a pool of continuous variables. 
+julia> x=Continuous(0.0, 1.0) #Create a pool of continuous variables. 
 Adaptive continuous variable in the domain [0.0, 1.0). Max variable number = 16. Learning rate = 2.0.
 
-julia> res = integrate((X, c)->(X[1]^2+X[2]^2<1.0); var = X, dof = 2) 
-Integral 1 = 0.7860119307731648 ± 0.002323473435947719   (chi2/dof = 2.14)
-```
-Here we suppress the output information by `print=-1`. If you want to see more information after the calculation, simply call `report(res)`. If you want to check the MC configuration, you may call `report(res.config)`.
+julia> y=Continuous(0.0, 1.0) #Create a pool of continuous variables. 
+Adaptive continuous variable in the domain [0.0, 1.0). Max variable number = 16. Learning rate = 2.0.
 
+julia> res = integrate(((x, y), c)-> log(x[1])/sqrt(x[1])*y[1]; var = (x, y), solver=:vegas)
+Integral 1 = -2.00073745890742 ± 0.0008972661931407758   (chi2/dof = 2.63)
+```
+
+In the above example, if you use the Markov-chain MC (MCMC) algorithm `:vegasmc`, you will notice significant loss of accuracy compared to the `:vegas` algorithm,
+```julia
+julia> res = integrate(((x, y), c)-> log(x[1])/sqrt(x[1])*y[1]; var = (x, y), solver=:vegasmc)
+Integral 1 = -1.9931385040549743 ± 0.0023982483367389613   (chi2/dof = 2.01)
+```
+This is because in the MCMC algorithm, each MC step randomly select one type of the variable to update, which results in autocorrelation in the generated Markov-chain, and makes the result less accurate. To sample all variable types together in each MC step, you may combine them into a composite variable. The resulting integration accuracy is comparable to the MC algorithm `:vegas`.
+```julia
+julia> cv = CompositeVar(x, y)
+Adaptive Composite variable with 2 components. Max number = 16.
+
+julia> res = integrate(((x, y), c)-> log(x[1])/sqrt(x[1])*y[1]; var = cv, solver=:vegasmc)
+Integral 1 = -1.9984280095710727 ± 0.0011155989264483592   (chi2/dof = 1.7)
+```
 
 ## Example 4. Evaluate Multiple Integrands Simultaneously
 You can calculate multiple integrals simultaneously. If the integrands are similar to each other, evaluating the integrals simultaneously sigificantly reduces cost. The following example calculate the area of a quarter circle and the volume of one-eighth sphere.
@@ -111,14 +118,36 @@ julia> integrate(var = Continuous(0.0, 1.0), dof = [[2,], [3,]], inplace=true) d
        end
 ```
 
-## Example 5. Passing Data with `Configuration`
+## Example 5. Use `Configuration` to Interface with MCIntegration 
 
-- The ['Configuration'](https://numericaleft.github.io/MCIntegration.jl/dev/lib/montecarlo/#Main-module) struct stores the essential state information for the Monte Carlo sampling. Two particularly relavent members are
+- `Configuration` in integrands: As explained in the Example 1, the user-defined integrand has the signature `(x, c)` where `x` is the variable(s), and `c` is a ['Configuration'](https://numericaleft.github.io/MCIntegration.jl/dev/lib/montecarlo/#Main-module) struct stores the essential state information for the Monte Carlo sampling.Three particularly relavent members of `Configuratoin` include
   * `userdata` : if you pass a keyword argument `userdata` to the `integrate` function, then it will be stored here, so that you can access it in your integrand evaluation function. 
-  * `var` : A tuple of variables. In the above example, `var = (x, )` so that `var[1] === x`. 
+  * `var` : A tuple of variable(s). If there is only one variable in the tuple, then the first argument of the integrand will be `x = var[1]`. On the other hand, if there are multiple variables in the tuple, then `x = var`.
+  * `obs` : A vector of observables. Each element is an accumulated estimator for one integrand. In other words, `length(obs)` = `length(dof)` = number of integrands.
+  * `normalization`: the estimation of integrals are given by `obs ./ normalization`.
 
-- The result returned by the `integrate` function contains the configuration after integration. If you want a detailed report, call `report(res.config)`. This configuration stores the optimized random variable distributions for the important sampling, which could be useful to evaluate other integrals with similar integrands. To use the optimized distributions, you can either call `integrate(..., config = res.config, ...)` to pass the entire configuration, or call `integrate(..., var = (res.config.var[1], ...), ...)` to pass one or more selected variables.
+- `Configuration` in returned `Result`: The result returned by the `integrate` function contains the configuration after integration. If you want a detailed report, call `report(res.config)`. This configuration stores the optimized random variable distributions for the important sampling, which could be useful to evaluate other integrals with similar integrands. To use the optimized distributions, you can either call `integrate(..., config = res.config, ...)` to pass the entire configuration, or call `integrate(..., var = (res.config.var[1], ...), ...)` to pass one or more selected variables. In the following example, the second call is initialized with an optimized distribution, so that the first iteration is very accurate compared to the same row in the Example 1 output.
+```julia
+julia> res0 = integrate((x, c)->log(x[1])/sqrt(x[1]))
+Integral 1 = -3.999299273090788 ± 0.001430447199375744   (chi2/dof = 1.46)
 
+julia> res = integrate((x, c)->log(x[1])/sqrt(x[1]), print=0, config = res0.config)
+====================================     Integral 1    ================================================
+  iter              integral                            wgt average                      chi2/dof
+-------------------------------------------------------------------------------------------------------
+ignore        -4.0022708 ± 0.0044299263            -4.0022708 ± 0.0044299263               0.0000
+     2        -3.9931774 ± 0.0042087902            -4.0022708 ± 0.0044299263               0.0000
+     3        -4.0003596 ± 0.0026421611            -3.9983293 ± 0.0022377558               2.0889
+     4        -3.9949943 ± 0.0027683518            -3.9970113 ± 0.0017402955               1.4833
+     5        -4.0028234 ± 0.0035948238            -3.9981148 ± 0.0015663954               1.6948
+     6        -4.0037708 ± 0.0021567542             -4.000068 ± 0.0012674021               2.3967
+     7        -3.9946345 ± 0.0040640646            -3.9995864 ± 0.0012099316               2.2431
+     8        -4.0039064 ± 0.0032909285            -4.0001008 ± 0.0011356123               2.1223
+     9        -3.9959395 ± 0.0036121885            -3.9997265 ± 0.0010833368               1.9916
+    10        -3.9955869 ± 0.0032874678             -3.999321 ± 0.0010289098               1.9215
+-------------------------------------------------------------------------------------------------------
+Integral 1 = -3.9993209996786128 ± 0.0010289098118216647   (chi2/dof = 1.92)
+```
 
 ## Example 6. Measure Histogram
 You may want to study how an integral changes with a tuning parameter. The following example is how to solve the histogram measurement problem.
