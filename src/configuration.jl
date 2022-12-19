@@ -115,6 +115,9 @@ function Configuration(;
         error("Configuration.var should be a variable, a vector of variables, or a tuple of variables. Now get $(V)")
     end
     @assert (var isa Tuple) "Failed to convet Configuration.var to a tuple of Variable to maximize efficiency. Now get $(typeof(V))"
+    if isconcretetype(typeof(var)) == false
+        @warn "Type of Configuration.var is $(typeof(var)), which is not a concrete type. This may cause performance issue."
+    end
 
     Nv = length(var) # number of variables
 
