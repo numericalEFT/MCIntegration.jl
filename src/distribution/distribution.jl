@@ -17,7 +17,7 @@ abstract type AbstractVectorVariable{T} <: AbstractVector{T} end
 # struct NonVariable <: Variable end
 
 is_variable(::Type) = false
-is_variable(::Type{<:AbstractVector{T}}) where {T} = true
+is_variable(::Type{<:AbstractVectorVariable{T}}) where {T} = true
 
 # basic AbstractArray implement
 Base.length(tg::AbstractVectorVariable) = length(tg.data)
