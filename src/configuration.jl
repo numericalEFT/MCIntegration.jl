@@ -109,12 +109,12 @@ function Configuration(;
     elseif (V <: AbstractVector) || (V <: Tuple)
         @assert all(v -> is_variable(typeof(v)), var) "All elements in var should be derived from the abstract type Variable, now got $(is_variable.(var))"
         if var isa AbstractVector
-            var = (v for v in var)
+            var = Tuple(v for v in var)
         end
     else
         error("Configuration.var should be a variable, a vector of variables, or a tuple of variables. Now get $(V)")
     end
-    # @assert (var isa Tuple{Vararg{Variable}}) || (var isa Tuple{Variable}) "Failed to convet Configuration.var to a tuple of Variable to maximize efficiency. Now get $(typeof(V))"
+    @assert (var isa Tuple) "Failed to convet Configuration.var to a tuple of Variable to maximize efficiency. Now get $(typeof(V))"
 
     Nv = length(var) # number of variables
 
