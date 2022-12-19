@@ -94,8 +94,8 @@ By default, it will be set to 0.0 if there is only one integrand (e.g., length(d
 - `userdata`: User data you want to pass to the integrand and the measurement
 """
 function Configuration(;
-    var::Union{Variable,AbstractVector,Tuple}=(Continuous(0.0, 1.0),),
-    dof::Union{Int,AbstractVector,AbstractMatrix}=((var isa Variable) ? 1 : [ones(Int, length(var)),]),
+    var::V=(Continuous(0.0, 1.0),),
+    dof::Union{Int,AbstractVector,AbstractMatrix}=(is_variable(typeof(var)) ? 1 : [ones(Int, length(var)),]),
     type=Float64,  # type of the integrand
     obs::AbstractVector=zeros(type, length(dof)),
     reweight::Vector{Float64}=ones(length(dof) + 1),
@@ -103,13 +103,21 @@ function Configuration(;
     neighbor::Union{Vector{Vector{Int}},Vector{Tuple{Int,Int}},Nothing}=nothing,
     userdata=nothing,
     kwargs...
-)
-    if var isa Variable
+) where {V}
+    if is_variable(V)
         var = (var,)
-    elseif var isa AbstractVector
-        var = (v for v in var)
+    elseif (V <: AbstractVector) || (V <: Tuple)
+        @assert all(v -> is_variable(typeof(v)), var) "All elements in var should be derived from the abstract type Variable, now got $(is_variable.(var))"
+        if var isa AbstractVector
+            var = Tuple(v for v in var)
+        end
+    else
+        error("Configuration.var should be a variable, a vector of variables, or a tuple of variables. Now get $(V)")
     end
-    @assert (var isa Tuple{Vararg{Variable}}) || (var isa Tuple{Variable}) "Failed to convet Configuration.var to a tuple of Variable to maximize efficiency. Now get $(typeof(V))"
+    @assert (var isa Tuple) "Failed to convet Configuration.var to a tuple of Variable to maximize efficiency. Now get $(typeof(V))"
+    if isconcretetype(typeof(var)) == false
+        @warn "Type of Configuration.var is $(typeof(var)), which is not a concrete type. This may cause performance issue."
+    end
 
     Nv = length(var) # number of variables
 
@@ -241,8 +249,8 @@ function MPIreduceConfig!(c::Configuration, root=0, comm=MPI.COMM_WORLD)
     # var.histogram
     # visited, propose, accept
     # normalization, observable
-    
-    function histogram_reduce!(var::Variable)
+
+    function histogram_reduce!(var)
         if var isa Dist.CompositeVar
             for v in var.vars
                 histogram_reduce!(v)
@@ -276,7 +284,7 @@ function MPIbcastConfig!(c::Configuration, root=0, comm=MPI.COMM_WORLD)
     # need to broadcast from root to workers:
     # reweight
     # var.histogram
-    function histogram_bcast!(var::Variable)
+    function histogram_bcast!(var)
         if var isa Dist.CompositeVar
             for v in var.vars
                 histogram_bcast!(v)
@@ -301,7 +309,7 @@ function bcastConfig!(dest::Configuration, src::Configuration)
     ########## variable that could be a number ##############
     dest.reweight .= src.reweight
 
-    function histogram_bcast!(dest::Variable, src::Variable)
+    function histogram_bcast!(dest, src)
         if dest isa Dist.CompositeVar
             for i in 1:length(dest.vars)
                 histogram_bcast!(dest.vars[i], src.vars[i])
