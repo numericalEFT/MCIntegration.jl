@@ -326,7 +326,7 @@ function Base.show(io::IO, var::CompositeVar)
     )
 end
 
-is_variable(::Type{CompositeVar{V}}) where {V} = true
+is_variable(::Type{<:CompositeVar}) = true
 Base.length(vars::CompositeVar) = length(vars.vars)
 Base.size(vars::CompositeVar) = (length(vars.vars),)
 Base.getindex(vars::CompositeVar, i::Int) = vars.vars[i]
