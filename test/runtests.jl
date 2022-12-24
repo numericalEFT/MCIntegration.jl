@@ -1,4 +1,5 @@
 using MCIntegration
+using Measurements
 using Test
 
 function check(mean, error, expect, ratio=7.0)

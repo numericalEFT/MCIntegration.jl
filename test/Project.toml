@@ -1,6 +1,7 @@
 [deps]
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 MCIntegration = "ea1e2de9-7db7-4b42-91ee-0cd1bf6df167"
+Measurements = "eff96d63-e80a-5855-80a2-b1b0885c5ab7"
 MPI = "da04e1cc-30fd-572f-bb4f-1f8673147195"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
