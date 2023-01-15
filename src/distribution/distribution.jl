@@ -37,6 +37,9 @@ Base.IteratorSize(::Type{AbstractVectorVariable{GT}}) where {GT} = Base.HasLengt
 Base.IteratorEltype(::Type{AbstractVectorVariable{GT}}) where {GT} = Base.HasEltype()
 Base.eltype(::Type{AbstractVectorVariable{GT}}) where {GT} = eltype(GT)
 
+Base.show(io::IO, ::MIME"text/plain", obj::AbstractVectorVariable) = Base.show(io, obj)
+Base.show(io::IO, ::MIME"text/html", obj::AbstractVectorVariable) = Base.show(io, obj)
+
 const MaxOrder = 16
 
 include("common.jl")

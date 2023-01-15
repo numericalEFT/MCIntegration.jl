@@ -228,7 +228,7 @@ The distribution is trained after each iteraction if `adapt = true`.
 - `adapt`  : turn on or off the adaptive map
 """
 function Discrete(bound::Union{Tuple{Int,Int},Vector{Int}}, size=MaxOrder; distribution=nothing, offset=0, alpha=2.0, adapt=true)
-    return Discrete([bound[0], bound[1]], size; distribution=distribution, offset=offset, alpha=alpha, adapt=adapt)
+    return Discrete(bound[1], bound[2], size; distribution=distribution, offset=offset, alpha=alpha, adapt=adapt)
 end
 function Discrete(lower::Int, upper::Int, size=MaxOrder; distribution=nothing, offset=0, alpha=2.0, adapt=true)
     @assert offset + 1 < size
