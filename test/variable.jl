@@ -1,4 +1,9 @@
 @testset "Variable" begin
+    d = Discrete([1, 4])
+    @test d.lower == 1
+    @test d.upper == 4
+
+
     @test Dist.is_variable(Int) == false
     @test Dist.is_variable(Continuous) == true
     @test Dist.is_variable(Discrete) == true
