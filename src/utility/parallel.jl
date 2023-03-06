@@ -2,10 +2,19 @@
 """
 Number of processors used in MPI. Can be called without ensuring initialization.
 """
-mpi_nprocs(comm=MPI.COMM_WORLD) = (MPI.Init(); MPI.Comm_size(comm))
-mpi_master(comm=MPI.COMM_WORLD) = (MPI.Init(); MPI.Comm_rank(comm) == 0)
+function mpi_nprocs(comm=MPI.COMM_WORLD)
+    (MPI.Initialized() == false) && MPI.Init()
+    MPI.Comm_size(comm)
+end
+function mpi_master(comm=MPI.COMM_WORLD)
+    (MPI.Initialized() == false) && MPI.Init()
+    MPI.Comm_rank(comm) == 0
+end
+function mpi_rank(comm=MPI.COMM_WORLD)
+    (MPI.Initialized() == false) && MPI.Init()
+    MPI.Comm_rank(comm)
+end
 mpi_root(comm=MPI.COMM_WORLD) = 0
-mpi_rank(comm=MPI.COMM_WORLD) = (MPI.Init(); MPI.Comm_rank(comm))
 
 """
     function MPIreduce(data, op = MPI.SUM)
@@ -13,7 +22,7 @@ mpi_rank(comm=MPI.COMM_WORLD) = (MPI.Init(); MPI.Comm_rank(comm))
 Reduce data from MPI workers to root with the operation `op`. `data` can be an array or a scalar.
 The root node returns the reduced data with the operation `op`, and other nodes return their own data.
 """
-function MPIreduce(data, op = MPI.SUM)
+function MPIreduce(data, op=MPI.SUM)
     comm = MPI.COMM_WORLD
     Nworker = MPI.Comm_size(comm)  # number of MPI workers
     rank = MPI.Comm_rank(comm)  # rank of current MPI worker
@@ -27,7 +36,7 @@ function MPIreduce(data, op = MPI.SUM)
         return rank == root ? d : data
     else
         # MPI.Reduce works for array only in old verison of MPI.jl
-        d = MPI.Reduce([data, ], MPI.SUM, root, comm) # root node gets the sum of observables from all blocks
+        d = MPI.Reduce([data,], MPI.SUM, root, comm) # root node gets the sum of observables from all blocks
         return rank == root ? d[1] : data
         # return output
     end
@@ -38,13 +47,13 @@ end
 
 Reduce data from MPI workers to root with the operation `op`. `data` should be an array.
 """
-function MPIreduce!(data::AbstractArray, op = MPI.SUM)
+function MPIreduce!(data::AbstractArray, op=MPI.SUM)
     comm = MPI.COMM_WORLD
     Nworker = MPI.Comm_size(comm)  # number of MPI workers
     rank = MPI.Comm_rank(comm)  # rank of current MPI worker
     root = 0 # rank of the root worker
 
-    if Nworker > 1 
+    if Nworker > 1
         MPI.Reduce!(data, MPI.SUM, root, comm) # root node gets the sum of observables from all blocks
     end
 end
@@ -68,7 +77,7 @@ function MPIbcast(data)
         return MPI.bcast(data, root, comm) # root node gets the sum of observables from all blocks
     else
         # MPI.Reduce works for array only
-        result = MPI.bcast([data, ], root, comm) # root node gets the sum of observables from all blocks
+        result = MPI.bcast([data,], root, comm) # root node gets the sum of observables from all blocks
         return result[1]
     end
 end
@@ -99,7 +108,7 @@ function nthreads(parallel::Symbol)
 end
 
 # only one thread of each MPI worker is the root
-function is_root(parallel::Symbol) 
+function is_root(parallel::Symbol)
     if parallel == :thread
         return mpi_master() && (Threads.threadid() == 1)
     else
@@ -128,5 +137,5 @@ end
 
 # number of total workers for both MPI and threads
 function nworker(parallel::Symbol)
-    return mpi_nprocs()*nthreads(parallel)
+    return mpi_nprocs() * nthreads(parallel)
 end
