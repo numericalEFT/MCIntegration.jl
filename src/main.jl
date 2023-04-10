@@ -37,7 +37,7 @@
 - `block`:    Number of blocks. Each block will be evaluated by about neval/block times. Each block is assumed to be statistically independent, and will be used to estimate the error. 
               In MPI mode, the blocks are distributed among the workers. If the numebr of workers N is larger than block, then block will be set to be N.
 - `print`:    -2 to not print anything; -1 to print minimal information; 0 to print the iteration history in the end; >0 to print MC configuration for every `print` seconds and print the iteration history in the end.
-- `gamma`:    Learning rate of the reweight factor after each iteraction. Note that alpha <=1, where alpha = 0 means no reweighting.  
+- `gamma`:    Learning rate of the reweight factor after each iteraction. Note that gamma <=1, where gamma = 0 means no reweighting.  
 - `adapt`:    Whether to adapt the grid and the reweight factor.
 - `debug`:    Whether to print debug information (type instability, float overflow etc.)
 - `reweight_goal`: The expected distribution of visited times for each integrand after reweighting . If not set, then all factors will be initialized with one. Only useful for the :mcmc solver. 
@@ -158,11 +158,8 @@ function integrate(integrand::Function;
         # collect all statistics to summedConfig of the root worker
         MPIreduceConfig!(summedConfig[1])
 
-
-        if MCUtility.mpi_master() # only the master process will output results, no matter parallel = :mpi or :thread or :serial
-            ################### self-learning ##########################################
-            (solver == :mcmc || solver == :vegasmc) && doReweight!(summedConfig[1], gamma, reweight_goal)
-        end
+        ######################## self-learning #########################################
+        (solver == :mcmc || solver == :vegasmc) && doReweightMPI!(summedConfig[1], gamma, reweight_goal, comm)
 
         ######################## syncronize between works ##############################
 
@@ -304,8 +301,9 @@ function doReweight!(config, gamma, reweight_goal)
     end
     # println(config.visited)
     # println(config.reweight)
-    if isnothing(reweight_goal) == false
-        config.reweight .*= reweight_goal
+    if !isnothing(reweight_goal) # Apply reweight_goal if provided
+        # config.reweight .*= reweight_goal
+        config.reweight .*= reweight_goal ./ sum(reweight_goal)
     end
     # renoormalize all reweight to be (0.0, 1.0)
     config.reweight ./= sum(config.reweight)
@@ -315,4 +313,14 @@ function doReweight!(config, gamma, reweight_goal)
     # Check Eq. (19) of https://arxiv.org/pdf/2009.05112.pdf for more detail
     # config.reweight = @. ((1 - config.reweight) / log(1 / config.reweight))^beta
     # config.reweight ./= sum(config.reweight)
+end
+
+function doReweightMPI!(config::Configuration, gamma, reweight_goal::Union{Vector{Float64},Nothing}, comm::MPI.Comm)
+    if MCUtility.mpi_master()
+        # only the master process will output results, no matter parallel = :mpi or :thread or :serial
+        doReweight!(config, gamma, reweight_goal)
+    end
+    reweight_array = Vector{Float64}(config.reweight)
+    MPI.Bcast!(reweight_array, 0, comm)
+    config.reweight .= reweight_array
 end
