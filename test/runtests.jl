@@ -14,6 +14,13 @@ function check(result::Result, expect, ratio=7.0)
     check(mean, error, expect, ratio)
 end
 
+function check_vector(result::Result, expect, ratio=7.0)
+    mean, error = result.mean, result.stdev
+    for ei in eachindex(expect)
+        check(mean[ei], error[ei], expect[ei], ratio)
+    end
+end
+
 function check_complex(result::Result, expect, ratio=7.0)
     mean, error = result.mean, result.stdev
     # println(mean, error)
