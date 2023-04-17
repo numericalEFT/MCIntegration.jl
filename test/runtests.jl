@@ -2,7 +2,7 @@ using MCIntegration
 using Test
 
 function check(mean, error, expect, ratio=7.0)
-    # println(mean, error)
+    println("mean = $mean, error = $error with expected value = $expect")
     for ei in eachindex(expect)
         @test abs(mean[ei] - expect[ei]) < error[ei] * ratio
     end
