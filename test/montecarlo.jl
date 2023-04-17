@@ -47,6 +47,48 @@ function Sphere2(totalstep, alg; offset=0)
     return integrate(integrand; config=config, neval=totalstep, print=-1, solver=alg, debug=true, measure)
 end
 
+# test obs with multiple integrands with different types
+function Sphere3(totalstep, alg; offset=0)
+    function integrand(X, config) # return a tuple of two integrands
+        i1 = (X[1+offset]^2 + X[2+offset]^2 < 1.0) ? 1.0 : 0.0
+        i2 = (X[1+offset]^2 + X[2+offset]^2 + X[3+offset]^2 < 1.0) ? 1.0 : 0.0
+        return i1, i2
+    end
+    function integrand(idx, X, config) # return one of the integrand
+        @assert idx == 1 || idx == 2 "$(idx) is not a valid integrand"
+        if idx == 1
+            return (X[1+offset]^2 + X[2+offset]^2 < 1.0) ? 1.0 : 0.0
+        else
+            return (X[1+offset]^2 + X[2+offset]^2 + X[3+offset]^2 < 1.0) ? 1.0 : 0.0
+        end
+    end
+
+    function measure(X, obs, relativeWeights, config)
+        obs[1] += relativeWeights[1]
+        obs[2][1] += relativeWeights[2]
+        obs[2][2] += relativeWeights[2] * 2.0
+    end
+    function measure(idx, X, obs, relativeWeight, config)
+        if idx == 1
+            obs[idx] += relativeWeight
+        elseif idx == 2
+            obs[idx][1] += relativeWeight
+            obs[idx][2] += relativeWeight * 2.0
+        else
+            error("invalid idx: $(idx)")
+        end
+    end
+
+    T = Continuous(0.0, 1.0; offset=offset)
+    # dof = [2 3] # a 1x2 matrix, each row is the number of dof for each integrand
+    dof = [[2,], [3,]] # a 1x2 matrix, each row is the number of dof for each integrand
+    obs = [0.0, [0.0, 0.0]]
+    config = Configuration(var=(T,), dof=dof; neighbor=[(1, 3), (1, 2)], obs=obs)
+    @inferred integrand(config.var[1], config) #make sure the type is inferred for the integrand function
+    @inferred integrand(1, config.var[1], config) #make sure the type is inferred for the integrand function
+    return integrate(integrand; config=config, neval=totalstep, print=-1, solver=alg, debug=true, measure)
+end
+
 function TestDiscrete(totalstep, alg)
     X = Discrete(1, 3, adapt=true)
     dof = [[1,],] # number of X variable of the integrand
@@ -153,6 +195,7 @@ end
     println("Sphere 2D + 3D")
     check(Sphere2(neval, :mcmc), [π / 4.0, 4.0 * π / 3.0 / 8])
     check(Sphere2(neval, :mcmc; offset=2), [π / 4.0, 4.0 * π / 3.0 / 8])
+    check_vector(Sphere3(neval, :mcmc), [π / 4.0, [4.0 * π / 3.0 / 8, 4.0 * π / 3.0 / 4]])
     println("Discrete")
     check(TestDiscrete(neval, :mcmc), 6.0)
     println("Singular1")
@@ -183,6 +226,7 @@ end
     println("Sphere 2D + 3D")
     check(Sphere2(neval, :vegas), [π / 4.0, 4.0 * π / 3.0 / 8])
     check(Sphere2(neval, :vegas; offset=2), [π / 4.0, 4.0 * π / 3.0 / 8])
+    check_vector(Sphere3(neval, :vegas), [π / 4.0, [4.0 * π / 3.0 / 8, 4.0 * π / 3.0 / 4]])
     println("Discrete")
     check(TestDiscrete(neval, :vegas), 6.0)
     println("Singular1")
@@ -220,6 +264,7 @@ end
     println("Sphere2 with offset")
     check(Sphere2(neval, :vegasmc; offset=2), [π / 4.0, 4.0 * π / 3.0 / 8])
     # check(Sphere3(neval), [π / 4.0, 4.0 * π / 3.0 / 8])
+    check_vector(Sphere3(neval, :vegasmc), [π / 4.0, [4.0 * π / 3.0 / 8, 4.0 * π / 3.0 / 4]])
     println("Discrete")
     check(TestDiscrete(neval, :vegasmc), 6.0)
     println("Singular1")

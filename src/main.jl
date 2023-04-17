@@ -123,8 +123,10 @@ function integrate(integrand::Function;
     for iter in 1:niter
 
         for i in 1:Nthread
-            fill!(obsSum[i], zero(obsSum[1][1]))
-            fill!(obsSquaredSum[i], zero(obsSquaredSum[1][1]))
+            for j in eachindex(obsSum[i])
+                obsSum[i][j] = zero(obsSum[i][j])
+                obsSquaredSum[i][j] = zero(obsSquaredSum[i][j])
+            end
             clearStatistics!(summedConfig[i])
         end
 
