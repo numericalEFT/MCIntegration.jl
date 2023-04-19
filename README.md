@@ -13,7 +13,7 @@ MCIntegration.jl provides several Monte Carlo algorithms to calculate regular/si
 The following examples demonstrate the basic usage of this package. 
 
 ## Example 1. One-dimensional integral
-We first show an example of highly singular integral. The following command evaluates $\int_0^1 \frac{\operatorname{log}(x)}{\sqrt{x}} dx = 4$.
+We first demonstrate an example of highly singular integral. The following command evaluates $\int_0^1 \frac{\operatorname{log}(x)}{\sqrt{x}} dx = 4$.
 ```julia
 julia> res = integrate((x, c)->log(x[1])/sqrt(x[1]), solver=:vegas, print=0) 
 Integral 1 = -3.997980772652019 ± 0.0013607691354676158   (chi2/dof = 1.93)
@@ -34,32 +34,32 @@ ignore        -3.8394711 ± 0.12101621              -3.8394711 ± 0.12101621    
     10        -3.9999099 ± 0.0033455927            -3.9979808 ± 0.0013607691               1.9269
 -------------------------------------------------------------------------------------------------
 ```
-- By default, the function performs 10 iterations and each iteraction costs about `1e4` evaluations. You may reset these values with `niter` and `neval` keywords arguments.
+- By default, the function performs 10 iterations and each iteraction costs about `1e4` evaluations. You can adjust these values using `niter` and `neval` keywords arguments.
 
-- The final result is obtained by inverse-variance-weighted averge of all the iterations except the first one (there is no important sampling yet!). They are stored in the return value`res`, which is a struct [`Result`](https://numericaleft.github.io/MCIntegration.jl/dev/lib/montecarlo/#Main-module). You can access the statistics with `res.mean`, `res.stdev`, `res.chi2`, `res.dof` and `res.iterations` for all the iterations. 
+- The final result is obtained through an inverse-variance-weighted average of all iterations, excluding the first one (since there is no importance sampling yet!). The results are stored in the `res`, which is a [`Result`](https://numericaleft.github.io/MCIntegration.jl/dev/lib/montecarlo/#Main-module) struct, and you can access the statistics with `res.mean`, `res.stdev`, `res.chi2`, `res.dof`, and `res.iterations`.
 
--  If you want to exclude more iterations, say the first three iterations, you can call `Result(res, 3)` to get a new result.  
+-  If you want to exclude more iterations from the final estimations, such as the first three iterations, you can call `Result(res, 3)` to get a new averaged result.
 
-- Internally, the `integrate` function optimizes the important sampling after each iteration. The results generally improves with iteractions. As long as `neval` is sufficiently large, the estimations from different iteractions should be statistically independent. This will justify an average of different iterations weighted by the inverse variance. The assumption of statically independence can be explicitly checked with chi-square test, namely `chi2/dof` should be about one. 
+- After each iteration, the program adjusts a distribution to mimic the integrand, improving importance sampling. Consequently, the estimated integral from each iteration generally becomes more accurate with more iterations. As long as `neval` is sufficiently large, the estimated integrals from different iterations should be statistically independent, justifying an average of different iterations weighted by the inverse variance. The assumption of statistical independence can be explicitly verified with a chi-square test, in which the `chi2/dof` value should be approximately one.
 
-- You can pass the keyword arguemnt `solver` to the `integrate` functoin to specify the Monte Carlo (MC) algorithm. The above examples uses the Vegas algorithm with `:vegas`. In addition, this package provides two Markov-chain Monte Carlo (MCMC) algorithms for numerical integration. You can call them with `:vegasmc` or `:mcmc`. In general, `:vegas` tends to be slightly more accurate than `vegasmc`, but much less robust. Therefore, `integrate` uses `:vegasmc` by default. Check the section [Algorithm](#Algorithm) for more details. 
+- The integrate function lets you choose a specific Monte Carlo (MC) algorithm by using the `solver` keyword argument. The example given employs the Vegas algorithm with `:vegas`. Additionally, this package provides two Markov-chain Monte Carlo (MCMC) algorithms for numerical integration: `:vegasmc` and `:mcmc`. Comparing these MCMC algorithms, `:vegasmc` offers better accuracy than `:mcmc` while keeping the same robustness. Although `:vegas` is generally slightly more accurate than `:vegasmc`, it is less robust. Considering the trade-off between accuracy and robustness, integrate defaults to using `:vegasmc`. For further information, consult the [Algorithm](#Algorithm) section.
 
-- The user-defined integrand evaluation function requires two arguments `(x, c)`
-  * `x` is the integration variable in [0, 1) by default. Note that, the variable should be regarded as a pool of same type of variables. Calling `x[i]` accesses the i-th random variable. See Example 2 and the section [Variables](#Variables) for more details.
-  * `c` is a struct stores the MC configuration. It contains additional information which may be needed for integrand evalution. See Example 5 for more details. 
+- When defining your own integrand evaluation function, you need to provide two arguments: `(x, c)`:
+  * `x` represents the integration variable, which by default falls within the range [0, 1). It should be considered as a pool of infinitely many random variables that follows the same distribution. To access the i-th random variable, use x[i]. For a better understanding, refer to Example 2 and the [Variables](#Variables) section.
+  * `c` is a struct that holds the Monte Carlo (MC) configuration. This contains additional information that might be necessary for evaluating the integrand. For a practical example, see Example 5.
 
-- For complex-valued integral, say with the type `ComplexF64`, you need to call `integrate(..., dtype = ComplexF64)` to specify the integrand data type. The error  of the real part and the imaginary part will be estimated independently. 
+- For complex-valued integral, say with the type `ComplexF64`, you need to call `integrate(..., dtype = ComplexF64)` to specify the integrand data type. The error  of the real part and the imaginary part will be estimated independently.   
 
-- You can suppress the output information by setting `print=-1`. If you want to see more information after the calculation, simply call `report(res)`. If you want to check the MC configuration, you may call `report(res.config)`.
+- You can suppress the output information by setting `print=-1`. If you want to see more information after the calculation, simply call `report(res)`. If you want to check the MC configuration, call `report(res.config)`.
 
 ## Example 2. Multi-dimensional integral: Symmetric Variables
 
-In `MCIntegration.jl`, a variable is defined as a pool of random numbers sampled from the same distribution. For example, you can explicitly initialize a pool of variables in [0, 1) as follows, 
+In `MCIntegration.jl`, a variable is represented as a pool of random numbers drawn from the same distribution. For instance, you can explicitly initialize a set of variables in the range [0, 1) as follows:
 ```julia
 julia> x=Continuous(0.0, 1.0) #Create a pool of continuous variables. 
 Adaptive continuous variable in the domain [0.0, 1.0). Max variable number = 16. Learning rate = 2.0.
 ```
-This design choice makes it simple to evaluate high-dimensional integrals involves multiple symmetric variables. For example, the area of a quarter unit circle (π/4 = 0.785398...), 
+This approach simplifies the evaluation of high-dimensional integrals involving multiple symmetric variables. For example, to calculate the area of a quarter unit circle (π/4 = 0.785398...):
 ```julia
 julia> res = integrate((x, c)->(x[1]^2+x[2]^2<1.0); var = x, dof = 2) 
 Integral 1 = 0.7860119307731648 ± 0.002323473435947719   (chi2/dof = 2.14)
@@ -78,12 +78,12 @@ julia> res = integrate(((x, y), c)-> log(x[1])/sqrt(x[1])*y[1]; var = (x, y), so
 Integral 1 = -2.00073745890742 ± 0.0008972661931407758   (chi2/dof = 2.63)
 ```
 
-In the above example, if you use the Markov-chain MC (MCMC) algorithm `:vegasmc`, you will notice significant loss of accuracy compared to the `:vegas` algorithm,
+In the example above, using the Markov-chain Monte Carlo (MCMC) algorithm `:vegasmc` leads to a noticeable decrease in accuracy compared to the `:vegas` algorithm:
 ```julia
 julia> res = integrate(((x, y), c)-> log(x[1])/sqrt(x[1])*y[1]; var = (x, y), solver=:vegasmc)
 Integral 1 = -1.9931385040549743 ± 0.0023982483367389613   (chi2/dof = 2.01)
 ```
-This is because in the MCMC algorithm, each MC step randomly select one type of the variable to update, which results in autocorrelation in the generated Markov-chain, and makes the result less accurate. To sample all variable types together in each MC step, you may combine them into a composite variable. The resulting integration accuracy is comparable to the MC algorithm `:vegas`.
+The decrease in accuracy is due to the Markov-chain-based algorithm selecting only one variable type to update at each MC step, resulting in strongly correlated samples and less accurate estimations. To update all variable types simultaneously in each MC step, you can combine them into a composite variable. After this modification, the integration accuracy becomes comparable to that of the `:vegas` algorithm:
 ```julia
 julia> cv = CompositeVar(x, y)
 Adaptive Composite variable with 2 components. Max number = 16.
