@@ -68,17 +68,42 @@ function Base.getindex(result::Result, idx::Int)
     return result.mean[idx], result.stdev[idx], result.chi2[idx]
 end
 
+function sig_digits(err)
+    if err == 0
+        return 0
+    else
+        return max(0, 2 - floor(Int, log10(abs(err))))
+    end
+end
+
+function format_number(val, ndigits)
+    s = string(round(val, digits=ndigits))
+    # println(s)
+    return s
+end
+
 function tostring(mval, merr; pm="±")
     # println(mval, ", ", merr)
 
     if mval isa Real && merr isa Real && isfinite(mval) && isfinite(merr)
-        m = @sprintf("%16.8g %s %-16.8g", mval, pm, merr)
+        m = @sprintf("%24.8g %s %-24.8g", mval, pm, merr)
         # m = measurement(mval, merr)
         # return @sprintf("$m")
     elseif mval isa Complex && merr isa Complex && isfinite(mval) && isfinite(merr)
-        m = @sprintf("%16.6g(%6g) + %16.6g(%6g)im", real(mval), real(merr), imag(mval), imag(merr))
+        # m = @sprintf("%16.6g(%6g) + %16.6g(%6g)im", real(mval), real(merr), imag(mval), imag(merr))
         # m = measurement(real(mval), real(merr)) + measurement(imag(mval), imag(merr)) * 1im
         # return @sprintf("%16.6g(%6g) + %16.6g(%6g)im", real(mval), real(merr), imag(mval), imag(merr))
+        # m = @sprintf("(%16.6g %s %6g) + (%16.6g %s %6g)im", real(mval), pm, real(merr), imag(mval), pm, imag(merr))
+        real_ndigits = sig_digits(real(merr))
+        imag_ndigits = sig_digits(imag(merr))
+        # ndigits = maximum([real_ndigits, imag_ndigits])
+        # println(real_ndigits, ", ", imag_ndigits)
+        realstr = "$(format_number(real(mval), real_ndigits))($(format_number(real(merr), real_ndigits)))"
+        imagstr = "$(format_number(real(mval), imag_ndigits))($(format_number(real(merr), imag_ndigits))) im"
+        m = @sprintf("%24s + %-24s", realstr, imagstr)
+
+        # m = "$(format_number(real(mval), real_ndigits))($(format_number(real(merr), real_ndigits)))+$(format_number(imag(mval), imag_ndigits))($(format_number(imag(merr), imag_ndigits)))im"
+        # m = "$(format_number(real(mval), ndigits))($(first_two_sig_digits_str(real(merr)))) + $(format_number(imag(mval), ndigits))($(first_two_sig_digits_str(imag(merr))))im"
     else
         m = "$mval $pm $merr"
     end
@@ -131,10 +156,10 @@ function report(result::Result, ignore=result.ignore; pick::Union{Function,Abstr
         if verbose >= 0
             # barbar = "==============================================     Integral $info    =========================================================="
             # bar = "---------------------------------------------------------------------------------------------------------------------------"
-            barbar = "====================================     Integral $info    ================================================"
-            bar = "-------------------------------------------------------------------------------------------------------"
+            barbar = "================================================     Integral $info    ============================================================"
+            bar = "-------------------------------------------------------------------------------------------------------------------------------"
             println(io, barbar)
-            println(io, yellow(@sprintf("%6s     %-32s     %-32s %16s", "iter", "         integral", "        wgt average", "chi2/dof")))
+            println(io, yellow(@sprintf("%6s                 %-32s                 %-32s %22s", "iter", "         integral", "        wgt average", "chi2/dof")))
             println(io, bar)
             for iter in 1:length(result.iterations)
                 m0, e0 = p(result.iterations[iter][1][i]), p(result.iterations[iter][2][i])
