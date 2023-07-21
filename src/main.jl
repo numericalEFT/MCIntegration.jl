@@ -36,7 +36,7 @@
 - `niter`:    Number of iterations. The reweight factor and the variables will be self-adapted after each iteration. 
 - `block`:    Number of blocks. Each block will be evaluated by about neval/block times. Each block is assumed to be statistically independent, and will be used to estimate the error. 
               In MPI mode, the blocks are distributed among the workers. If the numebr of workers N is larger than block, then block will be set to be N.
-- `print`:    -2 to not print anything; -1 to print minimal information; 0 to print the iteration history in the end; >0 to print MC configuration for every `print` seconds and print the iteration history in the end.
+- `verbose`:  < -1 to not print anything; -1 to print minimal information; 0 to print the iteration history in the end; >0 to print MC configuration for every `print` seconds and print the iteration history in the end.
 - `gamma`:    Learning rate of the reweight factor after each iteraction. Note that gamma <=1, where gamma = 0 means no reweighting.  
 - `adapt`:    Whether to adapt the grid and the reweight factor.
 - `debug`:    Whether to print debug information (type instability, float overflow etc.)
@@ -52,10 +52,10 @@
 
 # Examples
 ```julia-repl
-integrate((x, c)->(x[1]^2+x[2]^2); var = Continuous(0.0, 1.0), dof = 2, print=-2, solver=:vegas)
+integrate((x, c)->(x[1]^2+x[2]^2); var = Continuous(0.0, 1.0), dof = 2, verbose=-2, solver=:vegas)
 Integral 1 = 0.6663652080622751 ± 0.000490978424216832   (chi2/dof = 0.645)
 
-julia> integrate((x, f, c)-> (f[1] = x[1]^2+x[2]^2); var = Continuous(0.0, 1.0), dof = 2, print=-2, solver=:vegas, inplace=true)
+julia> integrate((x, f, c)-> (f[1] = x[1]^2+x[2]^2); var = Continuous(0.0, 1.0), dof = 2, verbose=-2, solver=:vegas, inplace=true)
 Integral 1 = 0.6672083165915914 ± 0.0004919147870306026   (chi2/dof = 2.54)
 ```
 """
@@ -65,7 +65,7 @@ function integrate(integrand::Function;
     neval=1e4, # number of evaluations
     niter=10, # number of iterations
     block=16, # number of blocks
-    print=-1, printio=stdout, save=0, saveio=nothing, timer=[],
+    verbose=-1, # verbose level
     gamma=1.0, # learning rate of the reweight factor, only used in MCMC solver
     adapt=true, # whether to adapt the grid and the reweight factor
     debug=false, # whether to print debug information (type instability, etc.)
@@ -75,8 +75,13 @@ function integrate(integrand::Function;
     measurefreq::Int=1,
     inplace::Bool=false, # whether to use the inplace version of the integrand
     parallel::Symbol=:nothread, # :thread or :nothread
+    print=-1, printio=stdout, timer=[],
     kwargs...
 )
+
+    # we use print instead of verbose for historical reason
+    print = maximum([print, verbose])
+
     if isnothing(config)
         config = Configuration(; kwargs...)
     end

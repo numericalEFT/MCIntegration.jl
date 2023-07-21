@@ -15,7 +15,7 @@ The following examples demonstrate the basic usage of this package.
 ## Example 1. One-dimensional integral
 We first demonstrate an example of highly singular integral. The following command evaluates $\int_0^1 \frac{\log (x)}{\sqrt{x}} dx = 4$.
 ```julia
-julia> res = integrate((x, c)->log(x[1])/sqrt(x[1]), solver=:vegas, print=0) 
+julia> res = integrate((x, c)->log(x[1])/sqrt(x[1]), solver=:vegas, verbose=0) 
 Integral 1 = -3.997980772652019 ± 0.0013607691354676158   (chi2/dof = 1.93)
 
 julia> report(res) #print out the iteration history
@@ -50,7 +50,7 @@ ignore        -3.8394711 ± 0.12101621              -3.8394711 ± 0.12101621    
 
 - For complex-valued integral, say with the type `ComplexF64`, you need to call `integrate(..., dtype = ComplexF64)` to specify the integrand data type. The error  of the real part and the imaginary part will be estimated independently.   
 
-- You can suppress the output information by setting `print=-1`. If you want to see more information after the calculation, simply call `report(res)`. If you want to check the MC configuration, call `report(res.config)`.
+- You can suppress the output information by setting `verbose=-1`. If you want to see more information after the calculation, simply call `report(res)`. If you want to check the MC configuration, call `report(res.config)`.
 
 ## Example 2. Multi-dimensional integral: Symmetric Variables
 
@@ -131,7 +131,7 @@ julia> integrate(var = Continuous(0.0, 1.0), dof = [[2,], [3,]], inplace=true) d
 julia> res0 = integrate((x, c)->log(x[1])/sqrt(x[1]))
 Integral 1 = -3.999299273090788 ± 0.001430447199375744   (chi2/dof = 1.46)
 
-julia> res = integrate((x, c)->log(x[1])/sqrt(x[1]), print=0, config = res0.config)
+julia> res = integrate((x, c)->log(x[1])/sqrt(x[1]), verbose=0, config = res0.config)
 ====================================     Integral 1    ================================================
   iter              integral                            wgt average                      chi2/dof
 -------------------------------------------------------------------------------------------------------
@@ -254,7 +254,7 @@ There are two different ways to parallelize your code with multiple threads.
 1. If you need to evaluate multiple integrals, each thread can call the function `MCIntegration.integrate` to do one integral. In the following example, we use three threads to evaluate three integrals altogether. Note that only three threads will be used even if you initialize Julia with more than three threads.
 ```julia
 julia> Threads.@threads for i = 1:3
-       println("Thread $(Threads.threadid()) returns ", integrate((x, c) -> x[1]^i, print=-2))
+       println("Thread $(Threads.threadid()) returns ", integrate((x, c) -> x[1]^i, verbose=-2))
        end
 Thread 2 returns Integral 1 = 0.24995156136254149 ± 6.945088534643841e-5   (chi2/dof = 2.95)
 Thread 3 returns Integral 1 = 0.3334287563137184 ± 9.452648803649706e-5   (chi2/dof = 1.35)
@@ -264,7 +264,7 @@ Thread 1 returns Integral 1 = 0.5000251243601586 ± 0.00013482206569391864   (ch
 2. Only the main thread calls the function `MCIntegration.integrate`, then parallelize the internal blocks with multiple threads. To do that, you need to call the function `MCIntegration.integrate` with a key argument `parallel = :thread`. This approach will utilize all Julia threads.  For example,
 ```julia
 julia> for i = 1:3
-       println("Thread $(Threads.threadid()) return ", integrate((x, c) -> x[1]^i, print=-2, parallel=:thread))
+       println("Thread $(Threads.threadid()) return ", integrate((x, c) -> x[1]^i, verbose=-2, parallel=:thread))
        end
 Thread 1 return Integral 1 = 0.5001880440214347 ± 0.00015058935731086765   (chi2/dof = 0.397)
 Thread 1 return Integral 1 = 0.33341068551139696 ± 0.00010109649819894601   (chi2/dof = 1.94)
