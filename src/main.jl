@@ -5,7 +5,7 @@
         neval=1e4, 
         niter=10, 
         block=16, 
-        print=-1, 
+        verbose=-1, 
         gamma=1.0, 
         adapt=true,
         debug=false, 
