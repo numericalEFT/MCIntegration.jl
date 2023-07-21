@@ -26,7 +26,7 @@ end
 """
 
     function montecarlo(config::Configuration{Ni,V,P,O,T}, integrand::Function, neval,
-        print=0, save=0, timer=[], debug=false;
+        verbose=0, timer=[], debug=false;
         measure::Union{Nothing,Function}=nothing, measurefreq::Int=1) where {Ni,V,P,O,T}
 
 This algorithm implements the classic Vegas algorithm.
@@ -73,12 +73,12 @@ The last argument passes the MC `Configuration` struct to the integrand, so that
 # Examples
 The following command calls the Vegas solver,
 ```julia-repl
-julia> integrate((x, c)->(x[1]^2+x[2]^2); var = Continuous(0.0, 1.0), dof = 2, print=-1, solver=:vegas)
+julia> integrate((x, c)->(x[1]^2+x[2]^2); var = Continuous(0.0, 1.0), dof = 2, verbose=-1, solver=:vegas)
 Integral 1 = 0.667203631824444 ± 0.0005046485925614018   (chi2/dof = 1.46)
 ```
 """
 function montecarlo(config::Configuration{Ni,V,P,O,T}, integrand::Function, neval,
-    print=0, save=0, timer=[], debug=false;
+    verbose=0, timer=[], debug=false;
     measure::Union{Nothing,Function}=nothing, measurefreq::Int=1, inplace::Bool=false
 ) where {Ni,V,P,O,T}
 

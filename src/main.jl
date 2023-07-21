@@ -139,13 +139,13 @@ function integrate(integrand::Function;
             if parallel == :thread
                 Threads.@threads for _ in 1:block/MCUtility.mpi_nprocs()
                     _block!(configs, obsSum, obsSquaredSum, summedConfig, solver, progress,
-                        integrand, nevalperblock, print, save, timer, debug,
+                        integrand, nevalperblock, print, timer, debug,
                         measure, measurefreq, inplace, parallel)
                 end
             else
                 for _ in 1:block/MCUtility.mpi_nprocs()
                     _block!(configs, obsSum, obsSquaredSum, summedConfig, solver, progress,
-                        integrand, nevalperblock, print, save, timer, debug,
+                        integrand, nevalperblock, print, timer, debug,
                         measure, measurefreq, inplace, parallel)
                 end
             end
@@ -221,7 +221,7 @@ end
 
 function _block!(configs, obsSum, obsSquaredSum, summedConfig,
     solver, progress,
-    integrand::Function, nevalperblock, print, save, timer, debug::Bool,
+    integrand::Function, nevalperblock, print, timer, debug::Bool,
     measure::Union{Nothing,Function}, measurefreq, inplace, parallel)
 
     rank = MCUtility.threadid(parallel)
@@ -231,13 +231,13 @@ function _block!(configs, obsSum, obsSquaredSum, summedConfig,
     clearStatistics!(config_n) # reset statistics
 
     if solver == :vegasmc
-        VegasMC.montecarlo(config_n, integrand, nevalperblock, print, save, timer, debug;
+        VegasMC.montecarlo(config_n, integrand, nevalperblock, print, timer, debug;
             measure=measure, measurefreq=measurefreq, inplace=inplace)
     elseif solver == :vegas
-        Vegas.montecarlo(config_n, integrand, nevalperblock, print, save, timer, debug;
+        Vegas.montecarlo(config_n, integrand, nevalperblock, print, timer, debug;
             measure=measure, measurefreq=measurefreq, inplace=inplace)
     elseif solver == :mcmc
-        MCMC.montecarlo(config_n, integrand, nevalperblock, print, save, timer, debug;
+        MCMC.montecarlo(config_n, integrand, nevalperblock, print, timer, debug;
             measure=measure, measurefreq=measurefreq)
     else
         error("Solver $solver is not supported!")
