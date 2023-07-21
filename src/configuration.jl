@@ -141,6 +141,13 @@ function Configuration(;
     # add normalization diagram to dof
     push!(dof, zeros(Int, length(var))) # add the degrees of freedom for the normalization diagram
 
+    maxdof = _maxdof(dof)
+    for i in eachindex(maxdof)
+        if maxdof[i] + var[i].offset >= poolsize(var[i]) - 2 # two more elements for caching purpose
+            resize!(var[i], maxdof[i] + 2 + var[i].offset)
+        end
+    end
+
     Nd = length(dof) # number of integrands + renormalization diagram
     @assert Nd > 1 "At least one integrand is required."
     # make sure dof has the correct size that matches var and neighbor
@@ -170,7 +177,7 @@ function Configuration(;
 
     return Configuration{Nd - 1,typeof(var),typeof(userdata),typeof(obs),type}(
         seed, MersenneTwister(seed), var, userdata,  # static parameters
-        Nd - 1, neighbor, dof, _maxdof(dof), obs, reweight, visited, # integrand properties
+        Nd - 1, neighbor, dof, maxdof, obs, reweight, visited, # integrand properties
         0, norm, normalization, propose, accept  # current MC state
     )
 end

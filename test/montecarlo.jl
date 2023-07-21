@@ -38,10 +38,12 @@ function Sphere2(totalstep, alg; offset=0)
         obs[idx] += relativeWeight
     end
 
-    T = Continuous(0.0, 1.0; offset=offset)
+    T = Continuous(0.0, 1.0, 2 + offset; offset=offset) # set size to be small, test resize! implicitly
+    println("before resize:", length(T))
     # dof = [2 3] # a 1x2 matrix, each row is the number of dof for each integrand
     dof = [[2,], [3,]] # a 1x2 matrix, each row is the number of dof for each integrand
     config = Configuration(var=(T,), dof=dof; neighbor=[(1, 3), (1, 2)])
+    println("after resize:", length(T))
     @inferred integrand(config.var[1], config) #make sure the type is inferred for the integrand function
     @inferred integrand(1, config.var[1], config) #make sure the type is inferred for the integrand function
     return integrate(integrand; config=config, neval=totalstep, print=-1, solver=alg, debug=true, measure)

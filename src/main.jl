@@ -86,6 +86,10 @@ function integrate(integrand::Function;
         config = Configuration(; kwargs...)
     end
 
+    for i in eachindex(config.maxdof)
+        @assert config.maxdof[i] + 2 <= poolsize(config.var[i]) "maxdof should be less than the length of var"
+    end
+
     if gamma > 1.0
         @warn(red("learning rate gamma should be less than 1.0"))
     end
