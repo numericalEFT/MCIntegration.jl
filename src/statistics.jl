@@ -15,8 +15,8 @@ the returned result of the MC integration.
 - `iterations`: list of tuples [(data, error, Configuration), ...] from each iteration
 """
 struct Result{O,C}
-    mean::O
-    stdev::O
+    mean::Vector{O}
+    stdev::Vector{O}
     chi2::Any
     neval::Int
     ignore::Int # ignore iterations untill ignore_iter
@@ -33,27 +33,27 @@ struct Result{O,C}
         dof = (length(history) - init + 1) - 1 # number of effective samples - 1
         neval = sum(h[3].neval for h in history)
         @assert config.N >= 1
-        if config.N == 1
-            O = typeof(history[end][1][1]) #if there is only value, then extract this value from the vector
-            mean, stdev, chi2 = average(history, 1; init=init, max=length(history))
-        else
-            O = typeof(history[end][1])
-            @assert O <: AbstractVector
-            mean, stdev, chi2 = [], [], []
-            res = [average(history, o; init=init, max=length(history)) for o in 1:config.N]
-            mean = [r[1] for r in res]
-            stdev = [r[2] for r in res]
-            chi2 = [r[3] for r in res]
-            # for o in 1:config.N
-            #     _mean, _stdev, _chi2 = average(history, dof + 1, o)
-            #     push!(mean, _mean)
-            #     push!(stdev, _stdev)
-            #     push!(chi2, _chi2)
-            # end
-        end
+        # if config.N == 1
+        #     O = typeof(history[end][1][1]) #if there is only value, then extract this value from the vector
+        #     mean, stdev, chi2 = average(history, 1; init=init, max=length(history))
+        # else
+        # O = typeof(history[end][1])
+        # @assert O <: AbstractVector
+        mean, stdev, chi2 = [], [], []
+        res = [average(history, o; init=init, max=length(history)) for o in 1:config.N]
+        mean = [r[1] for r in res]
+        stdev = [r[2] for r in res]
+        chi2 = [r[3] for r in res]
+        # for o in 1:config.N
+        #     _mean, _stdev, _chi2 = average(history, dof + 1, o)
+        #     push!(mean, _mean)
+        #     push!(stdev, _stdev)
+        #     push!(chi2, _chi2)
+        # end
+        # end
         # println(mean, ", ", stdev, ", ", chi2)
         # println(typeof(mean), typeof(config))
-        return new{O,typeof(config)}(mean, stdev, chi2, neval, ignore, dof, config, history)
+        return new{eltype(mean),typeof(config)}(mean, stdev, chi2, neval, ignore, dof, config, history)
     end
     function Result(res::Result, ignore::Int)
         if ignore == res.ignore

@@ -12,6 +12,8 @@ MCIntegration.jl provides several Monte Carlo algorithms to calculate regular/si
 # Quick start
 The following examples demonstrate the basic usage of this package. 
 
+## Convention
+
 ## Example 1. One-dimensional integral
 We first demonstrate an example of highly singular integral. The following command evaluates $\int_0^1 \frac{\log (x)}{\sqrt{x}} dx = 4$.
 ```julia
@@ -61,9 +63,10 @@ Adaptive continuous variable in the domain [0.0, 1.0). Learning rate = 2.0.
 ```
 This approach simplifies the evaluation of high-dimensional integrals involving multiple symmetric variables. For example, to calculate the area of a quarter unit circle (π/4 = 0.785398...):
 ```julia
-julia> res = integrate((x, c)->(x[1]^2+x[2]^2<1.0); var = x, dof = 2) 
+julia> res = integrate((x, c)->(x[1]^2+x[2]^2<1.0); var = x, dof = [2, ]) 
 Integral 1 = 0.7860119307731648 ± 0.002323473435947719   (chi2/dof = 2.14)
 ```
+If the integrand involve more than one variables, it is important to specify the `dof` vector. Each element of the `dof` vector represents the degrees of freedom of the corresponding integrand.
 
 ## Example 3. Multi-dimensional integral: Generic Variables
 If the variables in a multi-dimensional integrand are not symmetric, it is better to define them as different types so that they can be sampled with different adaptive distributions. In the following example, we create a direct product of two continuous variables, then calculate a two-variable integral, 
