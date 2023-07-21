@@ -106,7 +106,12 @@ function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval
     if inplace
         (length(config.var) == 1) ? integrand(config.var[1], _weights, config) : integrand(config.var, _weights, config)
     else
-        _weights = (length(config.var) == 1) ? integrand(config.var[1], config) : integrand(config.var, config)
+        if N == 1
+            _weights[1] = (length(config.var) == 1) ? integrand(config.var[1], config) : integrand(config.var, config)
+        else
+            _weights = (length(config.var) == 1) ? integrand(config.var[1], config) : integrand(config.var, config)
+        end
+        @assert length(_weights) == N "the integrand should return a vector with $(N) elements, but it returns a vector with $(length(_weights)) elements! $(typeof(_weights)))"
     end
 
     padding_probability .= [Dist.padding_probability(config, i) for i in 1:N+1]

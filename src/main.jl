@@ -256,11 +256,13 @@ function _block!(configs, obsSum, obsSquaredSum, summedConfig,
         if obsSum[rank][o] isa AbstractArray
             m = config_n.observable[o] ./ config_n.normalization
             obsSum[rank][o] += m
-            obsSquaredSum[rank][o] += (eltype(m) <: Complex) ? (@. (real(m))^2 + (imag(m))^2 * 1im) : m .^ 2
+            obsSquaredSum[rank][o] += (eltype(m) <: Complex) ? (@. real(m) * real(m) + imag(m) * imag(m) * 1im) : m .* m
+            # avoid ^2 operator because it may not be defined for user defined types
         else
             m = config_n.observable[o] / config_n.normalization
             obsSum[rank][o] += m
-            obsSquaredSum[rank][o] += (eltype(m) <: Complex) ? (real(m))^2 + (imag(m))^2 * 1im : m^2
+            obsSquaredSum[rank][o] += (eltype(m) <: Complex) ? real(m) * real(m) + imag(m) * imag(m) * 1im : m^2
+            # avoid ^2 operator because it may not be defined for user defined types
         end
     end
 
@@ -291,7 +293,8 @@ function _mean_std(obsSum, obsSquaredSum, block)
         return std
     end
 
-    mean = [osum ./ block for osum in obsSum]
+    # println(obsSum)
+    mean = [osum / block for osum in obsSum]
     std = [elementwise(obsSquaredSum[o], mean[o], block) for o in eachindex(obsSquaredSum)]
     return mean, std
 end

@@ -140,7 +140,12 @@ function montecarlo(config::Configuration{Ni,V,P,O,T}, integrand::Function, neva
         if inplace
             (fieldcount(V) == 1) ? integrand(config.var[1], weights, config) : integrand(config.var, weights, config)
         else
-            weights = (fieldcount(V) == 1) ? integrand(config.var[1], config) : integrand(config.var, config)
+            if Ni == 1 # we want the output weights stored in a vector even if there is only one element
+                weights[1] = (fieldcount(V) == 1) ? integrand(config.var[1], config) : integrand(config.var, config)
+            else
+                weights = (fieldcount(V) == 1) ? integrand(config.var[1], config) : integrand(config.var, config)
+            end
+            @assert typeof(weights) <: Tuple || typeof(weights) <: AbstractVector "the integrand should return a vector with $(Ni) elements, but it returns a vector elements! $(typeof(weights)))"
         end
 
         if (ne % measurefreq == 0)

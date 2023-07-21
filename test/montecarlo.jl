@@ -169,6 +169,35 @@ function TestComplex2_inplace(totalstep, alg)
     return res
 end
 
+# struct Weight <: AbstractVector
+#     d::Tuple{Float64,Float64}
+#     function Weight(a, b)
+#         return new((a, b))
+#     end
+# end
+# Base.zero(::Type{Weight}) = Weight(0.0, 0.0)
+# Base.zero(::Weight) = Weight(0.0, 0.0)
+# Base.abs(w::Weight) = w.d[1] + w.d[1]
+# # Base.:^(w::Weight, i) = Weight(w.d^i, w.e^i)
+# # Base.:*(w::Weight, c) = Weight(w.d * c, w.e * c)
+# # Base.:/(w::Weight, c) = Weight(w.d / c, w.e / c)
+# # Base.:+(a::Weight, b::Weight) = Weight(a.d + b.d, a.e * b.e)
+# # Base.length(::Weight) = 1
+
+
+# function Test_user_type(totalstep, alg)
+
+#     function integrand(x, c) #return a tuple (real, complex) 
+#         #the code should handle real -> complex conversion
+#         return Weight(x[1], x[1]^2)
+#     end
+#     res = integrate(integrand; dof=[[1,],], neval=totalstep, print=-1, type=Weight, solver=alg, inplace=false, debug=true)
+#     config = res.config
+#     w = [Weight(0.0, 0.0),]
+#     @inferred integrand(config.var[1], w, config) #make sure the type is inferred for the integrand function
+#     return res
+# end
+
 @testset "Report" begin
     neval = 1000_00
     results = [
@@ -247,6 +276,9 @@ end
 
     println("inplace Complex2")
     check_complex(TestComplex2_inplace(neval, :vegas), [0.5, 1.0 / 3 * 1im])
+
+    # println("vector type")
+    # check_vector(Test_user_type(neval, :vegas), [0.5, 1.0 / 3])
 end
 
 @testset "Markov-Chain Vegas" begin
@@ -285,4 +317,7 @@ end
 
     println("inplace Complex2")
     check_complex(TestComplex2_inplace(neval, :vegasmc), [0.5, 1.0 / 3 * 1im])
+
+    # println("vector type")
+    # check_vector(Test_user_type(neval, :vegamcs), [0.5, 1.0 / 3])
 end
