@@ -13,6 +13,14 @@ MCIntegration.jl provides several Monte Carlo algorithms to calculate regular/si
 The following examples demonstrate the basic usage of this package. 
 
 ## Convention
+In general, high-dimensional integration may involve multiple integrals with multi-dimensional variables,
+This package handles generic multiple integrals with multi-dimensional variables,
+$$ f_i = \int d^{n_x}\vec{x} \int d^{n_y}\vec{y}... f(\vec{x}, \vec{y}...), \quad \text{with} i = 1, 2, ..., N$$
+which may involve two types of variables: i) variables that is (almost) permutational symmetric in the integrand. They are called the symmetric variables, and are organized with vectors. This package allows nearly infinitely many 
+
+In this package, we will can the variable vector as a pool of variables. ii) variables that are very different from each other, so that must be represented with different vectors such as $\vec{x}$ and $\vec{y}$.
+
+The degree of freedom of the integrand is `dof` defined as [[$n_x$, $n_y$, ...], ....] with $N$ elements.
 
 ## Example 1. One-dimensional integral
 We first demonstrate an example of highly singular integral. The following command evaluates $\int_0^1 \frac{\log (x)}{\sqrt{x}} dx = 4$.
@@ -38,11 +46,11 @@ ignore        -3.8394711 ± 0.12101621              -3.8394711 ± 0.12101621    
 ```
 - By default, the function performs 10 iterations and each iteraction costs about `1e4` evaluations. You can adjust these values using `niter` and `neval` keywords arguments.
 
-- The final result is obtained through an inverse-variance-weighted average of all iterations, excluding the first one (since there is no importance sampling yet!). The results are stored in the `res`, which is a [`Result`](https://numericaleft.github.io/MCIntegration.jl/dev/lib/montecarlo/#Main-module) struct, and you can access the statistics with `res.mean`, `res.stdev`, `res.chi2`, `res.dof`, and `res.iterations`.
+- The final result is obtained through an inverse-variance-weighted average of all iterations, excluding the first one (since there is no importance sampling yet!). The results are stored in the `res`, which is a [`Result`](https://numericaleft.github.io/MCIntegration.jl/dev/lib/montecarlo/#Main-module) struct, and you can access the statistics with `res.mean`, `res.stdev`, `res.chi2`, and `res.iterations`.
 
 -  If you want to exclude more iterations from the final estimations, such as the first three iterations, you can call `Result(res, 3)` to get a new averaged result.
 
-- After each iteration, the program adjusts a distribution to mimic the integrand, improving importance sampling. Consequently, the estimated integral from each iteration generally becomes more accurate with more iterations. As long as `neval` is sufficiently large, the estimated integrals from different iterations should be statistically independent, justifying an average of different iterations weighted by the inverse variance. The assumption of statistical independence can be explicitly verified with a chi-square test, in which the `chi2/dof` value should be approximately one.
+- After each iteration, the program adjusts a distribution to mimic the integrand, improving importance sampling. Consequently, the estimated integral from each iteration generally becomes more accurate with more iterations. As long as `neval` is sufficiently large, the estimated integrals from different iterations should be statistically independent, justifying an average of different iterations weighted by the inverse variance. The assumption of statistical independence can be explicitly verified with a chi-square test, in which the `chi2` (reduced $\chi^2$) value should be approximately one.
 
 - The integrate function lets you choose a specific Monte Carlo (MC) algorithm by using the `solver` keyword argument. The example given employs the Vegas algorithm with `:vegas`. Additionally, this package provides two Markov-chain Monte Carlo (MCMC) algorithms for numerical integration: `:vegasmc` and `:mcmc`. Comparing these MCMC algorithms, `:vegasmc` offers better accuracy than `:mcmc` while keeping the same robustness. Although `:vegas` is generally slightly more accurate than `:vegasmc`, it is less robust. Considering the trade-off between accuracy and robustness, integrate defaults to using `:vegasmc`. For further information, consult the [Algorithm](#Algorithm) section.
 
