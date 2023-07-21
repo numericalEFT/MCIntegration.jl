@@ -135,6 +135,23 @@ function TestSingular2_CompositeVar(totalstep, alg)
     end
 end
 
+function TestSingular2_Continuous_HighDim(totalstep, alg)
+    #1/(1-cos(x)*cos(y)*cos(z))
+    C = Continuous([(0.0, 1π), (0.0, 1π), (0.0, 1π)])
+    println("compsitevar type: ", typeof(C))
+    if alg == :mcmc
+        return integrate(var=C, dof=1, neval=totalstep, print=-1, solver=alg) do idx, cvars, c
+            x, y, z = cvars
+            return 1.0 / (1.0 - cos(x[1]) * cos(y[1]) * cos(z[1])) / π^3
+        end
+    else
+        return integrate(var=C, dof=1, neval=totalstep, print=-1, solver=alg) do cvars, c
+            x, y, z = cvars
+            return 1.0 / (1.0 - cos(x[1]) * cos(y[1]) * cos(z[1])) / π^3
+        end
+    end
+end
+
 function TestComplex1(totalstep, alg)
     f(x, c) = x[1] + x[1]^2 * 1im
     f(idx, x, c)::ComplexF64 = f(x, c) # dispatch with args seems require type annotation
@@ -237,6 +254,7 @@ end
     println("Singular2")
     check(TestSingular2(neval, :mcmc), 1.3932)
     check(TestSingular2_CompositeVar(neval, :mcmc), 1.3932)
+    check(TestSingular2_Continuous_HighDim(neval, :mcmc), 1.3932)
 
     neval = 1000_00
     println("Complex1")
@@ -267,6 +285,7 @@ end
     println("Singular2")
     check(TestSingular2(neval, :vegas), 1.3932)
     check(TestSingular2_CompositeVar(neval, :vegas), 1.3932)
+    check(TestSingular2_Continuous_HighDim(neval, :vegas), 1.3932)
 
     neval = 2000_00
     println("Complex1")
@@ -308,6 +327,10 @@ end
     println("Singular2")
     check(TestSingular2(neval, :vegasmc), 1.3932)
     check(TestSingular2_CompositeVar(neval, :vegasmc), 1.3932)
+    check(TestSingular2_Continuous_HighDim(neval, :vegasmc), 1.3932)
+
+    @time TestSingular2_Continuous_HighDim(neval, :vegasmc)
+
 
     neval = 1000_00
     println("Complex1")
