@@ -26,11 +26,11 @@ The degree of freedom of the integrand is `dof` defined as [[$n_x$, $n_y$, ...],
 We first demonstrate an example of highly singular integral. The following command evaluates $\int_0^1 \frac{\log (x)}{\sqrt{x}} dx = 4$.
 ```julia
 julia> res = integrate((x, c)->log(x[1])/sqrt(x[1]), solver=:vegas, verbose=0) 
-Integral 1 = -3.997980772652019 ± 0.0013607691354676158   (chi2/dof = 1.93)
+Integral 1 = -3.997980772652019 ± 0.0013607691354676158   (reduced chi2 = 1.93)
 
 julia> report(res) #print out the iteration history
 ====================================     Integral 1    ==========================================
-  iter              integral                            wgt average                      chi2/dof
+  iter              integral                            wgt average                  reduced chi2
 -------------------------------------------------------------------------------------------------
 ignore        -3.8394711 ± 0.12101621              -3.8394711 ± 0.12101621                 0.0000
      2         -3.889894 ± 0.04161423              -3.8394711 ± 0.12101621                 0.0000
@@ -72,7 +72,7 @@ Adaptive continuous variable in the domain [0.0, 1.0). Learning rate = 2.0.
 This approach simplifies the evaluation of high-dimensional integrals involving multiple symmetric variables. For example, to calculate the area of a quarter unit circle (π/4 = 0.785398...):
 ```julia
 julia> res = integrate((x, c)->(x[1]^2+x[2]^2<1.0); var = x, dof = [2, ]) 
-Integral 1 = 0.7860119307731648 ± 0.002323473435947719   (chi2/dof = 2.14)
+Integral 1 = 0.7860119307731648 ± 0.002323473435947719   (reduced chi2 = 2.14)
 ```
 If the integrand involve more than one variables, it is important to specify the `dof` vector. Each element of the `dof` vector represents the degrees of freedom of the corresponding integrand.
 
@@ -83,7 +83,7 @@ julia> xy = Continuous([(0.0, 1.0), (0.0, 1.0)])
 Adaptive CompositeVar{Tuple{Continuous{Vector{Float64}}, Continuous{Vector{Float64}}}} with 2 components.
 
 julia> res = integrate(((x, y), c)-> log(x[1])/sqrt(x[1])*y[1]; var = xy)
-Integral 1 = -2.0012850872834154 ± 0.001203058956026235   (chi2/dof = 0.215)
+Integral 1 = -2.0012850872834154 ± 0.001203058956026235   (reduced chi2 = 0.215)
 ```
 The packed variable `xy` is of a type `CompositeVar` (see the [Variables](#Variables) section.). It is unpacked into a tuple of `x` and `y` within the integrand function. 
 
@@ -91,8 +91,8 @@ The packed variable `xy` is of a type `CompositeVar` (see the [Variables](#Varia
 You can calculate multiple integrals simultaneously. If the integrands are similar to each other, evaluating the integrals simultaneously sigificantly reduces cost. The following example calculate the area of a quarter circle and the volume of one-eighth sphere.
 ```julia
 julia> integrate((X, c)->(X[1]^2+X[2]^2<1.0, X[1]^2+X[2]^2+X[3]^2<1.0); var = Continuous(0.0, 1.0), dof = [[2,],[3,]])
-Integral 1 = 0.7823432452235586 ± 0.003174967010742156   (chi2/dof = 2.82)
-Integral 2 = 0.5185515421806122 ± 0.003219487569949905   (chi2/dof = 1.41)
+Integral 1 = 0.7823432452235586 ± 0.003174967010742156   (reduced chi2 = 2.82)
+Integral 2 = 0.5185515421806122 ± 0.003219487569949905   (reduced chi2 = 1.41)
 ```
 Here `dof` defines how many (degrees of freedom) variables of each type. For example, [[n1, n2], [m1, m2], ...] means the first integral involves n1 varibales of type 1, and n2 variables of type2, while the second integral involves m1 variables of type 1 and m2 variables of type 2. The `dof` of the integrals can be quite different, the program will figure out how to optimally padding the integrands to match the degrees of freedom. 
 
@@ -128,7 +128,7 @@ Integral 1 = -3.999299273090788 ± 0.001430447199375744   (chi2/dof = 1.46)
 
 julia> res = integrate((x, c)->log(x[1])/sqrt(x[1]), verbose=0, config = res0.config)
 ====================================     Integral 1    ================================================
-  iter              integral                            wgt average                      chi2/dof
+  iter              integral                            wgt average                      reduced chi2
 -------------------------------------------------------------------------------------------------------
 ignore        -4.0022708 ± 0.0044299263            -4.0022708 ± 0.0044299263               0.0000
      2        -3.9931774 ± 0.0042087902            -4.0022708 ± 0.0044299263               0.0000
@@ -141,7 +141,7 @@ ignore        -4.0022708 ± 0.0044299263            -4.0022708 ± 0.0044299263  
      9        -3.9959395 ± 0.0036121885            -3.9997265 ± 0.0010833368               1.9916
     10        -3.9955869 ± 0.0032874678             -3.999321 ± 0.0010289098               1.9215
 -------------------------------------------------------------------------------------------------------
-Integral 1 = -3.9993209996786128 ± 0.0010289098118216647   (chi2/dof = 1.92)
+Integral 1 = -3.9993209996786128 ± 0.0010289098118216647   (reduced chi2 = 1.92)
 ```
 
 ## Example 6. Measure Histogram
@@ -174,8 +174,8 @@ julia> res = integrate(integrand;
                 # integral-1: one continuous and one discrete variables, integral-2: two continous and one discrete variables
                 obs = [zeros(N), zeros(N)], #  observable prototypes of each integral
                 userdata = grid, neval = 1e5)
-Integral 1 = 0.9957805541613277 ± 0.008336657854575344   (chi2/dof = 1.15)
-Integral 2 = 0.7768105610812656 ± 0.006119386106596811   (chi2/dof = 1.4)
+Integral 1 = 0.9957805541613277 ± 0.008336657854575344   (reduced chi2 = 1.15)
+Integral 2 = 0.7768105610812656 ± 0.006119386106596811   (reduced chi2 = 1.4)
 ```
 You can visualize the returned result `res` with `Plots.jl`. The commands `res.mean[i]` and `res.stdev[i]` give the mean and stdev of the histogram of the `i`-th integral.
 ```julia
@@ -255,9 +255,9 @@ There are two different ways to parallelize your code with multiple threads.
 julia> Threads.@threads for i = 1:3
        println("Thread $(Threads.threadid()) returns ", integrate((x, c) -> x[1]^i, verbose=-2))
        end
-Thread 2 returns Integral 1 = 0.24995156136254149 ± 6.945088534643841e-5   (chi2/dof = 2.95)
-Thread 3 returns Integral 1 = 0.3334287563137184 ± 9.452648803649706e-5   (chi2/dof = 1.35)
-Thread 1 returns Integral 1 = 0.5000251243601586 ± 0.00013482206569391864   (chi2/dof = 1.58)
+Thread 2 returns Integral 1 = 0.24995156136254149 ± 6.945088534643841e-5   (reduced chi2 = 2.95)
+Thread 3 returns Integral 1 = 0.3334287563137184 ± 9.452648803649706e-5   (reduced chi2 = 1.35)
+Thread 1 returns Integral 1 = 0.5000251243601586 ± 0.00013482206569391864   (reduced chi2 = 1.58)
 ```
 
 2. Only the main thread calls the function `MCIntegration.integrate`, then parallelize the internal blocks with multiple threads. To do that, you need to call the function `MCIntegration.integrate` with a key argument `parallel = :thread`. This approach will utilize all Julia threads.  For example,
@@ -265,7 +265,7 @@ Thread 1 returns Integral 1 = 0.5000251243601586 ± 0.00013482206569391864   (ch
 julia> for i = 1:3
        println("Thread $(Threads.threadid()) return ", integrate((x, c) -> x[1]^i, verbose=-2, parallel=:thread))
        end
-Thread 1 return Integral 1 = 0.5001880440214347 ± 0.00015058935731086765   (chi2/dof = 0.397)
-Thread 1 return Integral 1 = 0.33341068551139696 ± 0.00010109649819894601   (chi2/dof = 1.94)
-Thread 1 return Integral 1 = 0.24983868976137244 ± 8.546009018501706e-5   (chi2/dof = 1.54)
+Thread 1 return Integral 1 = 0.5001880440214347 ± 0.00015058935731086765   (reduced chi2 = 0.397)
+Thread 1 return Integral 1 = 0.33341068551139696 ± 0.00010109649819894601   (reduced chi2 = 1.94)
+Thread 1 return Integral 1 = 0.24983868976137244 ± 8.546009018501706e-5   (reduced chi2 = 1.54)
 ```
