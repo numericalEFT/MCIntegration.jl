@@ -98,6 +98,15 @@ function TestDiscrete(totalstep, alg)
     return integrate(f; config=config, neval=totalstep, niter=10, print=-1, solver=alg, debug=true)
 end
 
+function TestDiscrete2(totalstep, alg)
+    X = Discrete([(1, 3), (1, 4)], adapt=true)
+    dof = [[1,],] # number of X variable of the integrand
+    config = Configuration(var=(X,), dof=dof)
+    f(x, c) = 1.0
+    f(idx, x, c)::Int = f(x, c)
+    return integrate(f; config=config, neval=totalstep, niter=10, print=-1, solver=alg, debug=true)
+end
+
 function TestSingular1(totalstep, alg)
     #log(x)/sqrt(x), singular in x->0
     f(X, c) = log(X[1]) / sqrt(X[1])
@@ -244,6 +253,8 @@ end
     check_vector(Sphere3(neval, :mcmc), [π / 4.0, [4.0 * π / 3.0 / 8, 4.0 * π / 3.0 / 4]])
     println("Discrete")
     check(TestDiscrete(neval, :mcmc), 6.0)
+    println("Discrete2")
+    check(TestDiscrete2(neval, :mcmc), 12.0)
     println("Singular1")
     res = TestSingular1(neval, :mcmc)
     @time res = TestSingular1(neval, :mcmc)
@@ -276,6 +287,8 @@ end
     check_vector(Sphere3(neval, :vegas), [π / 4.0, [4.0 * π / 3.0 / 8, 4.0 * π / 3.0 / 4]])
     println("Discrete")
     check(TestDiscrete(neval, :vegas), 6.0)
+    println("Discrete2")
+    check(TestDiscrete2(neval, :vegas), 12.0)
     println("Singular1")
     res = TestSingular1(neval, :vegas)
     @time res = TestSingular1(neval, :vegas)
@@ -318,6 +331,8 @@ end
     check_vector(Sphere3(neval, :vegasmc), [π / 4.0, [4.0 * π / 3.0 / 8, 4.0 * π / 3.0 / 4]])
     println("Discrete")
     check(TestDiscrete(neval, :vegasmc), 6.0)
+    println("Discrete2")
+    check(TestDiscrete2(neval, :vegasmc), 12.0)
     println("Singular1")
     res = TestSingular1(neval, :vegasmc)
     @time res = TestSingular1(neval, :vegasmc)
