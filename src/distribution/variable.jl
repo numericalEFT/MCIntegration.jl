@@ -188,7 +188,6 @@ end
 
 function Base.show(io::IO, var::Continuous)
     print(io, (var.adapt ? "Adaptive" : "Nonadaptive") * " Continuous variable ∈ [$(var.lower), $(var.lower+var.range))."
-              * (" Max number = $(length(var.data)-1-var.offset).")
               * (var.adapt ? " Learning rate = $(var.alpha)." : "")
               * (var.offset > 0 ? " Offset = $(var.offset)." : "")
     )
@@ -355,7 +354,6 @@ end
 
 function Base.show(io::IO, var::Discrete)
     print(io, (var.adapt ? "Adaptive" : "Nonadaptive") * " Discrete variable ∈ [$(var.lower), ..., $(var.upper)]."
-              * (" Max number = $(length(var.data)-1-var.offset).")
               * (var.adapt ? " Learning rate = $(var.alpha)." : "")
               * (var.offset > 0 ? " Offset = $(var.offset)." : "")
     )
@@ -430,7 +428,6 @@ end
 
 function Base.show(io::IO, var::CompositeVar)
     print(io, (var.adapt ? "Adaptive" : "Nonadaptive") * " $(typeof(var)) with $(length(var)) components."
-              * (" Max number = $(var.size).")
               * (var.offset > 0 ? " Offset = $(var.offset)." : "")
     )
 end

@@ -57,7 +57,7 @@ ignore        -3.8394711 ± 0.12101621              -3.8394711 ± 0.12101621    
 In `MCIntegration.jl`, a variable is represented as a pool of random numbers drawn from the same distribution. For instance, you can explicitly initialize a set of variables in the range [0, 1) as follows:
 ```julia
 julia> x=Continuous(0.0, 1.0) #Create a pool of continuous variables. 
-Adaptive continuous variable in the domain [0.0, 1.0). Max variable number = 16. Learning rate = 2.0.
+Adaptive continuous variable in the domain [0.0, 1.0). Learning rate = 2.0.
 ```
 This approach simplifies the evaluation of high-dimensional integrals involving multiple symmetric variables. For example, to calculate the area of a quarter unit circle (π/4 = 0.785398...):
 ```julia
@@ -66,31 +66,15 @@ Integral 1 = 0.7860119307731648 ± 0.002323473435947719   (chi2/dof = 2.14)
 ```
 
 ## Example 3. Multi-dimensional integral: Generic Variables
-If the variables in a multi-dimensional integrand are not symmetric, it is better to define them as different types so that they can be sampled with different adaptive distributions,
+If the variables in a multi-dimensional integrand are not symmetric, it is better to define them as different types so that they can be sampled with different adaptive distributions. In the following example, we create a direct product of two continuous variables, then calculate a two-variable integral, 
 ```julia
-julia> x=Continuous(0.0, 1.0) #Create a pool of continuous variables. 
-Adaptive continuous variable in the domain [0.0, 1.0). Max variable number = 16. Learning rate = 2.0.
+julia> xy = Continuous([(0.0, 1.0), (0.0, 1.0)])
+Adaptive CompositeVar{Tuple{Continuous{Vector{Float64}}, Continuous{Vector{Float64}}}} with 2 components.
 
-julia> y=Continuous(0.0, 1.0) #Create a pool of continuous variables. 
-Adaptive continuous variable in the domain [0.0, 1.0). Max variable number = 16. Learning rate = 2.0.
-
-julia> res = integrate(((x, y), c)-> log(x[1])/sqrt(x[1])*y[1]; var = (x, y), solver=:vegas)
-Integral 1 = -2.00073745890742 ± 0.0008972661931407758   (chi2/dof = 2.63)
+julia> res = integrate(((x, y), c)-> log(x[1])/sqrt(x[1])*y[1]; var = xy)
+Integral 1 = -2.0012850872834154 ± 0.001203058956026235   (chi2/dof = 0.215)
 ```
-
-In the example above, using the Markov-chain Monte Carlo (MCMC) algorithm `:vegasmc` leads to a noticeable decrease in accuracy compared to the `:vegas` algorithm:
-```julia
-julia> res = integrate(((x, y), c)-> log(x[1])/sqrt(x[1])*y[1]; var = (x, y), solver=:vegasmc)
-Integral 1 = -1.9931385040549743 ± 0.0023982483367389613   (chi2/dof = 2.01)
-```
-The decrease in accuracy is due to the Markov-chain-based algorithm selecting only one variable type to update at each MC step, resulting in strongly correlated samples and less accurate estimations. To update all variable types simultaneously in each MC step, you can combine them into a composite variable. After this modification, the integration accuracy becomes comparable to that of the `:vegas` algorithm:
-```julia
-julia> cv = CompositeVar(x, y)
-Adaptive Composite variable with 2 components. Max number = 16.
-
-julia> res = integrate(((x, y), c)-> log(x[1])/sqrt(x[1])*y[1]; var = cv, solver=:vegasmc)
-Integral 1 = -1.9984280095710727 ± 0.0011155989264483592   (chi2/dof = 1.7)
-```
+The packed variable `xy` is of a type `CompositeVar` (see the [Variables](#Variables) section.). It is unpacked into a tuple of `x` and `y` within the integrand function. 
 
 ## Example 4. Evaluate Multiple Integrands Simultaneously
 You can calculate multiple integrals simultaneously. If the integrands are similar to each other, evaluating the integrals simultaneously sigificantly reduces cost. The following example calculate the area of a quarter circle and the volume of one-eighth sphere.
@@ -222,6 +206,10 @@ The variable pool trick will significantly reduce the cost of learning their dis
 
 If some of the variables are paired with each other (for example, the three continuous variables (r, θ, ϕ) representing a 3D vector), then you can pack them into a joint random variable, which can be constructed with the following constructor,
 - `CompositeVar(var1, var2, ...[; adapt = true, alpha = 3.0, ...])`: A product of different types of random variables. It samples `var1`, `var2`, ... with their producted distribution. 
+
+If the packed variables are all continuous of discrete, then you can create them in a more straightforward way,
+- `Continous([(lower1, upper1), (lower2, upper2), ...], [; adapt = true, alpha = 3.0, ...])`.
+- `Discrete([(lower1, upper1), (lower2, upper2), ...], [; adapt = true, alpha = 3.0, ...])`.
 
 The packed variables will be sampled all together in the Markov-chain based solvers (`:vegasmc` and `:mcmc`). Such updates will generate more independent samples compared to the unpacked version. Sometimes, it could reduce the auto-correlation time of the Markov chain and make the algorithm more efficient.
 
