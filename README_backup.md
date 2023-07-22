@@ -1,54 +1,64 @@
-# MCIntegration.jl: Monte Carlo Integration in Julia
+# MCIntegration
+
+Robust and efficient Monte Carlo calculator for high-dimensional integral.
 
 [![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://numericalEFT.github.io/MCIntegration.jl/stable)
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://numericalEFT.github.io/MCIntegration.jl/dev)
 [![Build Status](https://github.com/numericalEFT/MCIntegration.jl/workflows/CI/badge.svg)](https://github.com/numericalEFT/MCIntegration.jl/actions)
 [![Coverage](https://codecov.io/gh/numericalEFT/MCIntegration.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/numericalEFT/MCIntegration.jl)
 
-## Why Choose MCIntegration.jl?
-MCIntegration.jl is a comprehensive Julia package designed to handle both regular and singular high-dimensional integrals with ease. Its implementation of robust Monte Carlo integration methods makes it a versatile tool in various scientific domains, including high-energy physics, material science, computational chemistry, financial mathematics, and machine learning.
+MCIntegration.jl is a robust and versatile Julia package designed to offer a comprehensive set of Monte Carlo integration algorithms. It's capable of calculating both regular and singular integrals across finite and infinite dimensions, which makes it a powerful tool in a wide array of scientific computing and data analysis contexts.
 
-The high-level simplicity and flexibility of Julia combined with the performance capabilities of C/C++-like compiled languages make it a fantastic choice for implementing Monte Carlo methods. Monte Carlo methods, which require extensive computations, can greatly benefit from Julia's just-in-time (JIT) compilation that allows MCIntegration.jl to perform calculations at a near-C/C++ efficiency. Moreover, the intuitive high-level syntax of Julia allows users to define their integrands effortlessly, adding to the customizability and user-friendliness of MCIntegration.jl.
+High-dimensional integration is an inherently complex task often found in areas such as high-energy physics, material science, computational chemistry, financial mathematics, and machine learning. Traditional numerical integration techniques can falter when faced with the "curse of dimensionality". However, Monte Carlo methods, like those implemented in MCIntegration.jl, are particularly effective at overcoming this challenge.
 
-## Features and Benefits
-- **Monte Carlo Integration:** Estimate the value of complex integrals using Monte Carlo methods, a class of algorithms suitable for high-dimensional integrals.
-- **Variable Handling:** The package offers unique handling of symmetric and asymmetric variables with an efficient 'variable pool' concept, enabling optimization of computations.
-- **Selection of Algorithms:** Choose between three Monte Carlo integration solvers - `Vegas`, `VegasMC`, and `MCMC`, each tailored for different types of integral evaluations.
-- **Parallelization:** Accelerate your computations using multi-threading and MPI capabilities for parallel computing.
+## Why Julia?
+Julia combines the high-level simplicity and flexibility of Python with the performance capabilities of compiled languages like C/C++. This fusion makes it an ideal language for Monte Carlo integration.
 
-## Installation
-To install MCIntegration.jl, use Julia's package manager. Open the Julia REPL, type `]` to enter the package mode, and then:
-```
-pkg> add MCIntegration
-```
+Efficiency is paramount in Monte Carlo methods due to the large number of computations. Julia, with its just-in-time (JIT) compilation, allows MCIntegration.jl to run these calculations with an efficiency close to that of lower-level languages like C/C++.
+
+On the other hand, defining the integrands in Monte Carlo integration should be as easy and intuitive as possible. With Julia's high-level syntax, users can effortlessly define their own integrands, making MCIntegration.jl highly customizable and user-friendly.
+
+This unique combination of performance and ease of use is what makes MCIntegration.jl, and Julia in general, stand out from other languages and tools.
+
+## Convention
+MCIntegration.jl can handle multiple integrals with multi-dimensional variables, each with the general form:
+$$ \int d\vec{x} \int d\vec{y}... \vec{f}(\vec{x}, \vec{y}...)$$
+The variables involved in these integrals fall into two categories:
+
+- Symmetric variables: These are (almost) interchangeable within the integrand. They are organized into vectors, and our package can handle nearly infinite dimensions for each set of symmetric variables. In this sense, each such vector acts as an unlimited "pool" of variables.
+
+- Asymmetric variables: These variables significantly differ from each other, so they must be represented by different vectors, such as x and y in the integral expression above.
+
+The "degree of freedom" (dof) of the integrands is defined as a list of dimensions for each variable pool: dof($\vec{f}$) = [[dim($\vec{x}$), dim($\vec{y}$), ...], ...] with dim($\vec{f}$) elements.
 
 ## Quick Start
-To get started with MCIntegration.jl, let's take a look at a simple example. The following commands calculate the integral of a basic function using a Monte Carlo method:
-```julia
-julia> f(x, c) = log(x[1]) / sqrt(x[1]); # Define your integrand function 
-julia> integrate(f, neval=1e5) # Perform the MC integration for 1e5 steps 
-Integral 1 = -3.99689518016736 ± 0.001364833686666744   (reduced chi2 = 0.695)
-```
-In this example, we defined a simple integrand function `f(x, c)` where `x` represents the random variables in the integral and `c` is a `Configuration` object that holds any additional parameters your function might need. The `x` is assumed to be `Continuous(0, 1)` by default, and `c` is not used in this case. The estimation is reliable as long as the reduced $\chi^2$ is about order of unity.
+To help you get started with MCIntegration.jl, here are a few examples demonstrating its capabilities and usage.
+### Example 1. One-dimensional integral
+Our first example deals with a highly singular integral. We are going to calculate: $\int_0^1 \frac{\log (x)}{\sqrt{x}} dx = 4$.
 
-## Understanding Variables
-To handle more complex integrals, it's necessary to understand how `MCIntegration.jl` designs and uses variables. `MCIntegration.jl` can handle multiple integrals with multi-dimensional variables in the general form
-$$ \int d\vec{x} \int d\vec{y}... \vec{f}(\vec{x}, \vec{y}...)$$
-where the variables can be **symmetric** (interchangeable) or **asymmetric** (distinct) depending on the problem at hand. The "degree of freedom" (`dof`) of the integrands is defined as a list of dimensions for each variable pool: dof($\vec{f}$) = [[dim($\vec{x}$), dim($\vec{y}$), ...], ...] with dim($\vec{f}$) elements.
-
-- **Symmetric Variables** are organized into vectors, and each such vector acts as an unlimited **pool** of variables. `MCIntegration.jl` samples all variables in the pool with the same optimized distributions. The following example estimates $\pi$ with two symmetric variables `x[1]` and `x[2]` both range uniformly from 0 to 1.
+In Julia, this can be performed as follows:
 ```julia
-julia> f(x, c) = x[1]^2 + x[2]^2 < 1
-julia> integrate(f; var = Continuous(-1, 1), dof = [[2, ],])
-Integral 1 = 3.1316915341619413 ± 0.008785871829296759   (reduced chi2 = 0.298)
+julia> res = integrate((x, c)->log(x[1])/sqrt(x[1]), solver=:vegas, verbose=0) 
+Integral 1 = -3.997980772652019 ± 0.0013607691354676158   (reduced chi2 = 1.93)
+
+julia> report(res) #print out the iteration history
+====================================     Integral 1    ==========================================
+  iter              integral                            wgt average                  reduced chi2
+-------------------------------------------------------------------------------------------------
+ignore        -3.8394711 ± 0.12101621              -3.8394711 ± 0.12101621                 0.0000
+     2         -3.889894 ± 0.04161423              -3.8394711 ± 0.12101621                 0.0000
+     3        -4.0258398 ± 0.016628525              -4.007122 ± 0.015441393                9.2027
+     4        -4.0010193 ± 0.0097242712            -4.0027523 ± 0.0082285382               4.6573
+     5         -3.990754 ± 0.0055248673            -3.9944823 ± 0.0045868638               3.5933
+     6         -4.000744 ± 0.0025751679            -3.9992433 ± 0.0022454867               3.0492
+     7        -4.0021542 ± 0.005940518             -3.9996072 ± 0.0021004392               2.4814
+     8        -3.9979708 ± 0.0034603885            -3.9991666 ± 0.0017955468               2.0951
+     9         -3.994137 ± 0.0026675679            -3.9975984 ± 0.0014895459               2.1453
+    10        -3.9999099 ± 0.0033455927            -3.9979808 ± 0.0013607691               1.9269
+-------------------------------------------------------------------------------------------------
 ```
 
-- **Asymmetric Variables** significantly differ from each other, so they must be represented by different vectors and sampled with different distributions. An example would be performing the Monte Carlo estimation of $\pi$ in polar coordinates, where the radius `r` and angle `θ` are not interchangeable and span different intervals.
-```julia
-julia> f((r, θ), c) = r[1] # Upack the variables into r and θ. The integrand is independent of θ.
-julia> integrate(f; var = (Continuous(0, 1), Continuous(0, 2π)), dof = [(1, 1),])
-Integral 1 = 3.1416564680126626 ± 0.0035638975370485427   (reduced chi2 = 1.94)
-```
+- By default, the function performs 10 iterations and each iteraction costs about `1e4` evaluations. You can adjust these values using `niter` and `neval` keywords arguments.
 
 - The final result is obtained through an inverse-variance-weighted average of all iterations, excluding the first one (since there is no importance sampling yet!). The results are stored in the `res`, which is a [`Result`](https://numericaleft.github.io/MCIntegration.jl/dev/lib/montecarlo/#Main-module) struct, and you can access the statistics with `res.mean`, `res.stdev`, `res.chi2`, and `res.iterations`.
 
