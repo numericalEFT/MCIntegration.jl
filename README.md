@@ -50,6 +50,13 @@ julia> integrate(f; var = (Continuous(0, 1), Continuous(0, 2π)), dof = [(1, 1),
 Integral 1 = 3.1416564680126626 ± 0.0035638975370485427   (reduced chi2 = 1.94)
 ```
 
+## Selection of Algorithms
+`MCIntegration.jl` offers three Monte Carlo integration solvers - `:vegas`, `:vegasmc`, and `:mcmc`.
+
+- **Vegas Algorithm:** The Vegas algorithm uses importance sampling to reduce variance, making it suitable for evaluating integrals over a large number of dimensions.
+- **VegasMC Algorithm:** VegasMC is a variant of the Vegas algorithm that uses Markov Chain Monte Carlo (MCMC) sampling. It's useful when the integrand has a complex, high-dimensional shape.
+- **MCMC Algorithm:** MCMC is designed for handling large sets of integrands, especially when there are too many to be calculated simultaneously. It uses the Metropolis-Hastings algorithm to sample different integrals.
+
 - The final result is obtained through an inverse-variance-weighted average of all iterations, excluding the first one (since there is no importance sampling yet!). The results are stored in the `res`, which is a [`Result`](https://numericaleft.github.io/MCIntegration.jl/dev/lib/montecarlo/#Main-module) struct, and you can access the statistics with `res.mean`, `res.stdev`, `res.chi2`, and `res.iterations`.
 
 -  If you want to exclude more iterations from the final estimations, such as the first three iterations, you can call `Result(res, 3)` to get a new averaged result.
