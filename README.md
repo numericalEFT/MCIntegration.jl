@@ -8,7 +8,7 @@
 ## Why Choose MCIntegration.jl?
 MCIntegration.jl is a comprehensive Julia package designed to handle both regular and singular high-dimensional integrals with ease. Its implementation of robust Monte Carlo integration methods makes it a versatile tool in various scientific domains, including high-energy physics, material science, computational chemistry, financial mathematics, and machine learning.
 
-The high-level simplicity and flexibility of Julia combined with the performance capabilities of C/C++-like compiled languages make it a fantastic choice for implementing Monte Carlo methods. Monte Carlo methods, which require extensive computations, can greatly benefit from Julia's just-in-time (JIT) compilation that allows MCIntegration.jl to perform calculations at a near-C/C++ efficiency. Moreover, the intuitive high-level syntax of Julia allows users to define their integrands effortlessly, adding to the customizability and user-friendliness of MCIntegration.jl.
+The high-level simplicity and flexibility of Julia combined with the performance capabilities of C/C++-like compiled languages make it a fantastic choice for implementing Monte Carlo methods. Monte Carlo methods, which require extensive computations, can greatly benefit from Julia's just-in-time (JIT) compilation that allows `MCIntegration.jl` to perform calculations at a near-C/C++ efficiency. Moreover, the intuitive high-level syntax of Julia allows users to define their integrands effortlessly, adding to the customizability and user-friendliness of `MCIntegration.jl`.
 
 ## Installation
 To install MCIntegration.jl, use Julia's package manager. Open the Julia REPL, type `]` to enter the package mode, and then:
@@ -36,7 +36,7 @@ Integral 1 = 3.120372107250909 ± 0.016964643375124093   (reduced chi2 = 1.38)
 
 ## Understanding Variables
 To handle more complex integrals, it's necessary to understand how `MCIntegration.jl` designs and uses variables. `MCIntegration.jl` can handle multiple integrals with multi-dimensional variables in the general form
-$$ \int d\vec{x} \int d\vec{y}... \vec{f}(\vec{x}, \vec{y}...)$$
+$ \int d\vec{x} \int d\vec{y}... \vec{f}(\vec{x}, \vec{y}...)$
 The package handles both continuous and discrete variables; for discrete variables, the integrals are interpreted as summations.
 
 In `MCIntegration.jl`, the **"degree of freedom" (`dof`)** defines the dimensions for each variable group in the integrand. It's represented as a list of dimensions: dof($\vec{f}$) = [[dim($\vec{x}$), dim($\vec{y}$), ...], ...], with dim($\vec{f}$) elements.
