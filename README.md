@@ -65,7 +65,7 @@ julia> integrate(g; var = Continuous([(0, 1), (0, 2π)]), dof = [(1, ),])
 Integral 1 = 3.14367422926071 ± 0.0011572440016582415   (reduced chi2 = 0.735)
 ```
 
-- Tuple of Variable Vectors: Calculate $\sum_{n = 0}^{\infty} \int_0^1 (-1)^n x^{2n}dx = \pi/4$
+- Tuple of Variable Vectors: Calculate $\sum_{n \ge 0} \int_0^1 (-1)^n x^{2n}dx = \pi/4$
 ```julia
 julia> f((n, x), c) = 4*(-1)^n[1]*x[1]^(2*n[1])
 julia> integrate(f; var = (Discrete(0, 100), Continuous(0, 1)), dof = [(1, 1),], neval=1e5)
