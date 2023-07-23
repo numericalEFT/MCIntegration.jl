@@ -11,12 +11,23 @@ Robust and efficient Monte Carlo calculator for high-dimensional integral.
 [![Build Status](https://github.com/numericalEFT/MCIntegration.jl/workflows/CI/badge.svg)](https://github.com/numericalEFT/MCIntegration.jl/actions)
 [![Coverage](https://codecov.io/gh/numericalEFT/MCIntegration.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/numericalEFT/MCIntegration.jl)
 
-MCIntegration.jl provides several Monte Carlo algorithms to calculate regular/singular integrals in finite or inifinite dimensions.  
+MCIntegration.jl is a robust and versatile Julia package designed to offer a comprehensive set of Monte Carlo integration algorithms. It's capable of calculating both regular and singular integrals across finite and infinite dimensions, which makes it a powerful tool in a wide array of scientific computing and data analysis contexts.
+
+High-dimensional integration is an inherently complex task often found in areas such as high-energy physics, material science, computational chemistry, financial mathematics, and machine learning. Traditional numerical integration techniques can falter when faced with the "curse of dimensionality". However, Monte Carlo methods, like those implemented in MCIntegration.jl, are particularly effective at overcoming this challenge.
+
+## Why Julia?
+Julia combines the high-level simplicity and flexibility of Python with the performance capabilities of compiled languages like C/C++. This fusion makes it an ideal language for Monte Carlo integration.
+
+Efficiency is paramount in Monte Carlo methods due to the large number of computations. Julia, with its just-in-time (JIT) compilation, allows MCIntegration.jl to run these calculations with an efficiency close to that of lower-level languages like C/C++.
+
+On the other hand, defining the integrands in Monte Carlo integration should be as easy and intuitive as possible. With Julia's high-level syntax, users can effortlessly define their own integrands, making MCIntegration.jl highly customizable and user-friendly.
+
+This unique combination of performance and ease of use is what makes MCIntegration.jl, and Julia in general, stand out from other languages and tools.
 
 # Quick start
-The following examples demonstrate the basic usage of this package. 
+To help you get started with MCIntegration.jl, here are a few examples demonstrating its capabilities and usage.
 
-## One-dimensional integral
+### Example 1. One-dimensional integral
 We first show an example of highly singular integral. The following command evaluates ∫_0^1 log(x)/√x dx = 4.
 ```julia
 julia> res = integrate((x, c)->log(x[1])/sqrt(x[1]), solver=:vegas) 
@@ -24,7 +35,7 @@ Integral 1 = -3.997980772652019 ± 0.0013607691354676158   (chi2/dof = 1.93)
 
 julia> report(res) #print out the iteration history
 ====================================     Integral 1    ==========================================
-  iter              integral                            wgt average                      chi2/dof
+  iter              integral                            wgt average                  reduced chi2
 -------------------------------------------------------------------------------------------------
 ignore        -3.8394711 ± 0.12101621              -3.8394711 ± 0.12101621                 0.0000
      2         -3.889894 ± 0.04161423              -3.8394711 ± 0.12101621                 0.0000
@@ -38,40 +49,55 @@ ignore        -3.8394711 ± 0.12101621              -3.8394711 ± 0.12101621    
     10        -3.9999099 ± 0.0033455927            -3.9979808 ± 0.0013607691               1.9269
 -------------------------------------------------------------------------------------------------
 ```
-- By default, the function performs 10 iterations and each iteraction costs about `1e4` evaluations. You may reset these values with `niter` and `neval` keywords arguments.
+- By default, the function performs 10 iterations and each iteraction costs about `1e4` evaluations. You can adjust these values using `niter` and `neval` keywords arguments.
 
-- The final result is obtained by inverse-variance-weighted averge of all the iterations except the first one (there is no important sampling yet!). They are stored in the return value`res`, which is a struct [`Result`](https://numericaleft.github.io/MCIntegration.jl/dev/lib/montecarlo/#Main-module). You can access the statistics with `res.mean`, `res.stdev`, `res.chi2`, `res.dof` and `res.iterations` for all the iterations. 
+- The final result is obtained through an inverse-variance-weighted average of all iterations, excluding the first one (since there is no importance sampling yet!). The results are stored in the `res`, which is a [`Result`](https://numericaleft.github.io/MCIntegration.jl/dev/lib/montecarlo/#Main-module) struct, and you can access the statistics with `res.mean`, `res.stdev`, `res.chi2`, and `res.iterations`.
 
--  If you want to exclude more iterations, say the first three iterations, you can get a new result with the call `Result(res, 3)`.  
+-  If you want to exclude more iterations from the final estimations, such as the first three iterations, you can call `Result(res, 3)` to get a new averaged result.
 
-- Internally, the `integrate` function optimizes the important sampling after each iteration. The results generally improves with iteractions. As long as `neval` is sufficiently large, the estimations from different iteractions should be statistically independent. This will justify an average of different iterations weighted by the inverse variance. The assumption of statically independence can be explicitly checked with chi-square test, namely `chi2/dof` should be about one. 
+- After each iteration, the program adjusts a distribution to mimic the integrand, improving importance sampling. Consequently, the estimated integral from each iteration generally becomes more accurate with more iterations. As long as `neval` is sufficiently large, the estimated integrals from different iterations should be statistically independent, justifying an average of different iterations weighted by the inverse variance. The assumption of statistical independence can be explicitly verified with a chi-square test, in which the `chi2` (reduced $\chi^2$) value should be approximately one.
 
-- You can pass the keyword arguemnt `solver` to the `integrate` functoin to specify the Monte Carlo algorithm. The above examples uses the Vegas algorithm with `:vegas`. In addition, this package provides two Markov-chain Monte Carlo algorithms for numerical integration. You can call them with `:vegasmc` or `:mcmc`. Check the Algorithm section for more details. 
+- The integrate function lets you choose a specific Monte Carlo (MC) algorithm by using the `solver` keyword argument. The example given employs the Vegas algorithm with `:vegas`. Additionally, this package provides two Markov-chain Monte Carlo (MCMC) algorithms for numerical integration: `:vegasmc` and `:mcmc`. Comparing these MCMC algorithms, `:vegasmc` offers better accuracy than `:mcmc` while keeping the same robustness. Although `:vegas` is generally slightly more accurate than `:vegasmc`, it is less robust. Considering the trade-off between accuracy and robustness, integrate defaults to using `:vegasmc`. For further information, consult the [Algorithm](#Algorithm) section.
 
-- For the `:vegas` and `vegasmc` algorithms, the user-defined integrand evaluation function requires two arguments `(x, c)`, where `x` is the integration variable, while `c` is a struct stores the MC configuration. The latter contains additional information which may be needed for integrand evalution.  
+- When defining your own integrand evaluation function, you need to provide two arguments: `(x, c)`:
+  * `x` represents the integration variable, which by default falls within the range [0, 1). It should be considered as a pool of infinitely many random variables that follows the same distribution. To access the i-th random variable, use x[i]. For a better understanding, refer to Example 2 and the [Variables](#Variables) section.
+  * `c` is a struct that holds the Monte Carlo (MC) configuration. This contains additional information that might be necessary for evaluating the integrand. For a practical example, see Example 5.
 
-- The ['Configuration'](https://numericaleft.github.io/MCIntegration.jl/dev/lib/montecarlo/#Main-module) struct stores the essential state information for the Monte Carlo sampling. Two particularly relavent members are
-  * `userdata` : if you pass a keyword argument `userdata` to the `integrate` function, then it will be stored here, so that you can access it in your integrand evaluation function. 
-  * `var` : A tuple of variables. In the above example, `var = (x, )` so that `var[1] === x`. 
+- For complex-valued integral, say with the type `ComplexF64`, you need to call `integrate(..., dtype = ComplexF64)` to specify the integrand data type. The error  of the real part and the imaginary part will be estimated independently.   
 
-- The result returned by the `integrate` function contains the configuration after integration. If you want a detailed report, call `report(res.config)`. This configuration stores the optimized random variable distributions for the important sampling, which could be useful to evaluate other integrals with similar integrands. To use the optimized distributions, you can either call `integrate(..., config = res.config, ...)` to pass the entire configuration, or call `integrate(..., var = (res.config.var[1], ...), ...)` to pass one or more selected variables.
+- You can suppress the output information by setting `verbose=-1`. If you want to see more information after the calculation, simply call `report(res)`. If you want to check the MC configuration, call `report(res.config)`.
 
-## Multi-dimensional integral
-The following example first defines a pool of variables in [0, 1), then evaluates the area of a quarter unit circle (π/4 = 0.785398...).
+### Example 2. Multi-dimensional integral: Symmetric Variables
+
+In `MCIntegration.jl`, a variable is represented as a pool of random numbers drawn from the same distribution. For instance, you can explicitly initialize a set of variables in the range [0, 1) as follows:
 ```julia
-julia> X=Continuous(0.0, 1.0) #Create a pool of continuous variables. 
-Adaptive continuous variable in the domain [0.0, 1.0). Max variable number = 16. Learning rate = 2.0.
-
-julia> integrate((X, c)->(X[1]^2+X[2]^2<1.0); var = X, dof = 2)
-Integral 1 = 0.7832652785953883 ± 0.002149843816733503   (chi2/dof = 1.28)
+julia> x=Continuous(0.0, 1.0) #Create a pool of continuous variables. 
+Adaptive continuous variable in the domain [0.0, 1.0). Learning rate = 2.0.
 ```
+This approach simplifies the evaluation of high-dimensional integrals involving multiple symmetric variables. For example, to calculate the area of a quarter unit circle (π/4 = 0.785398...):
+```julia
+julia> res = integrate((x, c)->(x[1]^2+x[2]^2<1.0); var = x, dof = [2, ]) 
+Integral 1 = 0.7860119307731648 ± 0.002323473435947719   (reduced chi2 = 2.14)
+```
+If the integrand involve more than one variables, it is important to specify the `dof` vector. Each element of the `dof` vector represents the degrees of freedom of the corresponding integrand.
 
-## Evaluate Multiple Integrands Simultaneously
+### Example 3. Multi-dimensional integral: Generic Variables
+If the variables in a multi-dimensional integrand are not symmetric, it is better to define them as different types so that they can be sampled with different adaptive distributions. In the following example, we create a direct product of two continuous variables, then calculate a two-variable integral, 
+```julia
+julia> xy = Continuous([(0.0, 1.0), (0.0, 1.0)])
+Adaptive CompositeVar{Tuple{Continuous{Vector{Float64}}, Continuous{Vector{Float64}}}} with 2 components.
+
+julia> res = integrate(((x, y), c)-> log(x[1])/sqrt(x[1])*y[1]; var = xy)
+Integral 1 = -2.0012850872834154 ± 0.001203058956026235   (reduced chi2 = 0.215)
+```
+The packed variable `xy` is of a type `CompositeVar` (see the [Variables](#Variables) section.). It is unpacked into a tuple of `x` and `y` within the integrand function. 
+
+### Example 4. Evaluate Multiple Integrands Simultaneously
 You can calculate multiple integrals simultaneously. If the integrands are similar to each other, evaluating the integrals simultaneously sigificantly reduces cost. The following example calculate the area of a quarter circle and the volume of one-eighth sphere.
 ```julia
 julia> integrate((X, c)->(X[1]^2+X[2]^2<1.0, X[1]^2+X[2]^2+X[3]^2<1.0); var = Continuous(0.0, 1.0), dof = [[2,],[3,]])
-Integral 1 = 0.7823432452235586 ± 0.003174967010742156   (chi2/dof = 2.82)
-Integral 2 = 0.5185515421806122 ± 0.003219487569949905   (chi2/dof = 1.41)
+Integral 1 = 0.7823432452235586 ± 0.003174967010742156   (reduced chi2 = 2.82)
+Integral 2 = 0.5185515421806122 ± 0.003219487569949905   (reduced chi2 = 1.41)
 ```
 Here `dof` defines how many (degrees of freedom) variables of each type. For example, [[n1, n2], [m1, m2], ...] means the first integral involves n1 varibales of type 1, and n2 variables of type2, while the second integral involves m1 variables of type 1 and m2 variables of type 2. The `dof` of the integrals can be quite different, the program will figure out how to optimally padding the integrands to match the degrees of freedom. 
 
@@ -92,7 +118,38 @@ julia> integrate(var = Continuous(0.0, 1.0), dof = [[2,], [3,]], inplace=true) d
        end
 ```
 
-## Measure Histogram
+### Example 5. Use `Configuration` to Interface with MCIntegration 
+
+- `Configuration` in integrands: As explained in the Example 1, the user-defined integrand has the signature `(x, c)` where `x` is the variable(s), and `c` is a ['Configuration'](https://numericaleft.github.io/MCIntegration.jl/dev/lib/montecarlo/#Main-module) struct stores the essential state information for the Monte Carlo sampling.Three particularly relavent members of `Configuratoin` include
+  * `userdata` : if you pass a keyword argument `userdata` to the `integrate` function, then it will be stored here, so that you can access it in your integrand evaluation function. 
+  * `var` : A tuple of variable(s). If there is only one variable in the tuple, then the first argument of the integrand will be `x = var[1]`. On the other hand, if there are multiple variables in the tuple, then `x = var`.
+  * `obs` : A vector of observables. Each element is an accumulated estimator for one integrand. In other words, `length(obs)` = `length(dof)` = number of integrands.
+  * `normalization`: the estimation of integrals are given by `obs ./ normalization`.
+
+- `Configuration` in returned `Result`: The result returned by the `integrate` function contains the configuration after integration. If you want a detailed report, call `report(res.config)`. This configuration stores the optimized random variable distributions for the important sampling, which could be useful to evaluate other integrals with similar integrands. To use the optimized distributions, you can either call `integrate(..., config = res.config, ...)` to pass the entire configuration, or call `integrate(..., var = (res.config.var[1], ...), ...)` to pass one or more selected variables. In the following example, the second call is initialized with an optimized distribution, so that the first iteration is very accurate compared to the same row in the Example 1 output.
+```julia
+julia> res0 = integrate((x, c)->log(x[1])/sqrt(x[1]))
+Integral 1 = -3.999299273090788 ± 0.001430447199375744   (chi2/dof = 1.46)
+
+julia> res = integrate((x, c)->log(x[1])/sqrt(x[1]), verbose=0, config = res0.config)
+====================================     Integral 1    ================================================
+  iter              integral                            wgt average                      reduced chi2
+-------------------------------------------------------------------------------------------------------
+ignore        -4.0022708 ± 0.0044299263            -4.0022708 ± 0.0044299263               0.0000
+     2        -3.9931774 ± 0.0042087902            -4.0022708 ± 0.0044299263               0.0000
+     3        -4.0003596 ± 0.0026421611            -3.9983293 ± 0.0022377558               2.0889
+     4        -3.9949943 ± 0.0027683518            -3.9970113 ± 0.0017402955               1.4833
+     5        -4.0028234 ± 0.0035948238            -3.9981148 ± 0.0015663954               1.6948
+     6        -4.0037708 ± 0.0021567542             -4.000068 ± 0.0012674021               2.3967
+     7        -3.9946345 ± 0.0040640646            -3.9995864 ± 0.0012099316               2.2431
+     8        -4.0039064 ± 0.0032909285            -4.0001008 ± 0.0011356123               2.1223
+     9        -3.9959395 ± 0.0036121885            -3.9997265 ± 0.0010833368               1.9916
+    10        -3.9955869 ± 0.0032874678             -3.999321 ± 0.0010289098               1.9215
+-------------------------------------------------------------------------------------------------------
+Integral 1 = -3.9993209996786128 ± 0.0010289098118216647   (reduced chi2 = 1.92)
+```
+
+### Example 6. Measure Histogram
 You may want to study how an integral changes with a tuning parameter. The following example is how to solve the histogram measurement problem.
 ```julia
 julia> N = 20;
@@ -165,6 +222,10 @@ The variable pool trick will significantly reduce the cost of learning their dis
 
 If some of the variables are paired with each other (for example, the three continuous variables (r, θ, ϕ) representing a 3D vector), then you can pack them into a joint random variable, which can be constructed with the following constructor,
 - `CompositeVar(var1, var2, ...[; adapt = true, alpha = 3.0, ...])`: A product of different types of random variables. It samples `var1`, `var2`, ... with their producted distribution. 
+
+If the packed variables are all continuous of discrete, then you can create them in a more straightforward way,
+- `Continous([(lower1, upper1), (lower2, upper2), ...], [; adapt = true, alpha = 3.0, ...])`.
+- `Discrete([(lower1, upper1), (lower2, upper2), ...], [; adapt = true, alpha = 3.0, ...])`.
 
 The packed variables will be sampled all together in the Markov-chain based solvers (`:vegasmc` and `:mcmc`). Such updates will generate more independent samples compared to the unpacked version. Sometimes, it could reduce the auto-correlation time of the Markov chain and make the algorithm more efficient.
 

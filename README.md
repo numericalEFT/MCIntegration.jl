@@ -10,12 +10,6 @@ MCIntegration.jl is a comprehensive Julia package designed to handle both regula
 
 The high-level simplicity and flexibility of Julia combined with the performance capabilities of C/C++-like compiled languages make it a fantastic choice for implementing Monte Carlo methods. Monte Carlo methods, which require extensive computations, can greatly benefit from Julia's just-in-time (JIT) compilation that allows MCIntegration.jl to perform calculations at a near-C/C++ efficiency. Moreover, the intuitive high-level syntax of Julia allows users to define their integrands effortlessly, adding to the customizability and user-friendliness of MCIntegration.jl.
 
-## Features and Benefits
-- **Monte Carlo Integration:** Estimate the value of complex integrals using Monte Carlo methods, a class of algorithms suitable for high-dimensional integrals.
-- **Variable Handling:** The package offers unique handling of symmetric and asymmetric variables with an efficient 'variable pool' concept, enabling optimization of computations.
-- **Selection of Algorithms:** Choose between three Monte Carlo integration solvers - `Vegas`, `VegasMC`, and `MCMC`, each tailored for different types of integral evaluations.
-- **Parallelization:** Accelerate your computations using multi-threading and MPI capabilities for parallel computing.
-
 ## Installation
 To install MCIntegration.jl, use Julia's package manager. Open the Julia REPL, type `]` to enter the package mode, and then:
 ```
@@ -43,42 +37,39 @@ Integral 1 = 3.120372107250909 ± 0.016964643375124093   (reduced chi2 = 1.38)
 ## Understanding Variables
 To handle more complex integrals, it's necessary to understand how `MCIntegration.jl` designs and uses variables. `MCIntegration.jl` can handle multiple integrals with multi-dimensional variables in the general form
 $$ \int d\vec{x} \int d\vec{y}... \vec{f}(\vec{x}, \vec{y}...)$$
-where for discrete variables, the integrals should be regarded as summations.
+The package handles both continuous and discrete variables; for discrete variables, the integrals are interpreted as summations.
 
-In `MCIntegration.jl`, the "degree of freedom" (`dof`) defines the number of each type of variables that your integrand function needs. For each integrand, it is represented as a list of dimensions for each type of variables, like dof($\vec{f}$) = [[dim($\vec{x}$), dim($\vec{y}$), ...], ...], which contains dim($\vec{f}$) elements.
+In `MCIntegration.jl`, the **"degree of freedom" (`dof`)** defines the dimensions for each variable group in the integrand. It's represented as a list of dimensions: dof($\vec{f}$) = [[dim($\vec{x}$), dim($\vec{y}$), ...], ...], with dim($\vec{f}$) elements.
 
-Variables can be categorized into three types:
+The building blocks of variable organization in `MCIntegration.jl` are the **variable vectors** (like $\vec{x}$, $\vec{y}$, ...), which are implemented as **unlimited** pools of variables. These variable vectors can be combined or used individually, depending on the integrand's structure. 
 
-- **Symmetric Variables:** These are assembled into vectors. Each vector serves as an **unlimited** pool of variables. All variables within the same pool are sampled with the same optimized distributions.
+- **Variable Vectors (Symmetric Variables):** If the variables in the integrands are interchangeable, they can be organized into a variable vector acting as a pool. All variables within the same pool are sampled from the same optimized distributions.
 
-- **Asymmetric Variables:** These are distinct and are represented by different vectors, each with its own distribution.
+- **Composite Variable Vectors:** When two or more variable vectors consistently appear together across all integrands, they can be bundled to form composite variable vectors. Composite variables share the same `dof` and can be updated together during the integration process, offering computational efficiency especially when working with MCMC-based solvers (see the next section for more detail).
 
-Composite Variables: These are a set of variables that are consistently grouped together across all integrands, sharing the same dof. They are updated together during the integration process, leading to computational efficiency especially when working with MCMC-based solvers.
+Both variable vectors and composite variable vectors can be organized into `Tuple`, offering more complex interactions between different variables or composite variables in the integrands.
 
-- **Symmetric Variables** are organized into vectors, and each such vector acts as an unlimited **pool** of variables. `MCIntegration.jl` samples all variables in the pool with the same optimized distributions. 
+Here are examples to illustrate the usage of different types of variable vectors:
 
-- **Asymmetric Variables** significantly differ from each other, so they must be represented by different vectors and sampled with different distributions.
-
-- **Composite Variables** refer to a group of variables consistently used together across all integrands, sharing the same `dof`. Composite variables can be packed and updated together during the integration process, offering computational efficiency when working with MCMC-based solvers (see [`Selecting Algorithms`] section).
-
-Here are examples to illustrate the usage of different types of variables:
-
-The following example estimates $\pi$ with two symmetric variables `x[1]` and `x[2]` both range uniformly from 0 to 1.
+- Symmetric Variables (Variable Vector): Estimate π
 ```julia
 julia> f(x, c) = x[1]^2 + x[2]^2 < 1
 julia> integrate(f; var = Continuous(-1, 1), dof = [[2, ],]) # dof must be provided for multi-dimensional integrands
 Integral 1 = 3.1316915341619413 ± 0.008785871829296759   (reduced chi2 = 0.298)
 ```
-The same problem can be solved in the polar coordinates $(r, \theta)$, which are asymmetric variables that are better sampled with different distributions,
+- Composite Variable Vector: Estimate π with polar coordinate (r, θ)
 ```julia
-julia> g((r, θ), c) = r[1] # Upack the variables into r and θ. The integrand is independent of θ.
-julia> integrate(g; var = (Continuous(0, 1), Continuous(0, 2π)), dof = [(1, 1),]) #asymmetric variables
-Integral 1 = 3.1416564680126626 ± 0.0035638975370485427   (reduced chi2 = 1.94) 
-
-# alternatively, you may create (r, θ) as a Composite Variable
-julia> integrate(g; var = Continuous([(0, 1), (0, 2π)]) , dof = [(1, ),]) 
-# equvilantly, use the constructor: CompositeVar(Continuous(0, 1), Continuous(0, 2π))
+julia> g((r, θ), c) = r[1] # Unpack the variables into r and θ. The integrand is independent of θ.
+julia> integrate(g; var = Continuous([(0, 1), (0, 2π)]), dof = [(1, ),]) 
+# Alternatively, use the constructor: CompositeVar(Continuous(0, 1), Continuous(0, 2π))
 Integral 1 = 3.14367422926071 ± 0.0011572440016582415   (reduced chi2 = 0.735)
+```
+
+- Tuple of Variable Vectors: Calculate $\sum_{n = 0}^{\infty} \int_0^1 (-1)^n x^{2n}dx = \pi/4$
+```julia
+julia> f((n, x), c) = 4*(-1)^n[1]*x[1]^(2*n[1])
+julia> integrate(f; var = (Discrete(0, 100), Continuous(0, 1)), dof = [(1, 1),], neval=1e5)
+Integral 1 = 3.141746201859978 ± 0.04261519744132012   (reduced chi2 = 0.611)
 ```
 
 ## Selecting Algorithms
@@ -99,70 +90,46 @@ Please note that the calling convention for the user-defined integrand for `:mcm
 
 Packed variables can enhance the efficiency of :vegasmc and :mcmc solvers by reducing the auto-correlation time of the Markov chain, leading to a more effective sampling proces
 
-## Variables
-
-The package supports a couple of common types random variables. You can create them using the following constructors,
-
-- `Continous(lower, upper[; adapt = true, alpha = 3.0, ...])`: Continuous real-valued variables on the domain [lower, upper). MC will learn the distribution using the Vegas algorithm and then perform an imporant sampling accordingly.
-- `Discrete(lower::Int, upper::Int[; adapt = true, alpha = 3.0, ...])`: Integer variables in the closed set [lower, upper]. MC will learn the distribution and perform an imporant sampling accordingly.
-
-After each iteration, the code will try to optimize how the variables are sampled, so that the most important regimes of the integrals will be sampled most frequently. Setting `alpha` to be true/false will turn on/off this distribution learning. The parameter `alpha` controls the learning rate.
-
-When you call the above constructor, it creates an unlimited pool of random variables of a given type. The size of the pool will be dynamically determined when you call a solver. All variables in this pool will be sampled with the same distribution. In many high-dimensional integrals, many integration variables may contribute to the integral in a similar way; then they can be sampled from the same variable pool. For example, in the above code example, the integral for the circle area and the sphere volume both involve the variable type `Continuous`. The former has dof=2, while the latter has dof=3. To evaluate a given integrand, you only need to choose some of the variables to evaluate a given integral. The rest of the variables in the pool serve as dummy ones. They will not cause any computational overhead.
-
-The variable pool trick will significantly reduce the cost of learning their distribution. It also opens the possibility of calculating integrals with infinite dimensions (for example, the path-integral of particle worldlines in quantum many-body physics). 
-
-If some of the variables are paired with each other (for example, the three continuous variables (r, θ, ϕ) representing a 3D vector), then you can pack them into a joint random variable, which can be constructed with the following constructor,
-- `CompositeVar(var1, var2, ...[; adapt = true, alpha = 3.0, ...])`: A product of different types of random variables. It samples `var1`, `var2`, ... with their producted distribution. 
-
-If the packed variables are all continuous of discrete, then you can create them in a more straightforward way,
-- `Continous([(lower1, upper1), (lower2, upper2), ...], [; adapt = true, alpha = 3.0, ...])`.
-- `Discrete([(lower1, upper1), (lower2, upper2), ...], [; adapt = true, alpha = 3.0, ...])`.
-
-The packed variables will be sampled all together in the Markov-chain based solvers (`:vegasmc` and `:mcmc`). Such updates will generate more independent samples compared to the unpacked version. Sometimes, it could reduce the auto-correlation time of the Markov chain and make the algorithm more efficient.
-
-Moreover, packed variables usually indicate nontrivial correlations between their distributions. In the future, it will be interesting to learn such correlation so that one can sample the packed variables more efficiently.
 
 ## Parallelization
-MCIntegration supports both MPI and multi-thread parallelization. You can even mix them if necessary.
 
-### MPI
-To run your code in MPI mode, simply use the command,
-```bash
-mpiexec -n #NCPU julia ./your_script.jl
-```
-where `#NCPU` is the number of workers. Internally, the MC sampler will send the blocks (controlled by the argument `Nblock`, see above example code) to different workers, then collect the estimates in the root node. 
+Parallelization is a vital aspect of `MCIntegration.jl`, enhancing the performance of your Monte Carlo simulations. The package supports both MPI and multi-thread parallelization, with an option to combine them as required.
 
-Note that you need to install the package [MPI.jl](https://github.com/JuliaParallel/MPI.jl) to use the MPI mode. See this [link](https://juliaparallel.github.io/MPI.jl/stable/configuration/) for the instruction on the configuration.
+- MPI
+  With MPI, you can run your code in a distributed manner, using the command:
+  ```bash
+  mpiexec -n NCPU julia your_script.jl
+  ```
+  Here, `NCPU` denotes the number of workers. The MC sampler internally dispatches blocks (controlled by the Nblock argument) to different workers and collects the estimates on the root node. While using MPI, the `integrate` function returns meaningful estimates only for the root node. For other workers, it returns `nothing`.
 
-The user essentially doesn't need to write additional code to support the parallelization. The only tricky part is the output: only the function `MCIntegratoin.integrate` of the root node returns meaningful estimates, while other workers simply returns `nothing`.
+  **Note:** For MPI functionality, install [MPI.jl](https://github.com/JuliaParallel/MPI.jl) package and follow the [configuration](https://juliaparallel.github.io/MPI.jl/stable/configuration/) instructions.
 
-### Multi-threading
+   
 
-MCIntegration supports multi-threading with or without MPI. To run your code with multiple threads, start Julia with
-```bash
-julia -t #NCPU ./your_script.jl
-```
-Note that all threads will share the same memory. The user-defined `integrand` and `measure` functions should be implemented thread-safe (for example, be very careful about reading any data if another thread might write to it). We recommend the user read Julia's official [documentation](https://docs.julialang.org/en/v1/manual/multi-threading/).
+- Multi-threading
+  To enable multi-threading, start Julia as follows:
+  ```bash
+  julia -t NCPU your_script.jl
+  ```
+  Remember, all threads share the same memory, so ensure your integrand and measure functions are thread-safe. Check Julia's official [documentation](https://docs.julialang.org/en/v1/manual/multi-threading/) for further guidance. For multi-threading, you have two options:
+  - **Concurrent Integration:** Each thread independently calls `integrate` to perform separate integrations.
+  - **Block-wise Parallelization:** Only the main thread invokes `integrate`, while the computation blocks within are parallelized across multiple threads. To apply this, use `integrate` with the argument `parallel = :thread`.
 
-There are two different ways to parallelize your code with multiple threads. 
+  The following examples demonstrate the difference between two approaches,
+  ```julia
+  # Concurrent Integration
+  Threads.@threads for i = 1:3
+      integrate((x, c) -> x[1]^i, verbose=-2)
+  end
 
-1. If you need to evaluate multiple integrals, each thread can call the function `MCIntegration.integrate` to do one integral. In the following example, we use three threads to evaluate three integrals altogether. Note that only three threads will be used even if you initialize Julia with more than three threads.
-```julia
-julia> Threads.@threads for i = 1:3
-       println("Thread $(Threads.threadid()) returns ", integrate((x, c) -> x[1]^i, verbose=-2))
-       end
-Thread 2 returns Integral 1 = 0.24995156136254149 ± 6.945088534643841e-5   (reduced chi2 = 2.95)
-Thread 3 returns Integral 1 = 0.3334287563137184 ± 9.452648803649706e-5   (reduced chi2 = 1.35)
-Thread 1 returns Integral 1 = 0.5000251243601586 ± 0.00013482206569391864   (reduced chi2 = 1.58)
-```
+  # Block-wise Parallelization
+  for i = 1:3
+      integrate((x, c) -> x[1]^i, verbose=-2, parallel=:thread)
+  end
+  ```
 
-2. Only the main thread calls the function `MCIntegration.integrate`, then parallelize the internal blocks with multiple threads. To do that, you need to call the function `MCIntegration.integrate` with a key argument `parallel = :thread`. This approach will utilize all Julia threads.  For example,
-```julia
-julia> for i = 1:3
-       println("Thread $(Threads.threadid()) return ", integrate((x, c) -> x[1]^i, verbose=-2, parallel=:thread))
-       end
-Thread 1 return Integral 1 = 0.5001880440214347 ± 0.00015058935731086765   (reduced chi2 = 0.397)
-Thread 1 return Integral 1 = 0.33341068551139696 ± 0.00010109649819894601   (reduced chi2 = 1.94)
-Thread 1 return Integral 1 = 0.24983868976137244 ± 8.546009018501706e-5   (reduced chi2 = 1.54)
-```
+## Detailed Examples and Advanced Usage
+For more advanced use cases and in-depth tutorials, please see the [tutorial](https://numericaleft.github.io/MCIntegration.jl/dev/#MCIntegration) in the full `MCIntegration.jl` [documentation](https://numericaleft.github.io/MCIntegration.jl/dev/). Examples include handling large sets of integrands, histogram measurement, and user-defined configurations.
+
+## Getting Help
+For further information and assistance, please refer to the full `MCIntegration.jl` [documentation](https://numericaleft.github.io/MCIntegration.jl/dev/). If you encounter issues or have further questions, don't hesitate to open an issue on the [GitHub repository](https://github.com/numericalEFT/MCIntegration.jl).
