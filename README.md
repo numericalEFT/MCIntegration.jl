@@ -36,7 +36,7 @@ Integral 1 = 3.120372107250909 ± 0.016964643375124093   (reduced chi2 = 1.38)
 
 ## Understanding Variables
 To handle more complex integrals, it's necessary to understand how `MCIntegration.jl` designs and uses variables. `MCIntegration.jl` can handle multiple integrals with multi-dimensional variables in the general form
-$ \int d\vec{x} \int d\vec{y}... \vec{f}(\vec{x}, \vec{y}...)$
+$\int d\vec{x} \int d\vec{y}... \vec{f}(\vec{x}, \vec{y}...)$
 The package handles both continuous and discrete variables; for discrete variables, the integrals are interpreted as summations.
 
 In `MCIntegration.jl`, the **"degree of freedom" (`dof`)** defines the dimensions for each variable group in the integrand. It's represented as a list of dimensions: dof($\vec{f}$) = [[dim($\vec{x}$), dim($\vec{y}$), ...], ...], with dim($\vec{f}$) elements.
