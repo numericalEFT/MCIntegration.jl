@@ -21,197 +21,83 @@ To install MCIntegration.jl, use Julia's package manager. Open the Julia REPL, t
 ```
 pkg> add MCIntegration
 ```
-
 ## Quick Start
-To get started with MCIntegration.jl, let's take a look at a simple example. The following commands calculate the integral of a basic function using a Monte Carlo method:
+MCIntegration.jl simplifies complex integral calculations. Here are two examples to get you started.
+
+To estimate the integral $\int_0^1 \frac{\log(x)}{\sqrt{x}} dx = 4$, you can use:
 ```julia
-julia> f(x, c) = log(x[1]) / sqrt(x[1]); # Define your integrand function 
-julia> integrate(f, neval=1e5) # Perform the MC integration for 1e5 steps 
+julia> f(x, _) = log(x[1]) / sqrt(x[1])   # Define your integrand where 'x' represents the random variable in the integral
+julia> integrate(f, var = Continuous(0, 1), neval=1e5)   # Perform the MC integration for 1e5 steps where 'var' is used to specify the type and range of the random variable 'x'
 Integral 1 = -3.99689518016736 ± 0.001364833686666744   (reduced chi2 = 0.695)
 ```
-In this example, we defined a simple integrand function `f(x, c)` where `x` represents the random variables in the integral and `c` is a `Configuration` object that holds any additional parameters your function might need. The `x` is assumed to be `Continuous(0, 1)` by default, and `c` is not used in this case. The estimation is reliable as long as the reduced $\chi^2$ is about order of unity.
+In this example, we define an integrand function `f(x, c)` where `x` represents the random variables in the integral and `c` is a `Configuration` object parameter that can hold extra parameters that might be necessary for more complex integrand functions. The variable `x` is determined by the var parameter in `integrate()`.
+
+`MCIntegration.jl` also supports Discrete variables. For instance, let's estimate $\pi$ through the Taylor series for $\pi/4 = 1 - 1/3 + 1/5 -1/7 + 1/9 - ...$:
+```julia
+
+julia> term(n, c) = 4 * ((-1)^(n[1]+1)) / (2*n[1] - 1)  # Define your term function where 'n' represents the discrete variable in the integral
+julia> integrate(term; var = Discrete(1, 100), neval = 1e5)  # Perform the MC integration for 1e5 steps where 'var' is used to specify the type and range of the discrete variable 'n'
+Integral 1 = 3.120372107250909 ± 0.016964643375124093   (reduced chi2 = 1.38)
+```
 
 ## Understanding Variables
 To handle more complex integrals, it's necessary to understand how `MCIntegration.jl` designs and uses variables. `MCIntegration.jl` can handle multiple integrals with multi-dimensional variables in the general form
 $$ \int d\vec{x} \int d\vec{y}... \vec{f}(\vec{x}, \vec{y}...)$$
-where the variables can be **symmetric** (interchangeable) or **asymmetric** (distinct) depending on the problem at hand. The "degree of freedom" (`dof`) of the integrands is defined as a list of dimensions for each variable pool: dof($\vec{f}$) = [[dim($\vec{x}$), dim($\vec{y}$), ...], ...] with dim($\vec{f}$) elements.
+where for discrete variables, the integrals should be regarded as summations.
 
-- **Symmetric Variables** are organized into vectors, and each such vector acts as an unlimited **pool** of variables. `MCIntegration.jl` samples all variables in the pool with the same optimized distributions. The following example estimates $\pi$ with two symmetric variables `x[1]` and `x[2]` both range uniformly from 0 to 1.
+In `MCIntegration.jl`, the "degree of freedom" (`dof`) defines the number of each type of variables that your integrand function needs. For each integrand, it is represented as a list of dimensions for each type of variables, like dof($\vec{f}$) = [[dim($\vec{x}$), dim($\vec{y}$), ...], ...], which contains dim($\vec{f}$) elements.
+
+Variables can be categorized into three types:
+
+- **Symmetric Variables:** These are assembled into vectors. Each vector serves as an **unlimited** pool of variables. All variables within the same pool are sampled with the same optimized distributions.
+
+- **Asymmetric Variables:** These are distinct and are represented by different vectors, each with its own distribution.
+
+Composite Variables: These are a set of variables that are consistently grouped together across all integrands, sharing the same dof. They are updated together during the integration process, leading to computational efficiency especially when working with MCMC-based solvers.
+
+- **Symmetric Variables** are organized into vectors, and each such vector acts as an unlimited **pool** of variables. `MCIntegration.jl` samples all variables in the pool with the same optimized distributions. 
+
+- **Asymmetric Variables** significantly differ from each other, so they must be represented by different vectors and sampled with different distributions.
+
+- **Composite Variables** refer to a group of variables consistently used together across all integrands, sharing the same `dof`. Composite variables can be packed and updated together during the integration process, offering computational efficiency when working with MCMC-based solvers (see [`Selecting Algorithms`] section).
+
+Here are examples to illustrate the usage of different types of variables:
+
+The following example estimates $\pi$ with two symmetric variables `x[1]` and `x[2]` both range uniformly from 0 to 1.
 ```julia
 julia> f(x, c) = x[1]^2 + x[2]^2 < 1
-julia> integrate(f; var = Continuous(-1, 1), dof = [[2, ],])
+julia> integrate(f; var = Continuous(-1, 1), dof = [[2, ],]) # dof must be provided for multi-dimensional integrands
 Integral 1 = 3.1316915341619413 ± 0.008785871829296759   (reduced chi2 = 0.298)
 ```
-
-- **Asymmetric Variables** significantly differ from each other, so they must be represented by different vectors and sampled with different distributions. An example would be performing the Monte Carlo estimation of $\pi$ in polar coordinates, where the radius `r` and angle `θ` are not interchangeable and span different intervals.
+The same problem can be solved in the polar coordinates $(r, \theta)$, which are asymmetric variables that are better sampled with different distributions,
 ```julia
-julia> f((r, θ), c) = r[1] # Upack the variables into r and θ. The integrand is independent of θ.
-julia> integrate(f; var = (Continuous(0, 1), Continuous(0, 2π)), dof = [(1, 1),])
-Integral 1 = 3.1416564680126626 ± 0.0035638975370485427   (reduced chi2 = 1.94)
+julia> g((r, θ), c) = r[1] # Upack the variables into r and θ. The integrand is independent of θ.
+julia> integrate(g; var = (Continuous(0, 1), Continuous(0, 2π)), dof = [(1, 1),]) #asymmetric variables
+Integral 1 = 3.1416564680126626 ± 0.0035638975370485427   (reduced chi2 = 1.94) 
+
+# alternatively, you may create (r, θ) as a Composite Variable
+julia> integrate(g; var = Continuous([(0, 1), (0, 2π)]) , dof = [(1, ),]) 
+# equvilantly, use the constructor: CompositeVar(Continuous(0, 1), Continuous(0, 2π))
+Integral 1 = 3.14367422926071 ± 0.0011572440016582415   (reduced chi2 = 0.735)
 ```
 
-## Selection of Algorithms
-`MCIntegration.jl` offers three Monte Carlo integration solvers - `:vegas`, `:vegasmc`, and `:mcmc`.
+## Selecting Algorithms
 
-- **Vegas Algorithm:** The Vegas algorithm uses importance sampling to reduce variance, making it suitable for evaluating integrals over a large number of dimensions.
-- **VegasMC Algorithm:** VegasMC is a variant of the Vegas algorithm that uses Markov Chain Monte Carlo (MCMC) sampling. It's useful when the integrand has a complex, high-dimensional shape.
-- **MCMC Algorithm:** MCMC is designed for handling large sets of integrands, especially when there are too many to be calculated simultaneously. It uses the Metropolis-Hastings algorithm to sample different integrals.
+MCIntegration.jl offers three Monte Carlo integration algorithms, all of which leverage the Vegas map technique for importance sampling. This approach constructs a piecewise constant Vegas map, a probability distribution function approximating the shape of the integrand to enhance the efficiency of the integral estimation.
 
-- The final result is obtained through an inverse-variance-weighted average of all iterations, excluding the first one (since there is no importance sampling yet!). The results are stored in the `res`, which is a [`Result`](https://numericaleft.github.io/MCIntegration.jl/dev/lib/montecarlo/#Main-module) struct, and you can access the statistics with `res.mean`, `res.stdev`, `res.chi2`, and `res.iterations`.
+Here's a brief overview of the three solvers:
 
--  If you want to exclude more iterations from the final estimations, such as the first three iterations, you can call `Result(res, 3)` to get a new averaged result.
+1. **Vegas (`:vegas`):** The classic Vegas algorithm uses the Monte Carlo method and samples all integrands across all variables simultaneously at each step. It is efficient for low-dimensional integrals but might struggle with high-dimensional ones where the Vegas map fails to accurately mimic the integrand's shape.
 
-- After each iteration, the program adjusts a distribution to mimic the integrand, improving importance sampling. Consequently, the estimated integral from each iteration generally becomes more accurate with more iterations. As long as `neval` is sufficiently large, the estimated integrals from different iterations should be statistically independent, justifying an average of different iterations weighted by the inverse variance. The assumption of statistical independence can be explicitly verified with a chi-square test, in which the `chi2` (reduced $\chi^2$) value should be approximately one.
+2. **Vegas with MCMC (`:vegasmc`):** This innovative solver, first introduced in MCIntegration.jl, combines Vegas with Markov-chain Monte Carlo. This hybrid approach provides a robust solution, especially for intricate, high-dimensional integrals. In the Vegas MC approach, a variable is selected randomly, and a Metropolis-Hastings algorithm is utilized to propose a new variable based on the Vegas map. This update is applied simultaneously across all integrands, improving robustness when the Vegas map struggles with approximating the shape of the integrand accurately.
 
-- The integrate function lets you choose a specific Monte Carlo (MC) algorithm by using the `solver` keyword argument. The example given employs the Vegas algorithm with `:vegas`. Additionally, this package provides two Markov-chain Monte Carlo (MCMC) algorithms for numerical integration: `:vegasmc` and `:mcmc`. Comparing these MCMC algorithms, `:vegasmc` offers better accuracy than `:mcmc` while keeping the same robustness. Although `:vegas` is generally slightly more accurate than `:vegasmc`, it is less robust. Considering the trade-off between accuracy and robustness, integrate defaults to using `:vegasmc`. For further information, consult the [Algorithm](#Algorithm) section.
+3. **MCMC (`:mcmc`):** The MCMC solver is ideal for dealing with a bundle of integrands that are too large to be computed all at once. It uses the Metropolis-Hastings algorithm to traverse between different integrals, evaluating only one integrand at each step. Though it can be less efficient due to the integral-jumping auto-correlations, it stands out in its ability to handle extremely high-dimensional integrals where other two solvers fail.
 
-- When defining your own integrand evaluation function, you need to provide two arguments: `(x, c)`:
-  * `x` represents the integration variable, which by default falls within the range [0, 1). It should be considered as a pool of infinitely many random variables that follows the same distribution. To access the i-th random variable, use x[i]. For a better understanding, refer to Example 2 and the [Variables](#Variables) section.
-  * `c` is a struct that holds the Monte Carlo (MC) configuration. This contains additional information that might be necessary for evaluating the integrand. For a practical example, see Example 5.
+Given its robustness and efficiency, the default solver in this package is the `:vegasmc`. To choose a specific solver, use the `solver` parameter in the `integrate` function, like `solver=:vegas`.
 
-- For complex-valued integral, say with the type `ComplexF64`, you need to call `integrate(..., dtype = ComplexF64)` to specify the integrand data type. The error  of the real part and the imaginary part will be estimated independently.   
+Please note that the calling convention for the user-defined integrand for `:mcmc` is slightly different from that of `:vegas` and `:vegasmc`. Please refer to the separate detailed note on this.
 
-- You can suppress the output information by setting `verbose=-1`. If you want to see more information after the calculation, simply call `report(res)`. If you want to check the MC configuration, call `report(res.config)`.
-
-### Example 2. Multi-dimensional integral: Symmetric Variables
-
-In `MCIntegration.jl`, a variable is represented as a pool of random numbers drawn from the same distribution. For instance, you can explicitly initialize a set of variables in the range [0, 1) as follows:
-```julia
-julia> x=Continuous(0.0, 1.0) #Create a pool of continuous variables. 
-Adaptive continuous variable in the domain [0.0, 1.0). Learning rate = 2.0.
-```
-This approach simplifies the evaluation of high-dimensional integrals involving multiple symmetric variables. For example, to calculate the area of a quarter unit circle (π/4 = 0.785398...):
-```julia
-julia> res = integrate((x, c)->(x[1]^2+x[2]^2<1.0); var = x, dof = [2, ]) 
-Integral 1 = 0.7860119307731648 ± 0.002323473435947719   (reduced chi2 = 2.14)
-```
-If the integrand involve more than one variables, it is important to specify the `dof` vector. Each element of the `dof` vector represents the degrees of freedom of the corresponding integrand.
-
-### Example 3. Multi-dimensional integral: Generic Variables
-If the variables in a multi-dimensional integrand are not symmetric, it is better to define them as different types so that they can be sampled with different adaptive distributions. In the following example, we create a direct product of two continuous variables, then calculate a two-variable integral, 
-```julia
-julia> xy = Continuous([(0.0, 1.0), (0.0, 1.0)])
-Adaptive CompositeVar{Tuple{Continuous{Vector{Float64}}, Continuous{Vector{Float64}}}} with 2 components.
-
-julia> res = integrate(((x, y), c)-> log(x[1])/sqrt(x[1])*y[1]; var = xy)
-Integral 1 = -2.0012850872834154 ± 0.001203058956026235   (reduced chi2 = 0.215)
-```
-The packed variable `xy` is of a type `CompositeVar` (see the [Variables](#Variables) section.). It is unpacked into a tuple of `x` and `y` within the integrand function. 
-
-### Example 4. Evaluate Multiple Integrands Simultaneously
-You can calculate multiple integrals simultaneously. If the integrands are similar to each other, evaluating the integrals simultaneously sigificantly reduces cost. The following example calculate the area of a quarter circle and the volume of one-eighth sphere.
-```julia
-julia> integrate((X, c)->(X[1]^2+X[2]^2<1.0, X[1]^2+X[2]^2+X[3]^2<1.0); var = Continuous(0.0, 1.0), dof = [[2,],[3,]])
-Integral 1 = 0.7823432452235586 ± 0.003174967010742156   (reduced chi2 = 2.82)
-Integral 2 = 0.5185515421806122 ± 0.003219487569949905   (reduced chi2 = 1.41)
-```
-Here `dof` defines how many (degrees of freedom) variables of each type. For example, [[n1, n2], [m1, m2], ...] means the first integral involves n1 varibales of type 1, and n2 variables of type2, while the second integral involves m1 variables of type 1 and m2 variables of type 2. The `dof` of the integrals can be quite different, the program will figure out how to optimally padding the integrands to match the degrees of freedom. 
-
-You can also use the julia do-syntax to improve the readability of the above example,
-```julia
-julia> integrate(var = Continuous(0.0, 1.0), dof = [[2,], [3,]]) do X, c
-           r1 = (X[1]^2 + X[2]^2 < 1.0) ? 1.0 : 0.0
-           r2 = (X[1]^2 + X[2]^2 + X[3]^2 < 1.0) ? 1.0 : 0.0
-           return (r1, r2)
-       end
-```
-
-If there are too many components of integrands, it is better to preallocate the integrand weights. The function `integrate` provide an `inplace` key argument to achieve this goal. It is turned off by default, and only applies to the solver `:vegas` and `:vegasmc`. Once `inplace` is turned on, `integrate` will call the user-defined integrand function with a preallocated vector to store the user calculated weights. The following example demonstrates its usage,  
-```julia
-julia> integrate(var = Continuous(0.0, 1.0), dof = [[2,], [3,]], inplace=true) do X, f, c
-           f[1] = (X[1]^2 + X[2]^2 < 1.0) ? 1.0 : 0.0
-           f[2] = (X[1]^2 + X[2]^2 + X[3]^2 < 1.0) ? 1.0 : 0.0
-       end
-```
-
-### Example 5. Use `Configuration` to Interface with MCIntegration 
-
-- `Configuration` in integrands: As explained in the Example 1, the user-defined integrand has the signature `(x, c)` where `x` is the variable(s), and `c` is a ['Configuration'](https://numericaleft.github.io/MCIntegration.jl/dev/lib/montecarlo/#Main-module) struct stores the essential state information for the Monte Carlo sampling.Three particularly relavent members of `Configuratoin` include
-  * `userdata` : if you pass a keyword argument `userdata` to the `integrate` function, then it will be stored here, so that you can access it in your integrand evaluation function. 
-  * `var` : A tuple of variable(s). If there is only one variable in the tuple, then the first argument of the integrand will be `x = var[1]`. On the other hand, if there are multiple variables in the tuple, then `x = var`.
-  * `obs` : A vector of observables. Each element is an accumulated estimator for one integrand. In other words, `length(obs)` = `length(dof)` = number of integrands.
-  * `normalization`: the estimation of integrals are given by `obs ./ normalization`.
-
-- `Configuration` in returned `Result`: The result returned by the `integrate` function contains the configuration after integration. If you want a detailed report, call `report(res.config)`. This configuration stores the optimized random variable distributions for the important sampling, which could be useful to evaluate other integrals with similar integrands. To use the optimized distributions, you can either call `integrate(..., config = res.config, ...)` to pass the entire configuration, or call `integrate(..., var = (res.config.var[1], ...), ...)` to pass one or more selected variables. In the following example, the second call is initialized with an optimized distribution, so that the first iteration is very accurate compared to the same row in the Example 1 output.
-```julia
-julia> res0 = integrate((x, c)->log(x[1])/sqrt(x[1]))
-Integral 1 = -3.999299273090788 ± 0.001430447199375744   (chi2/dof = 1.46)
-
-julia> res = integrate((x, c)->log(x[1])/sqrt(x[1]), verbose=0, config = res0.config)
-====================================     Integral 1    ================================================
-  iter              integral                            wgt average                      reduced chi2
--------------------------------------------------------------------------------------------------------
-ignore        -4.0022708 ± 0.0044299263            -4.0022708 ± 0.0044299263               0.0000
-     2        -3.9931774 ± 0.0042087902            -4.0022708 ± 0.0044299263               0.0000
-     3        -4.0003596 ± 0.0026421611            -3.9983293 ± 0.0022377558               2.0889
-     4        -3.9949943 ± 0.0027683518            -3.9970113 ± 0.0017402955               1.4833
-     5        -4.0028234 ± 0.0035948238            -3.9981148 ± 0.0015663954               1.6948
-     6        -4.0037708 ± 0.0021567542             -4.000068 ± 0.0012674021               2.3967
-     7        -3.9946345 ± 0.0040640646            -3.9995864 ± 0.0012099316               2.2431
-     8        -4.0039064 ± 0.0032909285            -4.0001008 ± 0.0011356123               2.1223
-     9        -3.9959395 ± 0.0036121885            -3.9997265 ± 0.0010833368               1.9916
-    10        -3.9955869 ± 0.0032874678             -3.999321 ± 0.0010289098               1.9215
--------------------------------------------------------------------------------------------------------
-Integral 1 = -3.9993209996786128 ± 0.0010289098118216647   (reduced chi2 = 1.92)
-```
-
-### Example 6. Measure Histogram
-You may want to study how an integral changes with a tuning parameter. The following example is how to solve the histogram measurement problem.
-```julia
-julia> N = 20;
-
-julia> grid = [i / N for i in 1:N];
-
-julia> function integrand(vars, config)
-            grid = config.userdata # radius
-            x, bin = vars #unpack the variables
-            r = grid[bin[1]] # binned variable in [0, 1)
-            r1 = x[1]^2 + r^2 < 1 # circle
-            r2 = x[1]^2 + x[2]^2 + r^2 < 1 # sphere
-            return r1, r2
-        end;
-
-julia> function measure(vars, obs, weights, config) 
-       # obs: prototype of the observables for each integral
-           x, bin = vars #unpack the variables
-           obs[1][bin[1]] += weights[1] # circle
-           obs[2][bin[1]] += weights[2] # sphere
-       end;
-
-julia> res = integrate(integrand;
-                measure = measure, # measurement function
-                var = (Continuous(0.0, 1.0), Discrete(1, N)), # a continuous and a discrete variable pool 
-                dof = [[1,1], [2,1]], 
-                # integral-1: one continuous and one discrete variables, integral-2: two continous and one discrete variables
-                obs = [zeros(N), zeros(N)], #  observable prototypes of each integral
-                userdata = grid, neval = 1e5)
-Integral 1 = 0.9957805541613277 ± 0.008336657854575344   (reduced chi2 = 1.15)
-Integral 2 = 0.7768105610812656 ± 0.006119386106596811   (reduced chi2 = 1.4)
-```
-You can visualize the returned result `res` with `Plots.jl`. The commands `res.mean[i]` and `res.stdev[i]` give the mean and stdev of the histogram of the `i`-th integral.
-```julia
-julia> using Plots
-
-julia> plt = plot(grid, res.mean[1], yerror = res.stdev[1], xlabel="R", label="circle", aspect_ratio=1.0, xlim=[0.0, 1.0])
-
-julia> plot!(plt, grid, res.mean[2], yerror = res.stdev[2], label="sphere")
-```
-![histogram](docs/src/assets/circle_sphere.png?raw=true "Circle and Sphere")
-
-## Algorithm
-
-This package provides three solvers.
-
-- Vegas algorithm (`:vegas`): A Monte Carlo algorithm that uses importance sampling as a variance-reduction technique. Vegas iteratively builds up a piecewise constant weight function, represented
-on a rectangular grid. Each iteration consists of a sampling step followed by a refinement
-of the grid. The exact details of the algorithm can be found in **_G.P. Lepage, J. Comp. Phys. 27 (1978) 192, 3_** and
-**_G.P. Lepage, Report CLNS-80/447, Cornell Univ., Ithaca, N.Y., 1980_**. 
-
-- Vegas algorithm based on Markov-chain Monte Carlo (`:vegasmc`): A markov-chain Monte Carlo algorithm that uses the Vegas variance-reduction technique. It is as accurate as the vanilla Vegas algorithm, meanwhile tends to be more robust. For complicated high-dimensional integral, the vanilla Vegas algorithm can fail to learn the piecewise constant weight function. This algorithm uses Metropolis–Hastings algorithm to sample the integrand and improves the weight function learning.
-
-- Markov-chain Monte Carlo (`:mcmc`): This algorithm is useful for calculating bundled integrands that are too many to calculate at once. Examples are the path-integral of world lines of quantum particles, which involves hundreds and thousands of nested spacetime integrals. This algorithm uses the Metropolis-Hastings algorithm to jump between different integrals so that you only need to evaluate one integrand at each Monte Carlo step. Just as `:vegas` and `:vegasmc`, this algorithm also learns a piecewise constant weight function to reduce the variance. However, because it assumes you can access one integrand at each step, it tends to be less accurate than the other two algorithms for low-dimensional integrals.   
-
-The signature of the integrand and measure functions of the `:mcmc` solver receices an additional index argument than that of the `:vegas` and `:vegasmc` solvers. As shown in the above examples, the integrand and measure functions of the latter two solvers should be like `integrand(vars, config)` and `measure(vars, obs, weights, config)`, where `weights` is a vectors carries the values of the integrands at the current MC step. On the other hand, the `:mcmc` solver requires something like `integrand(idx, vars, config)` and `measure(idx, vars, weight, config)`, where `idx` is the index of the integrand of the current step, and the argument `weight` is a scalar carries the value of the current integrand being sampled.
+Packed variables can enhance the efficiency of :vegasmc and :mcmc solvers by reducing the auto-correlation time of the Markov chain, leading to a more effective sampling proces
 
 ## Variables
 
