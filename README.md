@@ -20,8 +20,8 @@ MCIntegration.jl simplifies complex integral calculations. Here are two examples
 
 To estimate the integral $\int_0^1 \frac{\log(x)}{\sqrt{x}} dx = 4$, you can use:
 ```julia
-julia> f(x, _) = log(x[1]) / sqrt(x[1])   # Define your integrand where 'x' represents the random variable in the integral
-julia> integrate(f, var = Continuous(0, 1), neval=1e5)   # Perform the MC integration for 1e5 steps where 'var' is used to specify the type and range of the random variable 'x'
+julia> f(x, c) = log(x[1]) / sqrt(x[1])   # Define your integrand
+julia> integrate(f, var = Continuous(0, 1), neval=1e5)   # Perform the MC integration for 1e5 steps
 Integral 1 = -3.99689518016736 ± 0.001364833686666744   (reduced chi2 = 0.695)
 ```
 In this example, we define an integrand function `f(x, c)` where `x` represents the random variables in the integral and `c` is a `Configuration` object parameter that can hold extra parameters that might be necessary for more complex integrand functions. The variable `x` is determined by the var parameter in `integrate()`.
