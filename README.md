@@ -88,7 +88,7 @@ Given its robustness and efficiency, the default solver in this package is the `
 
 Please note that the calling convention for the user-defined integrand for `:mcmc` is slightly different from that of `:vegas` and `:vegasmc`. Please refer to the separate detailed note on this.
 
-Packed variables can enhance the efficiency of :vegasmc and :mcmc solvers by reducing the auto-correlation time of the Markov chain, leading to a more effective sampling proces
+Packed variables can enhance the efficiency of :vegasmc and :mcmc solvers by reducing the auto-correlation time of the Markov chain, leading to a more effective sampling process.
 
 
 ## Parallelization
