@@ -5,6 +5,7 @@ module MCUtility
 using Test
 using ..MPI
 using ..Threads
+using LinearAlgebra
 
 include("stopwatch.jl")
 export StopWatch, check
@@ -13,6 +14,7 @@ include("color.jl")
 export black, red, green, yellow, blue, magenta, cyan, white
 
 include("parallel.jl")
+export disable_threading
 
 export locate, smooth, rescale
 # """

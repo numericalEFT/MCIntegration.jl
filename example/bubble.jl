@@ -106,16 +106,16 @@ function run(steps, alg)
         neval=steps, print=0, debug=true)
 
     if isnothing(result) == false
-        avg, std = result.mean, result.stdev
+        avg, std = result.mean[1], result.stdev[1]
 
         println("Algorithm : $(alg)")
         @printf("%10s  %10s   %10s  %10s\n", "q/kF", "avg", "err", "exact")
         for (idx, q) in enumerate(extQ)
-            q = q[1]
-            p = lindhard(q, para)
-            @printf("%10.6f  %10.6f ± %10.6f  %10.6f\n", q / kF, avg[idx], std[idx], p)
+            p = lindhard(q[1], para)
+            @printf("%10.6f  %10.6f ± %10.6f  %10.6f\n", q[1] / kF, avg[idx], std[idx], p)
         end
-        report(result)
+        # report(result)
+        println()
     end
 end
 

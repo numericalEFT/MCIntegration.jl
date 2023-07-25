@@ -113,7 +113,7 @@ using StaticArrays
             neval=steps * 10, print=0, block=64, niter=1, config=result.config, debug=true)
 
         if isnothing(result) == false
-            avg, std = result.mean, result.stdev
+            avg, std = result.mean[1], result.stdev[1]
 
             println("Algorithm : $(alg)")
             @printf("%10s  %10s   %10s  %10s\n", "q/kF", "avg", "err", "exact")

@@ -7,7 +7,7 @@ end
 """
 
     function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval,
-        print=0, save=0, timer=[], debug=false;
+        verbose=0, timer=[], debug=false;
         measurefreq::Int=1, measure::Union{Nothing,Function}=nothing, idx::Int=1) where {N,V,P,O,T}
 
 This algorithm calculate high-dimensional integrals with a Markov-chain Monte Carlo.
@@ -80,12 +80,12 @@ The last argument passes the MC `Configuration` struct to the integrand, so that
 # Examples
 The following command calls the MC Vegas solver,
 ```julia-repl
-julia> integrate((idx, x, c)->(x[1]^2+x[2]^2); var = Continuous(0.0, 1.0), dof = 2, print=-1, solver=:mcmc)
+julia> integrate((idx, x, c)->(x[1]^2+x[2]^2); var = Continuous(0.0, 1.0), dof = 2, verbose=-1, solver=:mcmc)
 Integral 1 = 0.6757665376867902 ± 0.008655534861083898   (chi2/dof = 0.681)
 ```
 """
 function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval,
-    print=0, save=0, timer=[], debug=false;
+    verbose=0, timer=[], debug=false;
     measurefreq::Int=1,
     measure::Union{Nothing,Function}=nothing,
     idx::Int=1 # the integral to start with

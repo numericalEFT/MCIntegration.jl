@@ -1,31 +1,38 @@
 """
-    mutable struct Configuration
+    mutable struct Configuration{NI,V,P,O,T}
 
     Struct that contains everything needed for MC.
 
- ## Static parameters
- - `seed`: seed to initialize random numebr generator, also serves as the unique pid of the configuration
- - `rng`: a MersenneTwister random number generator, seeded by `seed`
- - `userdata`: user-defined parameter
- - `var`: TUPLE of variables, each variable should be derived from the abstract type Variable, see variable.jl for details). Use a tuple rather than a vector improves the performance.
+# Parameters
+- `NI` : number of integrands
+- `V` : type of variables
+- `P` : type of user-defined data
+- `O` : type of observables 
+- `T` : type of integrand
 
- ## integrand properties
+# Static parameters
+- `seed`: seed to initialize random numebr generator, also serves as the unique pid of the configuration
+- `rng`: a MersenneTwister random number generator, seeded by `seed`
+- `userdata`: user-defined parameter
+- `var`: TUPLE of variables, each variable should be derived from the abstract type Variable, see variable.jl for details). Use a tuple rather than a vector improves the performance.
+
+# integrand properties
 - `neighbor::Vector{Tuple{Int, Int}}` : vector of tuples that defines the neighboring integrands. Two neighboring integrands are directly connected in the Markov chain. 
     e.g., [(1, 2), (2, 3)] means the integrand 1 and 2 are neighbor, and 2 and 3 are neighbor.  
    The neighbor vector defines a undirected graph showing how the integrands are connected. Please make sure all integrands are connected.
-   By default, we assume the N integrands are in the increase order, meaning the neighbor will be set to [(N+1, 1), (1, 2), (2, 4), ..., (N-1, N)], where the first N entries are for diagram 1, 2, ..., N and the last entry is for the normalization diagram. Only the first diagram is connected to the normalization diagram.
+   By default, we assume the N integrands are in the increase order, meaning the neighbor will be set to [(N+1, 1), (1, 2), (2, 3), ..., (N-1, N)], where the first N entries are for diagram 1, 2, ..., N and the last entry is for the normalization diagram. Only the first diagram is connected to the normalization diagram.
    Only highly correlated integrands are not highly correlated should be defined as neighbors. Otherwise, most of the updates between the neighboring integrands will be rejected and wasted.
- - `dof::Vector{Vector{Int}}`: degrees of freedom of each integrand, e.g., [[0, 1], [2, 3]] means the first integrand has zero var#1 and one var#2; while the second integrand has two var#1 and 3 var#2. 
- - `observable`: observables that is required to calculate the integrands, will be used in the `measure` function call.
+- `dof::Vector{Vector{Int}}`: degrees of freedom of each integrand, e.g., [[0, 1], [2, 3]] means the first integrand has zero var#1 and one var#2; while the second integrand has two var#1 and 3 var#2. 
+- `observable`: observables that is required to calculate the integrands, will be used in the `measure` function call.
     It is either an array of any type with the common operations like +-*/^ defined. 
- - `reweight`: reweight factors for each integrands. The reweight factor of the normalization diagram is assumed to be 1. Note that you don't need to explicitly add the normalization diagram. 
- - `visited`: how many times this integrand is visited by the Markov chain.
+- `reweight`: reweight factors for each integrands. The reweight factor of the normalization diagram is assumed to be 1. Note that you don't need to explicitly add the normalization diagram. 
+- `visited`: how many times this integrand is visited by the Markov chain.
 
- ## current MC state
- - `step`: the number of MC updates performed up to now
- - `norm`: the index of the normalization diagram. `norm` is larger than the index of any user-defined integrands 
- - `normalization`: the accumulated normalization factor. Physical observable = Configuration.observable/Configuration.normalization.
- - `propose/accept`: array to store the proposed and accepted updates for each integrands and variables.
+# current MC state
+- `step`: the number of MC updates performed up to now
+- `norm`: the index of the normalization diagram. `norm` is larger than the index of any user-defined integrands 
+- `normalization`: the accumulated normalization factor. Physical observable = Configuration.observable/Configuration.normalization.
+- `propose/accept`: array to store the proposed and accepted updates for each integrands and variables.
     Their shapes are (number of updates X integrand number X max(integrand number, variable number).
     The last index will waste some memory, but the dimension is small anyway.
 """
@@ -134,12 +141,21 @@ function Configuration(;
             dof = [collect(d) for d in dof]
         elseif eltype(dof) <: AbstractVector
             dof = deepcopy(dof) # don't modify the input dof
+        elseif eltype(dof) <: Int
+            dof = [[d,] for d in dof]
         else
-            error("Configuration.dof should be a Vector{Vector{Int}} or Vector{Tuple{Int, ..., Int}} to avoid mistakes. Now get $(typeof(dof))")
+            error("Configuration.dof should be a Vector{Int} or Tuple{Int, ..., Int} or Vector{Vector{Int}} or Vector{Tuple{Int, ..., Int}} to avoid mistakes. Now get $(typeof(dof))")
         end
     end
     # add normalization diagram to dof
     push!(dof, zeros(Int, length(var))) # add the degrees of freedom for the normalization diagram
+
+    maxdof = _maxdof(dof)
+    for i in eachindex(maxdof)
+        if maxdof[i] + var[i].offset >= poolsize(var[i]) - 2 # two more elements for caching purpose
+            resize!(var[i], maxdof[i] + 2 + var[i].offset)
+        end
+    end
 
     Nd = length(dof) # number of integrands + renormalization diagram
     @assert Nd > 1 "At least one integrand is required."
@@ -170,7 +186,7 @@ function Configuration(;
 
     return Configuration{Nd - 1,typeof(var),typeof(userdata),typeof(obs),type}(
         seed, MersenneTwister(seed), var, userdata,  # static parameters
-        Nd - 1, neighbor, dof, _maxdof(dof), obs, reweight, visited, # integrand properties
+        Nd - 1, neighbor, dof, maxdof, obs, reweight, visited, # integrand properties
         0, norm, normalization, propose, accept  # current MC state
     )
 end

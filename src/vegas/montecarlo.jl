@@ -26,7 +26,7 @@ end
 """
 
     function montecarlo(config::Configuration{Ni,V,P,O,T}, integrand::Function, neval,
-        print=0, save=0, timer=[], debug=false;
+        verbose=0, timer=[], debug=false;
         measure::Union{Nothing,Function}=nothing, measurefreq::Int=1) where {Ni,V,P,O,T}
 
 This algorithm implements the classic Vegas algorithm.
@@ -73,12 +73,12 @@ The last argument passes the MC `Configuration` struct to the integrand, so that
 # Examples
 The following command calls the Vegas solver,
 ```julia-repl
-julia> integrate((x, c)->(x[1]^2+x[2]^2); var = Continuous(0.0, 1.0), dof = 2, print=-1, solver=:vegas)
+julia> integrate((x, c)->(x[1]^2+x[2]^2); var = Continuous(0.0, 1.0), dof = 2, verbose=-1, solver=:vegas)
 Integral 1 = 0.667203631824444 ± 0.0005046485925614018   (chi2/dof = 1.46)
 ```
 """
 function montecarlo(config::Configuration{Ni,V,P,O,T}, integrand::Function, neval,
-    print=0, save=0, timer=[], debug=false;
+    verbose=0, timer=[], debug=false;
     measure::Union{Nothing,Function}=nothing, measurefreq::Int=1, inplace::Bool=false
 ) where {Ni,V,P,O,T}
 
@@ -140,7 +140,12 @@ function montecarlo(config::Configuration{Ni,V,P,O,T}, integrand::Function, neva
         if inplace
             (fieldcount(V) == 1) ? integrand(config.var[1], weights, config) : integrand(config.var, weights, config)
         else
-            weights = (fieldcount(V) == 1) ? integrand(config.var[1], config) : integrand(config.var, config)
+            if Ni == 1 # we want the output weights stored in a vector even if there is only one element
+                weights[1] = (fieldcount(V) == 1) ? integrand(config.var[1], config) : integrand(config.var, config)
+            else
+                weights = (fieldcount(V) == 1) ? integrand(config.var[1], config) : integrand(config.var, config)
+            end
+            @assert typeof(weights) <: Tuple || typeof(weights) <: AbstractVector "the integrand should return a vector with $(Ni) elements, but it returns a vector elements! $(typeof(weights)))"
         end
 
         if (ne % measurefreq == 0)

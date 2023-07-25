@@ -40,6 +40,22 @@ Base.eltype(::Type{AbstractVectorVariable{GT}}) where {GT} = eltype(GT)
 Base.show(io::IO, ::MIME"text/plain", obj::AbstractVectorVariable) = Base.show(io, obj)
 Base.show(io::IO, ::MIME"text/html", obj::AbstractVectorVariable) = Base.show(io, obj)
 
+
+function Base.resize!(var::AbstractVectorVariable{GT}, size::Int) where {GT}
+    @assert size > length(var) "The new size should be larger than the old size $(length(var))!"
+    resize!(var.data, size)
+    resize!(var.prob, size)
+end
+
+"""
+    function poolsize(var::AbstractVectorVariable{GT}) where {GT}
+
+Return the size of the pool of the variable.
+"""
+function poolsize(var::AbstractVectorVariable{GT}) where {GT}
+    return length(var)
+end
+
 const MaxOrder = 16
 
 include("common.jl")
@@ -52,4 +68,5 @@ export Discrete
 export CompositeVar
 export create!, shift!, swap!
 export createRollback!, shiftRollback!, swapRollback!
+export poolsize
 end

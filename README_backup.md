@@ -1,7 +1,3 @@
-```@meta
-CurrentModule = MCIntegration
-```
-
 # MCIntegration
 
 Robust and efficient Monte Carlo calculator for high-dimensional integral.
@@ -24,14 +20,26 @@ On the other hand, defining the integrands in Monte Carlo integration should be 
 
 This unique combination of performance and ease of use is what makes MCIntegration.jl, and Julia in general, stand out from other languages and tools.
 
-# Quick start
-To help you get started with MCIntegration.jl, here are a few examples demonstrating its capabilities and usage.
+## Convention
+MCIntegration.jl can handle multiple integrals with multi-dimensional variables, each with the general form:
+$$ \int d\vec{x} \int d\vec{y}... \vec{f}(\vec{x}, \vec{y}...)$$
+The variables involved in these integrals fall into two categories:
 
+- Symmetric variables: These are (almost) interchangeable within the integrand. They are organized into vectors, and our package can handle nearly infinite dimensions for each set of symmetric variables. In this sense, each such vector acts as an unlimited "pool" of variables.
+
+- Asymmetric variables: These variables significantly differ from each other, so they must be represented by different vectors, such as x and y in the integral expression above.
+
+The "degree of freedom" (dof) of the integrands is defined as a list of dimensions for each variable pool: dof($\vec{f}$) = [[dim($\vec{x}$), dim($\vec{y}$), ...], ...] with dim($\vec{f}$) elements.
+
+## Quick Start
+To help you get started with MCIntegration.jl, here are a few examples demonstrating its capabilities and usage.
 ### Example 1. One-dimensional integral
-We first show an example of highly singular integral. The following command evaluates ∫_0^1 log(x)/√x dx = 4.
+Our first example deals with a highly singular integral. We are going to calculate: $\int_0^1 \frac{\log (x)}{\sqrt{x}} dx = 4$.
+
+In Julia, this can be performed as follows:
 ```julia
-julia> res = integrate((x, c)->log(x[1])/sqrt(x[1]), solver=:vegas) 
-Integral 1 = -3.997980772652019 ± 0.0013607691354676158   (chi2/dof = 1.93)
+julia> res = integrate((x, c)->log(x[1])/sqrt(x[1]), solver=:vegas, verbose=0) 
+Integral 1 = -3.997980772652019 ± 0.0013607691354676158   (reduced chi2 = 1.93)
 
 julia> report(res) #print out the iteration history
 ====================================     Integral 1    ==========================================
@@ -49,7 +57,8 @@ ignore        -3.8394711 ± 0.12101621              -3.8394711 ± 0.12101621    
     10        -3.9999099 ± 0.0033455927            -3.9979808 ± 0.0013607691               1.9269
 -------------------------------------------------------------------------------------------------
 ```
-- By default, the function performs 10 iterations and each iteration costs about `1e4` evaluations. You can adjust these values using `niter` and `neval` keywords arguments.
+
+- By default, the function performs 10 iterations and each iteraction costs about `1e4` evaluations. You can adjust these values using `niter` and `neval` keywords arguments.
 
 - The final result is obtained through an inverse-variance-weighted average of all iterations, excluding the first one (since there is no importance sampling yet!). The results are stored in the `res`, which is a [`Result`](https://numericaleft.github.io/MCIntegration.jl/dev/lib/montecarlo/#Main-module) struct, and you can access the statistics with `res.mean`, `res.stdev`, `res.chi2`, and `res.iterations`.
 
@@ -120,7 +129,7 @@ julia> integrate(var = Continuous(0.0, 1.0), dof = [[2,], [3,]], inplace=true) d
 
 ### Example 5. Use `Configuration` to Interface with MCIntegration 
 
-- `Configuration` in integrands: As explained in the Example 1, the user-defined integrand has the signature `(x, c)` where `x` is the variable(s), and `c` is a ['Configuration'](https://numericaleft.github.io/MCIntegration.jl/dev/lib/montecarlo/#Main-module) struct stores the essential state information for the Monte Carlo sampling.Three particularly relavent members of `Configuration` include
+- `Configuration` in integrands: As explained in the Example 1, the user-defined integrand has the signature `(x, c)` where `x` is the variable(s), and `c` is a ['Configuration'](https://numericaleft.github.io/MCIntegration.jl/dev/lib/montecarlo/#Main-module) struct stores the essential state information for the Monte Carlo sampling.Three particularly relavent members of `Configuratoin` include
   * `userdata` : if you pass a keyword argument `userdata` to the `integrate` function, then it will be stored here, so that you can access it in your integrand evaluation function. 
   * `var` : A tuple of variable(s). If there is only one variable in the tuple, then the first argument of the integrand will be `x = var[1]`. On the other hand, if there are multiple variables in the tuple, then `x = var`.
   * `obs` : A vector of observables. Each element is an accumulated estimator for one integrand. In other words, `length(obs)` = `length(dof)` = number of integrands.
@@ -177,10 +186,10 @@ julia> res = integrate(integrand;
                 var = (Continuous(0.0, 1.0), Discrete(1, N)), # a continuous and a discrete variable pool 
                 dof = [[1,1], [2,1]], 
                 # integral-1: one continuous and one discrete variables, integral-2: two continous and one discrete variables
-                obs = [zeros(N), zeros(N)], # prototype of the observables for each integral
+                obs = [zeros(N), zeros(N)], #  observable prototypes of each integral
                 userdata = grid, neval = 1e5)
-Integral 1 = 0.9957805541613277 ± 0.008336657854575344   (chi2/dof = 1.15)
-Integral 2 = 0.7768105610812656 ± 0.006119386106596811   (chi2/dof = 1.4)
+Integral 1 = 0.9957805541613277 ± 0.008336657854575344   (reduced chi2 = 1.15)
+Integral 2 = 0.7768105610812656 ± 0.006119386106596811   (reduced chi2 = 1.4)
 ```
 You can visualize the returned result `res` with `Plots.jl`. The commands `res.mean[i]` and `res.stdev[i]` give the mean and stdev of the histogram of the `i`-th integral.
 ```julia
@@ -190,9 +199,9 @@ julia> plt = plot(grid, res.mean[1], yerror = res.stdev[1], xlabel="R", label="c
 
 julia> plot!(plt, grid, res.mean[2], yerror = res.stdev[2], label="sphere")
 ```
-![histogram](assets/circle_sphere.png?raw=true "Circle and Sphere")
+![histogram](docs/src/assets/circle_sphere.png?raw=true "Circle and Sphere")
 
-# Algorithm
+## Algorithm
 
 This package provides three solvers.
 
@@ -207,7 +216,7 @@ of the grid. The exact details of the algorithm can be found in **_G.P. Lepage, 
 
 The signature of the integrand and measure functions of the `:mcmc` solver receices an additional index argument than that of the `:vegas` and `:vegasmc` solvers. As shown in the above examples, the integrand and measure functions of the latter two solvers should be like `integrand(vars, config)` and `measure(vars, obs, weights, config)`, where `weights` is a vectors carries the values of the integrands at the current MC step. On the other hand, the `:mcmc` solver requires something like `integrand(idx, vars, config)` and `measure(idx, vars, weight, config)`, where `idx` is the index of the integrand of the current step, and the argument `weight` is a scalar carries the value of the current integrand being sampled.
 
-# Variables
+## Variables
 
 The package supports a couple of common types random variables. You can create them using the following constructors,
 
@@ -231,36 +240,10 @@ The packed variables will be sampled all together in the Markov-chain based solv
 
 Moreover, packed variables usually indicate nontrivial correlations between their distributions. In the future, it will be interesting to learn such correlation so that one can sample the packed variables more efficiently.
 
-!!! tip "Integrate over different domains"
-
-    If you want to compute an integral over a semi-infinite or an inifite domain, you
-    can follow [this advice](http://ab-initio.mit.edu/wiki/index.php/Cubature#Infinite_intervals)
-    from Steven G. Johnson: to compute an integral over a semi-infinite interval,
-    you can perform the change of variables ``x=a+y/(1-y)``:
-
-    ```math
-    \int_{a}^{\infty} f(x)\,\mathrm{d}x = \int_{0}^{1}
-    f\left(a + \frac{y}{1 - y}\right)\frac{1}{(1 - y)^2}\,\mathrm{d}y
-    ```
-
-    For an infinite interval, you can perform the change of variables ``x=(2y -
-    1)/((1 - y)y)``:
-
-    ```math
-    \int_{-\infty}^{\infty} f(x)\,\mathrm{d}x = \int_{0}^{1}
-    f\left(\frac{2y - 1}{(1 - y)y}\right)\frac{2y^2 - 2y + 1}{(1 -
-    y)^2y^2}\,\mathrm{d}y
-    ```
-
-    In addition, recall that for an [even function](https://en.wikipedia.org/wiki/Even_and_odd_functions#Even_functions)
-    ``\int_{-\infty}^{\infty} f(x)\,\mathrm{d}x = 2\int_{0}^{\infty}f(x)\,\mathrm{d}x``, 
-    while the integral of an [odd function](https://en.wikipedia.org/wiki/Even_and_odd_functions#Odd_functions)
-    over the infinite interval ``(-\infty, \infty)`` is zero.
-
-# Parallelization
+## Parallelization
 MCIntegration supports both MPI and multi-thread parallelization. You can even mix them if necessary.
 
-## MPI
+### MPI
 To run your code in MPI mode, simply use the command,
 ```bash
 mpiexec -n #NCPU julia ./your_script.jl
@@ -271,7 +254,7 @@ Note that you need to install the package [MPI.jl](https://github.com/JuliaParal
 
 The user essentially doesn't need to write additional code to support the parallelization. The only tricky part is the output: only the function `MCIntegratoin.integrate` of the root node returns meaningful estimates, while other workers simply returns `nothing`.
 
-## Multi-threading
+### Multi-threading
 
 MCIntegration supports multi-threading with or without MPI. To run your code with multiple threads, start Julia with
 ```bash
@@ -284,19 +267,19 @@ There are two different ways to parallelize your code with multiple threads.
 1. If you need to evaluate multiple integrals, each thread can call the function `MCIntegration.integrate` to do one integral. In the following example, we use three threads to evaluate three integrals altogether. Note that only three threads will be used even if you initialize Julia with more than three threads.
 ```julia
 julia> Threads.@threads for i = 1:3
-       println("Thread $(Threads.threadid()) returns ", integrate((x, c) -> x[1]^i, print=-2))
+       println("Thread $(Threads.threadid()) returns ", integrate((x, c) -> x[1]^i, verbose=-2))
        end
-Thread 2 returns Integral 1 = 0.24995156136254149 ± 6.945088534643841e-5   (chi2/dof = 2.95)
-Thread 3 returns Integral 1 = 0.3334287563137184 ± 9.452648803649706e-5   (chi2/dof = 1.35)
-Thread 1 returns Integral 1 = 0.5000251243601586 ± 0.00013482206569391864   (chi2/dof = 1.58)
+Thread 2 returns Integral 1 = 0.24995156136254149 ± 6.945088534643841e-5   (reduced chi2 = 2.95)
+Thread 3 returns Integral 1 = 0.3334287563137184 ± 9.452648803649706e-5   (reduced chi2 = 1.35)
+Thread 1 returns Integral 1 = 0.5000251243601586 ± 0.00013482206569391864   (reduced chi2 = 1.58)
 ```
 
 2. Only the main thread calls the function `MCIntegration.integrate`, then parallelize the internal blocks with multiple threads. To do that, you need to call the function `MCIntegration.integrate` with a key argument `parallel = :thread`. This approach will utilize all Julia threads.  For example,
 ```julia
 julia> for i = 1:3
-       println("Thread $(Threads.threadid()) return ", integrate((x, c) -> x[1]^i, print=-2, parallel=:thread))
+       println("Thread $(Threads.threadid()) return ", integrate((x, c) -> x[1]^i, verbose=-2, parallel=:thread))
        end
-Thread 1 return Integral 1 = 0.5001880440214347 ± 0.00015058935731086765   (chi2/dof = 0.397)
-Thread 1 return Integral 1 = 0.33341068551139696 ± 0.00010109649819894601   (chi2/dof = 1.94)
-Thread 1 return Integral 1 = 0.24983868976137244 ± 8.546009018501706e-5   (chi2/dof = 1.54)
+Thread 1 return Integral 1 = 0.5001880440214347 ± 0.00015058935731086765   (reduced chi2 = 0.397)
+Thread 1 return Integral 1 = 0.33341068551139696 ± 0.00010109649819894601   (reduced chi2 = 1.94)
+Thread 1 return Integral 1 = 0.24983868976137244 ± 8.546009018501706e-5   (reduced chi2 = 1.54)
 ```

@@ -6,21 +6,19 @@ the returned result of the MC integration.
 # Members
 
 - `mean`: mean of the MC integration
-- `stdev`: standard deviation of the MC integration
-- `chi2`: chi-square per dof of the MC integration
+- `stdev`: standard deviation of the MC integration samples
+- `chi2`: reduced chi-square of the MC integration samples
 - `neval`: number of evaluations of the integrand
 - `ignore`: ignore iterations untill `ignore`
-- `dof`: degrees of freedom of the MC integration (number of iterations - 1)
 - `config`: configuration of the MC integration from the last iteration
 - `iterations`: list of tuples [(data, error, Configuration), ...] from each iteration
 """
 struct Result{O,C}
-    mean::O
-    stdev::O
+    mean::Vector{O}
+    stdev::Vector{O}
     chi2::Any
     neval::Int
     ignore::Int # ignore iterations untill ignore_iter
-    dof::Int
     config::C
     iterations::Any
     function Result(history::AbstractVector, ignore::Int)
@@ -30,30 +28,30 @@ struct Result{O,C}
         init = ignore + 1
         @assert length(history) > 0
         config = history[end][3]
-        dof = (length(history) - init + 1) - 1 # number of effective samples - 1
+        # dof = (length(history) - init + 1) - 1 # number of effective samples - 1
         neval = sum(h[3].neval for h in history)
         @assert config.N >= 1
-        if config.N == 1
-            O = typeof(history[end][1][1]) #if there is only value, then extract this value from the vector
-            mean, stdev, chi2 = average(history, 1; init=init, max=length(history))
-        else
-            O = typeof(history[end][1])
-            @assert O <: AbstractVector
-            mean, stdev, chi2 = [], [], []
-            res = [average(history, o; init=init, max=length(history)) for o in 1:config.N]
-            mean = [r[1] for r in res]
-            stdev = [r[2] for r in res]
-            chi2 = [r[3] for r in res]
-            # for o in 1:config.N
-            #     _mean, _stdev, _chi2 = average(history, dof + 1, o)
-            #     push!(mean, _mean)
-            #     push!(stdev, _stdev)
-            #     push!(chi2, _chi2)
-            # end
-        end
+        # if config.N == 1
+        #     O = typeof(history[end][1][1]) #if there is only value, then extract this value from the vector
+        #     mean, stdev, chi2 = average(history, 1; init=init, max=length(history))
+        # else
+        # O = typeof(history[end][1])
+        # @assert O <: AbstractVector
+        mean, stdev, chi2 = [], [], []
+        res = [average(history, o; init=init, max=length(history)) for o in 1:config.N]
+        mean = [r[1] for r in res]
+        stdev = [r[2] for r in res]
+        chi2 = [r[3] for r in res]
+        # for o in 1:config.N
+        #     _mean, _stdev, _chi2 = average(history, dof + 1, o)
+        #     push!(mean, _mean)
+        #     push!(stdev, _stdev)
+        #     push!(chi2, _chi2)
+        # end
+        # end
         # println(mean, ", ", stdev, ", ", chi2)
         # println(typeof(mean), typeof(config))
-        return new{O,typeof(config)}(mean, stdev, chi2, neval, ignore, dof, config, history)
+        return new{eltype(mean),typeof(config)}(mean, stdev, chi2, neval, ignore, config, history)
     end
     function Result(res::Result, ignore::Int)
         if ignore == res.ignore
@@ -62,6 +60,11 @@ struct Result{O,C}
             return Result(res.iterations, ignore)
         end
     end
+end
+
+function dof(result::Result)
+    init = result.ignore + 1
+    return (length(result.iterations) - init + 1) - 1 # number of effective samples - 1
 end
 
 function Base.getindex(result::Result, idx::Int)
@@ -117,10 +120,10 @@ function Base.show(io::IO, result::Result)
     for i in 1:result.config.N
         info = "$i"
         m, e, chi2 = first(result.mean[i]), first(result.stdev[i]), first(result.chi2[i])
-        if result.dof == 0
+        if dof(result) == 0
             print(io, green("Integral $info = $m ± $e"))
         else
-            print(io, green("Integral $info = $m ± $e   (chi2/dof = $(round(chi2, sigdigits=3)))"))
+            print(io, green("Integral $info = $m ± $e   (reduced chi2 = $(round(chi2, sigdigits=3)))"))
         end
         if i < result.config.N
             print(io, "\n")
@@ -159,7 +162,7 @@ function report(result::Result, ignore=result.ignore; pick::Union{Function,Abstr
             barbar = "================================================     Integral $info    ============================================================"
             bar = "-------------------------------------------------------------------------------------------------------------------------------"
             println(io, barbar)
-            println(io, yellow(@sprintf("%6s                 %-32s                 %-32s %22s", "iter", "         integral", "        wgt average", "chi2/dof")))
+            println(io, yellow(@sprintf("%6s                 %-32s                 %-32s %22s", "iter", "         integral", "        wgt average", "reduced chi2")))
             println(io, bar)
             for iter in 1:length(result.iterations)
                 m0, e0 = p(result.iterations[iter][1][i]), p(result.iterations[iter][2][i])
@@ -172,10 +175,10 @@ function report(result::Result, ignore=result.ignore; pick::Union{Function,Abstr
             println(io, bar)
         else
             m, e, chi2 = p(result.mean[i]), p(result.stdev[i]), p(result.chi2[i])
-            if result.dof == 0
+            if dof(result) == 0
                 println(io, green("Integral $info = $m ± $e"))
             else
-                println(io, green("Integral $info = $m ± $e   (chi2/dof = $(round(chi2, sigdigits=3)))"))
+                println(io, green("Integral $info = $m ± $e   (reduced chi2 = $(round(chi2, sigdigits=3)))"))
             end
         end
     end

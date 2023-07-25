@@ -24,4 +24,12 @@
     @test v ≈ x
 
     @test eltype(typeof(x)) == typeof(x[1])
+
+    # test resize
+    resize!(x, 20)
+    @test Dist.poolsize(x) == 20
+    resize!(cxy, 30)
+    @test cxy.size == 30
+    @test Dist.poolsize(cxy[1]) == 30
+    @test Dist.poolsize(cxy[2]) == 30
 end

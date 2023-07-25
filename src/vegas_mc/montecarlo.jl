@@ -1,7 +1,7 @@
 """
 
     function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval,
-        print=0, debug=false;
+        verbose=0, debug=false;
         measurefreq::Int=1, measure::Union{Nothing,Function}=nothing) where {N,V,P,O,T}
 
 This algorithm combines Vegas with Markov-chain Monte Carlo.
@@ -56,12 +56,12 @@ The last argument passes the MC `Configuration` struct to the integrand, so that
 # Examples
 The following command calls the MC Vegas solver,
 ```julia-repl
-julia> integrate((x, c)->(x[1]^2+x[2]^2); var = Continuous(0.0, 1.0), dof = 2, print=-1, solver=:vegasmc)
+julia> integrate((x, c)->(x[1]^2+x[2]^2); var = Continuous(0.0, 1.0), dof = 2, verbose=-1, solver=:vegasmc)
 Integral 1 = 0.6640840471808533 ± 0.000916060916265263   (chi2/dof = 0.945)
 ```
 """
 function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval,
-    print=0, save=0, timer=[], debug=false;
+    verbose=0, timer=[], debug=false;
     measure::Union{Nothing,Function}=nothing, measurefreq::Int=1, inplace::Bool=false
 ) where {N,V,P,O,T}
 
@@ -106,7 +106,12 @@ function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval
     if inplace
         (length(config.var) == 1) ? integrand(config.var[1], _weights, config) : integrand(config.var, _weights, config)
     else
-        _weights = (length(config.var) == 1) ? integrand(config.var[1], config) : integrand(config.var, config)
+        if N == 1
+            _weights[1] = (length(config.var) == 1) ? integrand(config.var[1], config) : integrand(config.var, config)
+        else
+            _weights = (length(config.var) == 1) ? integrand(config.var[1], config) : integrand(config.var, config)
+        end
+        @assert length(_weights) == N "the integrand should return a vector with $(N) elements, but it returns a vector with $(length(_weights)) elements! $(typeof(_weights)))"
     end
 
     padding_probability .= [Dist.padding_probability(config, i) for i in 1:N+1]
