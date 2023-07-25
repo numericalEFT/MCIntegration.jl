@@ -141,7 +141,7 @@ function nworker(parallel::Symbol)
     return mpi_nprocs() * nthreads(parallel)
 end
 
-# the following codes are copied from DFTK.jl
+# the following code is copied from DFTK.jl
 function setup_threading(; n_blas=Threads.nthreads())
     n_julia = Threads.nthreads()
     # FFTW.set_num_threads(n_fft)

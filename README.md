@@ -11,20 +11,20 @@ MCIntegration.jl is a comprehensive Julia package designed to handle both regula
 The high-level simplicity and flexibility of Julia combined with the performance capabilities of C/C++-like compiled languages make it a fantastic choice for implementing Monte Carlo methods. Monte Carlo methods, which require extensive computations, can greatly benefit from Julia's just-in-time (JIT) compilation that allows `MCIntegration.jl` to perform calculations at a near-C/C++ efficiency. Moreover, the intuitive high-level syntax of Julia allows users to define their integrands effortlessly, adding to the customizability and user-friendliness of `MCIntegration.jl`.
 
 ## Installation
-To install MCIntegration.jl, use Julia's package manager. Open the Julia REPL, type `]` to enter the package mode, and then:
+To install `MCIntegration.jl`, use Julia's package manager. Open the Julia REPL, type `]` to enter the package mode, and then:
 ```
 pkg> add MCIntegration
 ```
 ## Quick Start
-MCIntegration.jl simplifies complex integral calculations. Here are two examples to get you started.
+`MCIntegration.jl` simplifies complex integral calculations. Here are two examples to get you started.
 
-To estimate the integral $\int_0^1 \frac{\log(x)}{\sqrt{x}} dx = 4$, you can use:
+To estimate the integral $\int_0^1 \frac{\log(x)}{\sqrt{x}} dx = -4$, you can use:
 ```julia
 julia> f(x, c) = log(x[1]) / sqrt(x[1])   # Define your integrand
 julia> integrate(f, var = Continuous(0, 1), neval=1e5)   # Perform the MC integration for 1e5 steps
 Integral 1 = -3.99689518016736 ± 0.001364833686666744   (reduced chi2 = 0.695)
 ```
-In this example, we define an integrand function `f(x, c)` where `x` represents the random variables in the integral and `c` is a [`Configuration`](https://numericaleft.github.io/MCIntegration.jl/dev/lib/montecarlo/) object parameter that can hold extra parameters that might be necessary for more complex integrand functions. The variable `x` is determined by the var parameter in `integrate()`. Learn more details from the [documentation](https://numericaleft.github.io/MCIntegration.jl/dev/lib/montecarlo/).
+In this example, we define an integrand function `f(x, c)` where `x` represents the random variables in the integral and `c` is a [`Configuration`](https://numericaleft.github.io/MCIntegration.jl/dev/lib/montecarlo/) object that can hold extra parameters that might be necessary for more complex integrand functions. The `var` parameter of `integrate()` specifies the distributions of the variables `x`. Here we set `var = Continuous(0, 1)`, meaning that `x[1]` will be distributed continuously and uniformly on the interval $[0, 1)$. Learn more details from the [documentation](https://numericaleft.github.io/MCIntegration.jl/dev/lib/montecarlo/).
 
 `MCIntegration.jl` also supports Discrete variables. For instance, let's estimate $\pi$ through the Taylor series for $\pi/4 = 1 - 1/3 + 1/5 -1/7 + 1/9 - ...$:
 ```julia
@@ -39,13 +39,13 @@ To handle more complex integrals, it's necessary to understand how `MCIntegratio
 $\int d\vec{x} \int d\vec{y}... \vec{f}(\vec{x}, \vec{y}...)$
 The package handles both continuous and discrete variables; for discrete variables, the integrals are interpreted as summations.
 
-In `MCIntegration.jl`, the **"degree of freedom" (`dof`)** defines the dimensions for each variable group in the integrand. It's represented as a list of dimensions: dof($\vec{f}$) = [[dim($\vec{x}$), dim($\vec{y}$), ...], ...], with dim($\vec{f}$) elements.
+In `MCIntegration.jl`, the **"degrees of freedom" (`dof`)** define the dimensionality of each variable group in the integrand. They are represented as a list of dimensions: dof($\vec{f}$) = [[dim($\vec{x}$), dim($\vec{y}$), ...], ...], with dim($\vec{f}$) elements.
 
 The building blocks of variable organization in `MCIntegration.jl` are the **variable vectors** (like $\vec{x}$, $\vec{y}$, ...), which are implemented as **unlimited** pools of variables. These variable vectors can be combined or used individually, depending on the integrand's structure. 
 
 - **Variable Vectors (Symmetric Variables):** If the variables in the integrands are interchangeable, they can be organized into a variable vector acting as a pool. All variables within the same pool are sampled from the same optimized distributions.
 
-- **Composite Variable Vectors:** When two or more variable vectors consistently appear together across all integrands, they can be bundled to form composite variable vectors. Composite variables share the same `dof` and can be updated together during the integration process, offering computational efficiency especially when working with MCMC-based solvers (see the next section for more detail).
+- **Composite Variable Vectors:** When two or more variable vectors consistently appear together across all integrands, they can be bundled to form composite variable vectors. Composite variables share the same `dof` and can be updated together during the integration process, offering computational efficiency especially when working with MCMC-based solvers (see the next section for more details).
 
 Both variable vectors and composite variable vectors can be organized into `Tuple`, offering more complex interactions between different variables or composite variables in the integrands.
 
@@ -65,7 +65,7 @@ julia> integrate(g; var = Continuous([(0, 1), (0, 2π)]), dof = [(1, ),])
 Integral 1 = 3.14367422926071 ± 0.0011572440016582415   (reduced chi2 = 0.735)
 ```
 
-- Tuple of Variable Vectors: Calculate $\sum_{n \ge 0} \int_0^1 (-1)^n x^{2n}dx = \pi/4$
+- Tuple of Variable Vectors: Calculate $4\sum_{n \ge 0} \int_0^1 (-1)^n x^{2n}dx = \pi$
 ```julia
 julia> f((n, x), c) = 4*(-1)^n[1]*x[1]^(2*n[1])
 julia> integrate(f; var = (Discrete(0, 100), Continuous(0, 1)), dof = [(1, 1),], neval=1e5)
@@ -74,21 +74,21 @@ Integral 1 = 3.141746201859978 ± 0.04261519744132012   (reduced chi2 = 0.611)
 
 ## Selecting Algorithms
 
-MCIntegration.jl offers three Monte Carlo integration algorithms, all of which leverage the Vegas map technique for importance sampling. This approach constructs a piecewise constant Vegas map, a probability distribution function approximating the shape of the integrand to enhance the efficiency of the integral estimation.
+`MCIntegration.jl` offers three Monte Carlo integration algorithms, all of which leverage the Vegas map technique for importance sampling. This approach constructs a piecewise constant Vegas map, a probability distribution function approximating the shape of the integrand to enhance the efficiency of the integral estimation.
 
 Here's a brief overview of the three solvers:
 
 1. **Vegas (`:vegas`):** The classic Vegas algorithm uses the Monte Carlo method and samples all integrands across all variables simultaneously at each step. It is efficient for low-dimensional integrals but might struggle with high-dimensional ones where the Vegas map fails to accurately mimic the integrand's shape.
 
-2. **Vegas with MCMC (`:vegasmc`):** This innovative solver, first introduced in MCIntegration.jl, combines Vegas with Markov-chain Monte Carlo. This hybrid approach provides a robust solution, especially for intricate, high-dimensional integrals. In the Vegas MC approach, a variable is selected randomly, and a Metropolis-Hastings algorithm is utilized to propose a new variable based on the Vegas map. This update is applied simultaneously across all integrands, improving robustness when the Vegas map struggles with approximating the shape of the integrand accurately.
+2. **Vegas with MCMC (`:vegasmc`):** This innovative solver, first introduced in `MCIntegration.jl`, combines Vegas with Markov-chain Monte Carlo. This hybrid approach provides a robust solution, especially for intricate, high-dimensional integrals. In the Vegas MC approach, a variable is selected randomly, and a Metropolis-Hastings algorithm is utilized to propose a new variable based on the Vegas map. This update is applied simultaneously across all integrands, improving robustness when the Vegas map struggles with approximating the shape of the integrand accurately.
 
-3. **MCMC (`:mcmc`):** The MCMC solver is ideal for dealing with a bundle of integrands that are too large to be computed all at once. It uses the Metropolis-Hastings algorithm to traverse between different integrals, evaluating only one integrand at each step. Though it can be less efficient due to the integral-jumping auto-correlations, it stands out in its ability to handle extremely high-dimensional integrals where other two solvers fail.
+3. **MCMC (`:mcmc`):** The MCMC solver is ideal for dealing with a bundle of integrands that are too large to be computed all at once. It uses the Metropolis-Hastings algorithm to traverse between different integrals, evaluating only one integrand at each step. Though it can be less efficient due to the integral-jumping auto-correlations, it stands out in its ability to handle extremely high-dimensional integrals where the other two solvers fail.
 
-Given its robustness and efficiency, the default solver in this package is the `:vegasmc`. To choose a specific solver, use the `solver` parameter in the `integrate` function, like `solver=:vegas`.
+Given its robustness and efficiency, the default solver in this package is `:vegasmc`. To choose a specific solver, use the `solver` parameter in the `integrate` function, like `solver=:vegas`.
 
 Please note that the calling convention for the user-defined integrand for `:mcmc` is slightly different from that of `:vegas` and `:vegasmc`. Please refer to the separate [detailed note](https://numericaleft.github.io/MCIntegration.jl/dev/#Algorithm) on this.
 
-Packed variables can enhance the efficiency of :vegasmc and :mcmc solvers by reducing the auto-correlation time of the Markov chain, leading to a more effective sampling process.
+Packed variables can enhance the efficiency of the `:vegasmc` and `:mcmc` solvers by reducing the auto-correlation time of the Markov chain, leading to a more effective sampling process.
 
 Learn more from documentation: [Vegas](https://numericaleft.github.io/MCIntegration.jl/dev/lib/vegas/), [VegasMC](https://numericaleft.github.io/MCIntegration.jl/dev/lib/vegasmc/) and [MCMC](https://numericaleft.github.io/MCIntegration.jl/dev/lib/mcmc/) algorithms.
 
@@ -102,9 +102,9 @@ Parallelization is a vital aspect of `MCIntegration.jl`, enhancing the performan
   ```bash
   mpiexec -n NCPU julia your_script.jl
   ```
-  Here, `NCPU` denotes the number of workers. The MC sampler internally dispatches blocks (controlled by the Nblock argument) to different workers and collects the estimates on the root node. While using MPI, the `integrate` function returns meaningful estimates only for the root node. For other workers, it returns `nothing`.
+  Here, `NCPU` denotes the number of workers. The MC sampler internally dispatches blocks (controlled by the `Nblock` argument) to different workers and collects the estimates on the root node. While using MPI, the `integrate` function returns meaningful estimates only for the root node. For other workers, it returns `nothing`.
 
-  **Note:** For MPI functionality, install [MPI.jl](https://github.com/JuliaParallel/MPI.jl) package and follow the [configuration](https://juliaparallel.github.io/MPI.jl/stable/configuration/) instructions.
+  **Note:** For MPI functionality, install the [MPI.jl](https://github.com/JuliaParallel/MPI.jl) package and follow the [configuration](https://juliaparallel.github.io/MPI.jl/stable/configuration/) instructions.
 
    
 
@@ -117,7 +117,7 @@ Parallelization is a vital aspect of `MCIntegration.jl`, enhancing the performan
   - **Concurrent Integration:** Each thread independently calls `integrate` to perform separate integrations.
   - **Block-wise Parallelization:** Only the main thread invokes `integrate`, while the computation blocks within are parallelized across multiple threads. To apply this, use `integrate` with the argument `parallel = :thread`.
 
-  The following examples demonstrate the difference between two approaches,
+  The following examples demonstrate the difference between the two approaches,
   ```julia
   # Concurrent Integration
   Threads.@threads for i = 1:3

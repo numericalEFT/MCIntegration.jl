@@ -20,16 +20,16 @@
 - `neighbor::Vector{Tuple{Int, Int}}` : vector of tuples that defines the neighboring integrands. Two neighboring integrands are directly connected in the Markov chain. 
     e.g., [(1, 2), (2, 3)] means the integrand 1 and 2 are neighbor, and 2 and 3 are neighbor.  
    The neighbor vector defines a undirected graph showing how the integrands are connected. Please make sure all integrands are connected.
-   By default, we assume the N integrands are in the increase order, meaning the neighbor will be set to [(N+1, 1), (1, 2), (2, 3), ..., (N-1, N)], where the first N entries are for diagram 1, 2, ..., N and the last entry is for the normalization diagram. Only the first diagram is connected to the normalization diagram.
+   By default, we assume the N integrands are in increasing order, meaning the neighbor vector will be set to [(N+1, 1), (1, 2), (2, 3), ..., (N-1, N)], where the first N entries are for diagram 1, 2, ..., N and the last entry is for the normalization diagram. Only the first diagram is connected to the normalization diagram.
    Only highly correlated integrands are not highly correlated should be defined as neighbors. Otherwise, most of the updates between the neighboring integrands will be rejected and wasted.
 - `dof::Vector{Vector{Int}}`: degrees of freedom of each integrand, e.g., [[0, 1], [2, 3]] means the first integrand has zero var#1 and one var#2; while the second integrand has two var#1 and 3 var#2. 
-- `observable`: observables that is required to calculate the integrands, will be used in the `measure` function call.
+- `observable`: observables that are required to calculate the integrands; will be used in the `measure` function call.
     It is either an array of any type with the common operations like +-*/^ defined. 
-- `reweight`: reweight factors for each integrands. The reweight factor of the normalization diagram is assumed to be 1. Note that you don't need to explicitly add the normalization diagram. 
+- `reweight`: reweight factors for each integrand. The reweight factor of the normalization diagram is assumed to be 1. Note that you don't need to explicitly add the normalization diagram. 
 - `visited`: how many times this integrand is visited by the Markov chain.
 
 # current MC state
-- `step`: the number of MC updates performed up to now
+- `step`: the number of MC updates performed thus far
 - `norm`: the index of the normalization diagram. `norm` is larger than the index of any user-defined integrands 
 - `normalization`: the accumulated normalization factor. Physical observable = Configuration.observable/Configuration.normalization.
 - `propose/accept`: array to store the proposed and accepted updates for each integrands and variables.
@@ -68,7 +68,7 @@ Struct that holds all the necessary parameters and variables for Monte Carlo int
 
 # Current MC state
 
-- `step`: The number of Monte Carlo updates performed up to now.
+- `step`: The number of Monte Carlo updates performed thus far.
 - `norm`: The index of the normalization integrand. `norm` is larger than the index of any user-defined integrands.
 - `normalization`: The accumulated normalization factor.
 - `propose/accept`: Arrays to store the proposed and accepted updates for each integrand and variable.
@@ -124,16 +124,16 @@ Create a Configuration struct
 By default, var = (Continuous(0.0, 1.0),), which is a single continuous variable.
 - `dof::Vector{Vector{Int}}`: degrees of freedom of each integrand, e.g., [[0, 1], [2, 3]] means the first integrand has zero var#1 and one var#2; while the second integrand has two var#1 and 3 var#2. 
 By default, dof=[ones(length(var)), ], which means that there is only one integrand, and each variable has one degree of freedom.
-- `obs`: observables that is required to calculate the integrands, will be used in the `measure` function call.
+- `obs`: observables that are required to calculate the integrands; will be used in the `measure` function call.
 It is either an array of any type with the common operations like +-*/^ defined. 
 By default, it will be set to 0.0 if there is only one integrand (e.g., length(dof)==1); otherwise, it will be set to zeros(length(dof)).
 - `para`: user-defined parameter, set to nothing if not needed
-- `reweight`: reweight factors for each integrands. If not set, then all factors will be initialized with one. Internally, a reweight factor of 1 will be appended to the end of the reweight vector, which is for the normalization integral.
+- `reweight`: reweight factors for each integrand. If not set, then all factors will be initialized with one. Internally, a reweight factor of 1 will be appended to the end of the reweight vector, which is for the normalization integral.
 - `seed`: seed to initialize random numebr generator, also serves as the unique `pid` of the configuration. If it is `nothing`, then use `RandomDevice()` to generate a random seed in `[1, 1000_1000]`
 - `neighbor::Vector{Tuple{Int, Int}}` : vector of tuples that defines the neighboring integrands. Two neighboring integrands are directly connected in the Markov chain. 
     e.g., [(1, 2), (2, 3)] means the integrand 1 and 2 are neighbor, and 2 and 3 are neighbor.  
     The neighbor vector defines a undirected graph showing how the integrands are connected. Please make sure all integrands are connected.
-    By default, we assume the N integrands are in the increase order, meaning the neighbor will be set to [(N+1, 1), (1, 2), (2, 4), ..., (N-1, N)], where the first N entries are for integrals 1, 2, ..., N and the last entry is for the normalization integral. Only the first integral is connected to the normalization integral.
+    By default, we assume the N integrands are in increasing order, meaning the neighbor vector will be set to [(N+1, 1), (1, 2), (2, 4), ..., (N-1, N)], where the first N entries are for integrals 1, 2, ..., N and the last entry is for the normalization integral. Only the first integral is connected to the normalization integral.
     Only highly correlated integrands should be defined as neighbors. Otherwise, most of the updates between the neighboring integrands will be rejected and wasted.
 - `userdata`: User data you want to pass to the integrand and the measurement
 """
