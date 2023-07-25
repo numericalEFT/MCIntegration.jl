@@ -79,6 +79,7 @@ function changeVariable(config::Configuration{N,V,P,O,T}, integrand, inplace,
     for i in 1:N+1
         _padding_probability[i] = Dist.padding_probability(config, i)
     end
+    # Dist.padding_probability!(config, _padding_probability)
     # println(_padding_probability)
     newProbability = config.reweight[config.norm] * _padding_probability[config.norm] #normalization integral
     for i in 1:N #other integrals

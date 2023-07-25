@@ -72,6 +72,20 @@ function test2(x, c)
     t11(x[1], x[2], x[3])
 end
 
+@inbounds function test3(x, f, c)
+    @inbounds f[1] = t1(x[1], x[2], x[3])
+    @inbounds f[2] = t2(x[1], x[2], x[3])
+    @inbounds f[3] = t3(x[1], x[2], x[3])
+    @inbounds f[4] = t4(x[1], x[2], x[3])
+    @inbounds f[5] = t5(x[1], x[2], x[3])
+    @inbounds f[6] = t6(x[1], x[2], x[3])
+    @inbounds f[7] = t7(x[1], x[2], x[3])
+    @inbounds f[8] = t8(x[1], x[2], x[3])
+    @inbounds f[9] = t9(x[1], x[2], x[3])
+    @inbounds f[10] = t10(x[1], x[2], x[3])
+    @inbounds f[11] = t11(x[1], x[2], x[3])
+end
+
 @info "Performance of Cuba.jl:"
 for alg in (vegas, suave, divonne, cuhre)
     # Run the integrator a first time to compile the function.
@@ -120,9 +134,9 @@ end
 @info "Performance of MCIntegration:"
 for alg in (:vegas, :vegasmc)
     # Run the integrator a first time to compile the function.
-    integrate(test2; dof=[[3,] for i in 1:11], neval=1e4, solver=alg, print=-1)
+    integrate(test3; dof=[[3,] for i in 1:11], neval=1e4, solver=alg, print=-1, inplace=true)
     start_time = time_ns()
-    integrate(test2; dof=[[3,] for i in 1:11], neval=1e5, solver=alg, print=-2)
+    integrate(test3; dof=[[3,] for i in 1:11], neval=1e5, solver=alg, print=-2, inplace=true)
     # Cuba will run for 1e6 steps
     end_time = time_ns()
     println(@sprintf("%10.6f", Int(end_time - start_time) / 1e9),
@@ -146,7 +160,7 @@ end
 
 cd(@__DIR__) do
     if mtime("benchmark.c") > mtime("benchmark-c")
-        run(`gcc -O3 -I $(Cuba.Cuba_jll.artifact_dir)/include -o benchmark-c benchmark.c $(Cuba.Cuba_jll.libcuba_path) -lm`)
+        run(`gcc -O1 -I $(Cuba.Cuba_jll.artifact_dir)/include -o benchmark-c benchmark.c $(Cuba.Cuba_jll.libcuba_path) -lm`)
     end
     @info "Performance of Cuba Library in C:"
     withenv(Cuba.Cuba_jll.JLLWrappers.LIBPATH_env => Cuba.Cuba_jll.LIBPATH[]) do
@@ -155,7 +169,7 @@ cd(@__DIR__) do
 
     if success(`which gfortran`)
         if mtime("benchmark.f") > mtime("benchmark-fortran")
-            run(`gfortran -O3 -fcheck=no-bounds -cpp -o benchmark-fortran benchmark.f $(Cuba.Cuba_jll.libcuba_path) -lm`)
+            run(`gfortran -O1 -fcheck=no-bounds -cpp -o benchmark-fortran benchmark.f $(Cuba.Cuba_jll.libcuba_path) -lm`)
         end
         @info "Performance of Cuba Library in Fortran:"
         withenv(Cuba.Cuba_jll.JLLWrappers.LIBPATH_env => Cuba.Cuba_jll.LIBPATH[]) do
