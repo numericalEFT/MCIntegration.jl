@@ -95,7 +95,7 @@ Packed variables can enhance the efficiency of :vegasmc and :mcmc solvers by red
 
 Parallelization is a vital aspect of `MCIntegration.jl`, enhancing the performance of your Monte Carlo simulations. The package supports both MPI and multi-thread parallelization, with an option to combine them as required.
 
-- MPI
+- **MPI:**
   With MPI, you can run your code in a distributed manner, using the command:
   ```bash
   mpiexec -n NCPU julia your_script.jl
@@ -106,7 +106,7 @@ Parallelization is a vital aspect of `MCIntegration.jl`, enhancing the performan
 
    
 
-- Multi-threading
+- **Multi-threading:**
   To enable multi-threading, start Julia as follows:
   ```bash
   julia -t NCPU your_script.jl
