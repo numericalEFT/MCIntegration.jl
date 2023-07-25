@@ -117,7 +117,7 @@ Parallelization is a vital aspect of `MCIntegration.jl`, enhancing the performan
   - **Concurrent Integration:** Each thread independently calls `integrate` to perform separate integrations.
   - **Block-wise Parallelization:** Only the main thread invokes `integrate`, while the computation blocks within are parallelized across multiple threads. To apply this, use `integrate` with the argument `parallel = :thread`.
 
-  The following examples demonstrate the difference between two approaches,
+  The following examples demonstrate the difference between the two approaches,
   ```julia
   # Concurrent Integration
   Threads.@threads for i = 1:3
