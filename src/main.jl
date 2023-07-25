@@ -45,7 +45,7 @@ Calculate the integrals, collect statistics, and return a `Result` struct contai
     - `<-1`:print nothing
     - `-1`: print minimal information (Default)
     - `0`: print iteration history
-    - `>0`: print MC configuration every `verbose` seconds and print iteration history). 
+    - `>0`: print MC configuration every `verbose` seconds and print iteration history. 
 - `debug`: Whether to print debug information such as type instability or float overflow (default: `false`).
 - `kwargs`: Other keyword arguments for the `Configuration` constructor.
 
@@ -77,7 +77,7 @@ function integrate(integrand::Function;
     adapt=true, # whether to adapt the grid and the reweight factor
     debug=false, # whether to print debug information (type instability, etc.)
     reweight_goal::Union{Vector{Float64},Nothing}=nothing, # goal of visited steps of each integrand (include the normalization integral)
-    ignore::Int=adapt ? 1 : 0, #ignore the first `ignore` iteractions in average
+    ignore::Int=adapt ? 1 : 0, #ignore the first `ignore` iterations in average
     measure::Union{Nothing,Function}=nothing,
     measurefreq::Int=1,
     inplace::Bool=false, # whether to use the inplace version of the integrand
@@ -86,7 +86,7 @@ function integrate(integrand::Function;
     kwargs...
 )
 
-    # we use print instead of verbose for historical reason
+    # we use print instead of verbose for historical reasons
     print = maximum([print, verbose])
 
     if isnothing(config)

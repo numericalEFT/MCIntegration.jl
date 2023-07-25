@@ -143,7 +143,7 @@ It will first print the configuration from the last iteration, then print the we
 
 # Arguments
 - `result`: Result object contains the history from each iteration
-- `ignore`: the ignore the first # iteractions.
+- `ignore`: ignore the first # iterations.
 - `pick`: The pick function is used to select one of the observable to be printed. The return value of pick function must be a Number.
 - `name`: name of each picked observable. If name is not given, the index of the pick function will be used.
 """
