@@ -5,58 +5,65 @@
         neval=1e4, 
         niter=10, 
         block=16, 
-        verbose=-1, 
-        gamma=1.0, 
-        adapt=true,
-        debug=false, 
-        reweight_goal::Union{Vector{Float64},Nothing}=nothing, 
-        ignore::Int=adapt ? 1 : 0,
         measure::Union{Nothing,Function}=nothing,
         measurefreq::Int=1,
         inplace::Bool=false,
+        adapt=true,
+        gamma=1.0, 
+        reweight_goal::Union{Vector{Float64},Nothing}=nothing, 
         parallel::Symbol=:nothread,
+        ignore::Int=adapt ? 1 : 0,
+        debug=false, 
+        verbose=-1, 
         kwargs...
     )
 
- Calculate the integrals, collect statistics, and return a Result struct that contains the estimations and errors.
+Calculate the integrals, collect statistics, and return a `Result` struct containing the estimates and errors.
 
- # Remarks
- - User may run the MC in parallel using MPI. Simply run `mpiexec -n N julia userscript.jl` where `N` is the number of workers. In this mode, only the root process returns meaningful results. All other workers return `nothing, nothing`. User is responsible to handle the returning results properly. If you have multiple number of mpi version, you can use "mpiexecjl" in your "~/.julia/package/MPI/###/bin" to make sure the version is correct. See https://juliaparallel.github.io/MPI.jl/stable/configuration/ for more detail.
- - In the MC, a normalization diagram is introduced to normalize the MC estimates of the integrands. More information can be found in the link: https://kunyuan.github.io/QuantumStatistics.jl/dev/man/important_sampling/#Important-Sampling. User don't need to explicitly specify this normalization diagram.Internally, normalization diagram will be added to each table that is related to the integrands.
+# Arguments
+- `integrand`: A user-provided function to compute the integrand values. The function signature differs based on the selected `solver` and whether computations are done in-place:
+    - For `solver = :vegas` or `:vegasmc`, the function should be either `integrand(var, config)` or `integrand(var, weights, config)` depending on whether `inplace` is `false` or `true` respectively. Here, `var` are the random variables and `weights` is an output array to store the calculated weights.
+    - For `solver = :mcmc`, the function should be `integrand(idx, var, config)`, where `idx` is the index of the integrand component to be evaluated.
 
- # Arguments
+# Keyword Arguments
+- `solver`: Integration algorithm to use: `:vegas`, `:vegasmc`, or `:mcmc`. Default is `:vegas`.
+- `config`: `Configuration` object for the integration. If `nothing`, a new one is created using `Configuration(; kwargs...)`.
+- `neval`: Number of integrand evaluations per iteration (default: `1e4`).
+- `niter`: Number of iterations for the integration process (default: `10`).
+- `block`: Number of blocks for statistical independence assumption (default: `16`).
+- `measure`: An optional measurement function. 
+    - For `solver = :vegas` or `:vegasmc`, the function signature should be `measure(var, obs, relative_weights, config)`. Here, `obs` is a vector of observable values for each component of the integrand and `relative_weights` are the weights calculated from the integrand multiplied by the probability of the corresponding variables. 
+    - For `solver = :mcmc`, the signature should be `measure(idx, var, obs, relative_weight, config)`, where `obs` is the observable vector and `relative_weight` is the weight calculated from the `idx`-th integrand multiplied by the probability of the variables.
+- `measurefreq`: How often the measurement function is called (default: `1`).
+- `inplace`: Whether to use the inplace version of the integrand. Default is `false`, which is more convenient for integrand with a few return values but may cause type instability. Only useful for the :vegas and :vegasmc solver.
+- `adapt`: Whether to adapt the grid and the reweight factor (default: `true`).
+- `gamma`: Learning rate of the reweight factor after each iteration (default: `1.0`).
+- `reweight_goal`: The expected distribution of visited times for each integrand after reweighting. Default is `nothing`.
+- `parallel`: Run different blocks in parallel. Options are `:thread` and `:nothread`. Default is `:nothread`.
+- `ignore`: Ignore the iteration until the `ignore` round. By default, the first iteration is ignored if adapt=true, and none is ignored if adapt=false.
+- `verbose`: Control the printing level of the iteration history and configuration. 
+    - `<-1`:print nothing
+    - `-1`: print minimal information (Default)
+    - `0`: print iteration history
+    - `>0`: print MC configuration every `verbose` seconds and print iteration history). 
+- `debug`: Whether to print debug information such as type instability or float overflow (default: `false`).
+- `kwargs`: Other keyword arguments for the `Configuration` constructor.
 
-- `integrand`:Function call to evaluate the integrand.  
-              If `inplace = false`, then the signature of the integrand is `integrand(var, config)`, where `var` is a vector of random variables, and `config` is the [`Configuration`](@ref) struct. It should return one or more weights, corresponding to the value of each component of the integrand for the given `var`.
-              If `inplace = true``, then the signature of the integrand is `integrand(var, weights, config)`, where the additional argument `weights` is the value of the integrand components for the given `var`.
-              Internally, MC only samples the absolute value of the weight. Therefore, it is also important to define Main.abs for the weight if its type is user-defined. 
-- `solver` :  :vegas, :vegasmc, or :mcmc. See Readme for more details.
-- `config`:   [`Configuration`](@ref) object to perform the MC integration. If `nothing`, it attempts to create a new one with Configuration(; kwargs...).
-- `neval`:    Number of evaluations of the integrand per iteration. 
-- `niter`:    Number of iterations. The reweight factor and the variables will be self-adapted after each iteration. 
-- `block`:    Number of blocks. Each block will be evaluated by about neval/block times. Each block is assumed to be statistically independent, and will be used to estimate the error. 
-              In MPI mode, the blocks are distributed among the workers. If the numebr of workers N is larger than block, then block will be set to be N.
-- `verbose`:  < -1 to not print anything; -1 to print minimal information; 0 to print the iteration history in the end; >0 to print MC configuration for every `print` seconds and print the iteration history in the end.
-- `gamma`:    Learning rate of the reweight factor after each iteraction. Note that gamma <=1, where gamma = 0 means no reweighting.  
-- `adapt`:    Whether to adapt the grid and the reweight factor.
-- `debug`:    Whether to print debug information (type instability, float overflow etc.)
-- `reweight_goal`: The expected distribution of visited times for each integrand after reweighting . If not set, then all factors will be initialized with one. Only useful for the :mcmc solver. 
-- `ignore`:   ignore the iteration until the `ignore` round. By default, the first iteration is igonred if adapt=true, and non is ignored if adapt=false.
-- `measure`:  measurement function, See [`Vegas.montecarlo`](@ref), [`VegasMC.montecarlo`](@ref) and [`MCMC.montecarlo`](@ref) for more details.
-- `measurefreq`: how often perform the measurement for ever `measurefreq` MC steps. If a measurement is expansive, you may want to make the measurement less frequent.
-- `inplace`:  whether to use the inplace version of the integrand. Default is `false`, which is more convenient for integrand with a few return values but may cause type instability. Only useful for the :vegas and :vegasmc solver.
-- `parallel`: :thread will use Threads.@threads to run different blocks in parallel. Default is :nothread.
-- `kwargs`:   Keyword arguments. The supported keywords include,
-  * `measure` and `measurefreq`: measurement function and how frequent it is called. 
-  * If `config` is `nothing`, you may need to provide arguments for the `Configuration` constructor, check [`Configuration`](@ref) docs for more details.
+# Returns
+Returns a `Result` struct containing the estimates and errors of the calculated integrals.
+
+# Notes
+- In MPI mode, only the root process returns meaningful results. All other workers return `nothing`. Users should handle the returning results properly.
+
+- The solvers `:vegasmc` and `:vegas` automatically append a normalization integral to the end of the integrand vector. When providing `reweight_goal`, don't forget assign the weight (the last element) for this normalization integral.
 
 # Examples
 ```julia-repl
-integrate((x, c)->(x[1]^2+x[2]^2); var = Continuous(0.0, 1.0), dof = 2, verbose=-2, solver=:vegas)
-Integral 1 = 0.6663652080622751 ± 0.000490978424216832   (chi2/dof = 0.645)
+integrate((x, c)->(x[1]^2+x[2]^2); var = Continuous(0.0, 1.0), dof = [[2,],], verbose=-2, solver=:vegas)
+Integral 1 = 0.6663652080622751 ± 0.000490978424216832   (reduced chi2 = 0.645)
 
-julia> integrate((x, f, c)-> (f[1] = x[1]^2+x[2]^2); var = Continuous(0.0, 1.0), dof = 2, verbose=-2, solver=:vegas, inplace=true)
-Integral 1 = 0.6672083165915914 ± 0.0004919147870306026   (chi2/dof = 2.54)
+julia> integrate((x, f, c)-> (f[1] = x[1]^2+x[2]^2); var = Continuous(0.0, 1.0), dof = [[2,],], verbose=-2, solver=:vegas, inplace=true)
+Integral 1 = 0.6672083165915914 ± 0.0004919147870306026   (reduced chi2 = 2.54)
 ```
 """
 function integrate(integrand::Function;

@@ -136,16 +136,16 @@ function Base.show(io::IO, ::MIME"text/plain", result::Result)
 end
 
 """
-    function report(result::Result, ignore=result.ignore; pick::Union{Function,AbstractVector}=obs -> first(obs), name=nothing, verbose=0)
+    function report(result::Result, ignore=result.ignore; pick::Union{Function,AbstractVector}=obs -> first(obs), name=nothing, verbose=0, io::IO=Base.stdout)
 
 print the summary of the result. 
 It will first print the configuration from the last iteration, then print the weighted average and standard deviation of the picked observable from each iteration.
 
 # Arguments
-- result: Result object contains the history from each iteration
-- ignore: the ignore the first # iteractions.
-- pick: The pick function is used to select one of the observable to be printed. The return value of pick function must be a Number.
-- name: name of each picked observable. If name is not given, the index of the pick function will be used.
+- `result`: Result object contains the history from each iteration
+- `ignore`: the ignore the first # iteractions.
+- `pick`: The pick function is used to select one of the observable to be printed. The return value of pick function must be a Number.
+- `name`: name of each picked observable. If name is not given, the index of the pick function will be used.
 """
 function report(result::Result, ignore=result.ignore; pick::Union{Function,AbstractVector}=obs -> first(obs), name=nothing, verbose=0, io::IO=Base.stdout)
     if isnothing(name) == false
@@ -188,7 +188,7 @@ end
 
     function average(history, idx=1; init=1, max=length(history))
 
-average the history[1:max]. Return the mean, standard deviation and chi2 of the history.
+Average the history[1:max]. Return the mean, standard deviation and chi2 of the history.
 
 # Arguments
 - `history`: a list of tuples, such as [(data, error, Configuration), ...]
