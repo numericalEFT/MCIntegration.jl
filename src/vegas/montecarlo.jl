@@ -73,8 +73,8 @@ The last argument passes the MC `Configuration` struct to the integrand, so that
 # Examples
 The following command calls the Vegas solver,
 ```julia-repl
-julia> integrate((x, c)->(x[1]^2+x[2]^2); var = Continuous(0.0, 1.0), dof = 2, verbose=-1, solver=:vegas)
-Integral 1 = 0.667203631824444 ± 0.0005046485925614018   (chi2/dof = 1.46)
+julia> integrate((x, c)->(x[1]^2+x[2]^2); var = Continuous(0.0, 1.0), dof = [[2,],], verbose=-1, solver=:vegas)
+Integral 1 = 0.667203631824444 ± 0.0005046485925614018   (reduced chi2 = 1.46)
 ```
 """
 function montecarlo(config::Configuration{Ni,V,P,O,T}, integrand::Function, neval,

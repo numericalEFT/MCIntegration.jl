@@ -53,10 +53,10 @@ The third parameter passes the MC `Configuration` struct to the integrand, so th
 
 - `measure` : User-defined function with the following signature:
 ```julia
-function measure(idx, var, obs, weight, config)
+function measure(idx, var, obs, relative_weight, config)
     # accumulates the weight into the observable
     # For example,
-    # obs[idx] = weight # integral idx
+    # obs[idx] = relative_weight # integral idx
     # ...
 end
 ```
@@ -80,8 +80,8 @@ The last argument passes the MC `Configuration` struct to the integrand, so that
 # Examples
 The following command calls the MC Vegas solver,
 ```julia-repl
-julia> integrate((idx, x, c)->(x[1]^2+x[2]^2); var = Continuous(0.0, 1.0), dof = 2, verbose=-1, solver=:mcmc)
-Integral 1 = 0.6757665376867902 ± 0.008655534861083898   (chi2/dof = 0.681)
+julia> integrate((idx, x, c)->(x[1]^2+x[2]^2); var = Continuous(0.0, 1.0), dof = [[2,],], verbose=-1, solver=:mcmc)
+Integral 1 = 0.6757665376867902 ± 0.008655534861083898   (reduced chi2 = 0.681)
 ```
 """
 function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval,
