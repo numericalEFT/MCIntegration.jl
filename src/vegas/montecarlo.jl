@@ -78,6 +78,8 @@ function montecarlo(config::Configuration{Ni,V,P,O,T}, integrand::Function, neva
 
     relativeWeights = zeros(T, Ni)
     weights = zeros(T, Ni)
+    padding_probability = ones(Ni)
+    diff = [config.dof[i] == config.maxdof for i in 1:Ni] # check if the dof is the same as the maxdof, if the same, then there is no need to update the padding probability
 
     ################## test integrand type stability ######################
     if debug
@@ -127,6 +129,12 @@ function montecarlo(config::Configuration{Ni,V,P,O,T}, integrand::Function, neva
                 # jac *= Dist.create!(var, idx + var.offset, config)
             end
         end
+        # Dist.padding_probability!(config, padding_probability)
+        for i in 1:Ni
+            if diff[i] == false
+                padding_probability[i] = Dist.padding_probability(config, i)
+            end
+        end
         # weights = @_expanded_integrand(config, integrand, 1) # very fast, but requires explicit N
         # weights = integrand_wrap(config, integrand) #make a lot of allocations
         if inplace
@@ -140,15 +148,18 @@ function montecarlo(config::Configuration{Ni,V,P,O,T}, integrand::Function, neva
             @assert typeof(weights) <: Tuple || typeof(weights) <: AbstractVector "the integrand should return a vector with $(Ni) elements, but it returns a vector elements! $(typeof(weights)))"
         end
 
+        # println("before: ", weights, "with jac = ", jac)
+
         if (ne % measurefreq == 0)
             if isnothing(measure)
+                # println("after: ", weights * jac)
                 for i in 1:Ni
-                    config.observable[i] += weights[i] * jac
+                    config.observable[i] += weights[i] * padding_probability[i] * jac
                 end
                 # observable += weights * jac
             else
                 for i in 1:Ni
-                    relativeWeights[i] = weights[i] * jac
+                    relativeWeights[i] = weights[i] * padding_probability[i] * jac
                 end
                 (fieldcount(V) == 1) ?
                 measure(config.var[1], config.observable, relativeWeights, config) :
@@ -166,6 +177,7 @@ function montecarlo(config::Configuration{Ni,V,P,O,T}, integrand::Function, neva
             for idx in eachindex(weights)
                 w2 = abs(weights[idx])
                 j2 = jac
+                # ! warning: need to check whether to use jac or jac*padding_probability[idx]
                 if debug && (isfinite(w2) == false)
                     @warn("abs of the integrand $idx = $(w2) is not finite at step $(config.neval)")
                 end

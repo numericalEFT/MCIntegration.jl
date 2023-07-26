@@ -639,6 +639,22 @@ function padding_probability(config, idx)
     end
     return prob
 end
+function padding_probability!(config, probs::AbstractVector)
+    for i in eachindex(probs)
+        probs[i] = 1.0
+        dof = config.dof[i]
+        for (vi, var) in enumerate(config.var)
+            offset = var.offset
+            for pos = dof[vi]+1:config.maxdof[vi]
+                probs[i] *= var.prob[pos+offset]
+            end
+        end
+        if probs[i] < TINY
+            @warn "probability is either too small or negative : $(probs[i])"
+        end
+        # @assert probs[i] ≈ padding_probability(config, i) "$(probs[i]) vs $(padding_probability(config, i))"
+    end
+end
 
 function delta_probability(config, curr=config.curr; new)
     prob = 1.0

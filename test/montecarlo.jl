@@ -197,6 +197,24 @@ function TestComplex2_inplace(totalstep, alg)
     return res
 end
 
+function TestHyperSphere(totalstep, alg, N)
+    function volume_inverse(d)
+        euler = 2.71828182845904523536028747135266249775724709369995957496696763
+        return (d / (2π * euler))^(d / 2) * sqrt(d) * sqrt(π)
+    end
+
+    function f(x, w, c)
+        _w = x[1]^2
+        for i = 1:c.userdata
+            _w += x[i+1]^2
+            w[i] = _w < 1.0 ? volume_inverse(i + 1) : 0.0
+        end
+    end
+
+    res = integrate(f; var=Continuous(-1, 1), dof=[[i + 1,] for i in 1:N], userdata=N, neval=totalstep, print=-1, solver=alg, debug=false, inplace=true)
+    return res
+end
+
 # struct Weight <: AbstractVector
 #     d::Tuple{Float64,Float64}
 #     function Weight(a, b)
@@ -311,6 +329,9 @@ end
     println("inplace Complex2")
     check_complex(TestComplex2_inplace(neval, :vegas), [0.5, 1.0 / 3 * 1im])
 
+    println("hypersphere")
+    check(TestHyperSphere(neval, :vegas, 3), [0.9230, 0.94724, 0.96118])
+
     # println("vector type")
     # check_vector(Test_user_type(neval, :vegas), [0.5, 1.0 / 3])
 end
@@ -357,6 +378,9 @@ end
 
     println("inplace Complex2")
     check_complex(TestComplex2_inplace(neval, :vegasmc), [0.5, 1.0 / 3 * 1im])
+
+    println("hypersphere")
+    check(TestHyperSphere(neval, :vegasmc, 3), [0.9230, 0.94724, 0.96118])
 
     # println("vector type")
     # check_vector(Test_user_type(neval, :vegamcs), [0.5, 1.0 / 3])
