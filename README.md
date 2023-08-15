@@ -100,9 +100,9 @@ Parallelization is a vital aspect of `MCIntegration.jl`, enhancing the performan
 - **MPI:**
   With MPI, you can run your code in a distributed manner, using the command:
   ```bash
-  mpiexec -n NCPU julia your_script.jl
+  mpiexec -n N julia your_script.jl
   ```
-  Here, `NCPU` denotes the number of workers. The MC sampler internally dispatches blocks (controlled by the `Nblock` argument) to different workers and collects the estimates on the root node. While using MPI, the `integrate` function returns meaningful estimates only for the root node. For other workers, it returns `nothing`.
+  Here, `N` denotes the number of workers. The MC sampler internally dispatches blocks (controlled by the `Nblock` argument) to different workers and collects the estimates on the root node. While using MPI, the `integrate` function returns meaningful estimates only for the root node. For other workers, it returns `nothing`.
 
   **Note:** For MPI functionality, install the [MPI.jl](https://github.com/JuliaParallel/MPI.jl) package and follow the [configuration](https://juliaparallel.github.io/MPI.jl/stable/configuration/) instructions.
 
@@ -111,7 +111,7 @@ Parallelization is a vital aspect of `MCIntegration.jl`, enhancing the performan
 - **Multi-threading:**
   To enable multi-threading, start Julia as follows:
   ```bash
-  julia -t NCPU your_script.jl
+  julia -t N your_script.jl
   ```
   Remember, all threads share the same memory, so ensure your integrand and measure functions are thread-safe. Check Julia's official [documentation](https://docs.julialang.org/en/v1/manual/multi-threading/) for further guidance. For multi-threading, you have two options:
   - **Concurrent Integration:** Each thread independently calls `integrate` to perform separate integrations.
