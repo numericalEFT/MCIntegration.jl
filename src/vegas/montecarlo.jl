@@ -31,19 +31,19 @@ end
 This function implements the Vegas algorithm, a Monte Carlo method specifically designed for multi-dimensional integration. The underlying principle and methodology of the algorithm can be explored further in the [Vegas documentation](https://vegas.readthedocs.io/en/latest/background.html#importance-sampling).
 
 # Overview
-The Vegas algorithm employs an importance sampling scheme. For a one-dimensional integral with the integrand ``f(x)``, the algorithm constructs an optimized distribution ``\\rho(x)`` that approximates the integrand as closely as possible (a strategy known as the Vegas map trick; refer to [`Dist.Continuous`](@ref) for more details). 
+The Vegas algorithm employs an importance sampling scheme. For a one-dimensional integral with the integrand ``f(x)``, the algorithm constructs an optimized distribution ``\\rho(x)`` that approximates the integrand as closely as possible (a strategy known as the Vegas map trick; refer to [`Dist.Continuous`](@ref) for more details).
 
 The variable ``x`` is then sampled using the distribution ``\\rho(x)``, and the integral is estimated by averaging the estimator ``f(x)/\\rho(x)``.
 
-# Note 
-- If there are multiple integrals, all of them are sampled and measured at each Monte Carlo step. 
+# Note
+- If there are multiple integrals, all of them are sampled and measured at each Monte Carlo step.
 - This algorithm is particularly efficient for low-dimensional integrations but might be less efficient and robust than the Markov-chain Monte Carlo solvers for high-dimensional integrations.
 
 
 # Arguments
 - `integrand`: A user-defined function evaluating the integrand. The function should be either `integrand(var, config)` or `integrand(var, weights, config)` depending on whether `inplace` is `false` or `true` respectively. Here, `var` are the random variables and `weights` is an output array to store the calculated weights. The last parameter passes the MC `Configuration` struct to the integrand, so that user has access to userdata, etc.
 
-- `measure`: An optional user-defined function to accumulate the integrand weights into the observable. The function signature should be `measure(var, obs, relative_weights, config)`. Here, `obs` is a vector of observable values for each component of the integrand and `relative_weights` are the weights calculated from the integrand multiplied by the probability of the corresponding variables. 
+- `measure`: An optional user-defined function to accumulate the integrand weights into the observable. The function signature should be `measure(var, obs, relative_weights, config)`. Here, `obs` is a vector of observable values for each component of the integrand and `relative_weights` are the weights calculated from the integrand multiplied by the probability of the corresponding variables.
 
 The following are the snippets of the `integrand` and `measure` functions:
 ```julia
@@ -104,7 +104,7 @@ function montecarlo(config::Configuration{Ni,V,P,O,T}, integrand::Function, neva
         @assert (config.observable isa AbstractVector) && (length(config.observable) == config.N) && (eltype(config.observable) == T) "the default measure can only handle observable as Vector{$T} with $(config.N) elements!"
     end
     ##############  initialization  ################################
-    # don't forget to initialize the variables 
+    # don't forget to initialize the variables
     for var in config.var
         Dist.initialize!(var, config)
     end
@@ -138,14 +138,9 @@ function montecarlo(config::Configuration{Ni,V,P,O,T}, integrand::Function, neva
         # weights = @_expanded_integrand(config, integrand, 1) # very fast, but requires explicit N
         # weights = integrand_wrap(config, integrand) #make a lot of allocations
         if inplace
-            (fieldcount(V) == 1) ? integrand(config.var[1], weights, config) : integrand(config.var, weights, config)
+            integrand((isone(fieldcount(V)) ? config.var[1] : config.var), weights, config)
         else
-            if Ni == 1 # we want the output weights stored in a vector even if there is only one element
-                weights[1] = (fieldcount(V) == 1) ? integrand(config.var[1], config) : integrand(config.var, config)
-            else
-                weights = (fieldcount(V) == 1) ? integrand(config.var[1], config) : integrand(config.var, config)
-            end
-            @assert typeof(weights) <: Tuple || typeof(weights) <: AbstractVector "the integrand should return a vector with $(Ni) elements, but it returns a vector elements! $(typeof(weights)))"
+            weights .= integrand((isone(fieldcount(V)) ? config.var[1] : config.var), config)
         end
 
         # println("before: ", weights, "with jac = ", jac)
