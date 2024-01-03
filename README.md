@@ -10,6 +10,8 @@ MCIntegration.jl is a comprehensive Julia package designed to handle both regula
 
 The high-level simplicity and flexibility of Julia combined with the performance capabilities of C/C++-like compiled languages make it a fantastic choice for implementing Monte Carlo methods. Monte Carlo methods, which require extensive computations, can greatly benefit from Julia's just-in-time (JIT) compilation that allows `MCIntegration.jl` to perform calculations at a near-C/C++ efficiency. Moreover, the intuitive high-level syntax of Julia allows users to define their integrands effortlessly, adding to the customizability and user-friendliness of `MCIntegration.jl`.
 
+Also watching the [2023 JuliaCon talk](https://www.youtube.com/watch?v=7T3BxXC9DoY)
+
 ## Installation
 To install `MCIntegration.jl`, use Julia's package manager. Open the Julia REPL, type `]` to enter the package mode, and then:
 ```
