@@ -67,7 +67,7 @@ function changeVariable(config::Configuration{N,V,P,O,T}, integrand, inplace,
     if inplace
         (fieldcount(V) == 1) ?
         integrand(config.var[1], _weights, config) :
-        integrand(config.var, config)
+        integrand(config.var, _weights, config)
     else
         _weights = (fieldcount(V) == 1) ?
                    integrand(config.var[1], config) :
