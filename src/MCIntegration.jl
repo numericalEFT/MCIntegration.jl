@@ -17,6 +17,7 @@ const EPSILON = eps(Float64)
 
 include("utility/utility.jl")
 using .MCUtility
+export disable_threading
 
 include("distribution/distribution.jl")
 using .Dist

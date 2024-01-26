@@ -21,9 +21,19 @@ function f(x)
     return exp(-dx2 * 100.0) * 1013.2118364296088
 end
 
-integ = Vegas.Integrator([[0, 1], [0, 1], [0, 1], [0, 1]])
-result = integ(f, nitn=10, neval=1e5)
+res = integrate((x, c) -> f(x), neval=1e5, dof=[[4],], verbose=-1, solver=:vegas)
+println("MCIntegration.jl vegas (Julia): ", res.mean[1], " ± ", res.stdev[1])
+
+res = integrate((x, c) -> f(x), neval=1e5, dof=[[4],], verbose=-1, solver=:vegasmc)
+println("MCIntegration.jl vegasmc (Julia): ", res.mean[1], " ± ", res.stdev[1])
 
 result = vegas((x, g) -> g[1] = f(x), 4, maxevals=1e6)
+println("Cuba (C): ", result.integral[1], " ± ", result.error[1])
 
-integrate(c -> f(c.var[1]), neval=1e5, dof=[[4],], print=0)
+integ = Vegas.Integrator([[0, 1], [0, 1], [0, 1], [0, 1]])
+result = integ(f, nitn=10, neval=1e5, beta=0.0)
+println("Classic Vegas (Python): ", result)
+
+result = integ(f, nitn=10, neval=1e5)
+println("Vegas+ (Python): ", result)
+

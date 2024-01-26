@@ -38,10 +38,54 @@ function Sphere2(totalstep, alg; offset=0)
         obs[idx] += relativeWeight
     end
 
-    T = Continuous(0.0, 1.0; offset=offset)
+    T = Continuous(0.0, 1.0, 2 + offset; offset=offset) # set size to be small, test resize! implicitly
+    println("before resize:", length(T))
     # dof = [2 3] # a 1x2 matrix, each row is the number of dof for each integrand
     dof = [[2,], [3,]] # a 1x2 matrix, each row is the number of dof for each integrand
     config = Configuration(var=(T,), dof=dof; neighbor=[(1, 3), (1, 2)])
+    println("after resize:", length(T))
+    @inferred integrand(config.var[1], config) #make sure the type is inferred for the integrand function
+    @inferred integrand(1, config.var[1], config) #make sure the type is inferred for the integrand function
+    return integrate(integrand; config=config, neval=totalstep, print=-1, solver=alg, debug=true, measure)
+end
+
+# test obs with multiple integrands with different types
+function Sphere3(totalstep, alg; offset=0)
+    function integrand(X, config) # return a tuple of two integrands
+        i1 = (X[1+offset]^2 + X[2+offset]^2 < 1.0) ? 1.0 : 0.0
+        i2 = (X[1+offset]^2 + X[2+offset]^2 + X[3+offset]^2 < 1.0) ? 1.0 : 0.0
+        return i1, i2
+    end
+    function integrand(idx, X, config) # return one of the integrand
+        @assert idx == 1 || idx == 2 "$(idx) is not a valid integrand"
+        if idx == 1
+            return (X[1+offset]^2 + X[2+offset]^2 < 1.0) ? 1.0 : 0.0
+        else
+            return (X[1+offset]^2 + X[2+offset]^2 + X[3+offset]^2 < 1.0) ? 1.0 : 0.0
+        end
+    end
+
+    function measure(X, obs, relativeWeights, config)
+        obs[1] += relativeWeights[1]
+        obs[2][1] += relativeWeights[2]
+        obs[2][2] += relativeWeights[2] * 2.0
+    end
+    function measure(idx, X, obs, relativeWeight, config)
+        if idx == 1
+            obs[idx] += relativeWeight
+        elseif idx == 2
+            obs[idx][1] += relativeWeight
+            obs[idx][2] += relativeWeight * 2.0
+        else
+            error("invalid idx: $(idx)")
+        end
+    end
+
+    T = Continuous(0.0, 1.0; offset=offset)
+    # dof = [2 3] # a 1x2 matrix, each row is the number of dof for each integrand
+    dof = [[2,], [3,]] # a 1x2 matrix, each row is the number of dof for each integrand
+    obs = [0.0, [0.0, 0.0]]
+    config = Configuration(var=(T,), dof=dof; neighbor=[(1, 3), (1, 2)], obs=obs)
     @inferred integrand(config.var[1], config) #make sure the type is inferred for the integrand function
     @inferred integrand(1, config.var[1], config) #make sure the type is inferred for the integrand function
     return integrate(integrand; config=config, neval=totalstep, print=-1, solver=alg, debug=true, measure)
@@ -52,6 +96,15 @@ function TestDiscrete(totalstep, alg)
     dof = [[1,],] # number of X variable of the integrand
     config = Configuration(var=(X,), dof=dof)
     f(x, c) = x[1]
+    f(idx, x, c)::Int = f(x, c)
+    return integrate(f; config=config, neval=totalstep, niter=10, print=-1, solver=alg, debug=true)
+end
+
+function TestDiscrete2(totalstep, alg)
+    X = Discrete([(1, 3), (1, 4)], adapt=true)
+    dof = [[1,],] # number of X variable of the integrand
+    config = Configuration(var=(X,), dof=dof)
+    f(x, c) = 1.0
     f(idx, x, c)::Int = f(x, c)
     return integrate(f; config=config, neval=totalstep, niter=10, print=-1, solver=alg, debug=true)
 end
@@ -80,6 +133,23 @@ function TestSingular2_CompositeVar(totalstep, alg)
     #1/(1-cos(x)*cos(y)*cos(z))
     X, Y, Z = Continuous(0.0, 1π), Continuous(0.0, 1π), Continuous(0.0, 1π)
     C = Dist.CompositeVar(X, Y, Z)
+    if alg == :mcmc
+        return integrate(var=C, dof=1, neval=totalstep, print=-1, solver=alg) do idx, cvars, c
+            x, y, z = cvars
+            return 1.0 / (1.0 - cos(x[1]) * cos(y[1]) * cos(z[1])) / π^3
+        end
+    else
+        return integrate(var=C, dof=1, neval=totalstep, print=-1, solver=alg) do cvars, c
+            x, y, z = cvars
+            return 1.0 / (1.0 - cos(x[1]) * cos(y[1]) * cos(z[1])) / π^3
+        end
+    end
+end
+
+function TestSingular2_Continuous_HighDim(totalstep, alg)
+    #1/(1-cos(x)*cos(y)*cos(z))
+    C = Continuous([(0.0, 1π), (0.0, 1π), (0.0, 1π)])
+    println("compsitevar type: ", typeof(C))
     if alg == :mcmc
         return integrate(var=C, dof=1, neval=totalstep, print=-1, solver=alg) do idx, cvars, c
             x, y, z = cvars
@@ -127,6 +197,53 @@ function TestComplex2_inplace(totalstep, alg)
     return res
 end
 
+function TestHyperSphere(totalstep, alg, N)
+    function volume_inverse(d)
+        euler = 2.71828182845904523536028747135266249775724709369995957496696763
+        return (d / (2π * euler))^(d / 2) * sqrt(d) * sqrt(π)
+    end
+
+    function f(x, w, c)
+        _w = x[1]^2
+        for i = 1:c.userdata
+            _w += x[i+1]^2
+            w[i] = _w < 1.0 ? volume_inverse(i + 1) : 0.0
+        end
+    end
+
+    res = integrate(f; var=Continuous(-1, 1), dof=[[i + 1,] for i in 1:N], userdata=N, neval=totalstep, print=-1, solver=alg, debug=false, inplace=true)
+    return res
+end
+
+# struct Weight <: AbstractVector
+#     d::Tuple{Float64,Float64}
+#     function Weight(a, b)
+#         return new((a, b))
+#     end
+# end
+# Base.zero(::Type{Weight}) = Weight(0.0, 0.0)
+# Base.zero(::Weight) = Weight(0.0, 0.0)
+# Base.abs(w::Weight) = w.d[1] + w.d[1]
+# # Base.:^(w::Weight, i) = Weight(w.d^i, w.e^i)
+# # Base.:*(w::Weight, c) = Weight(w.d * c, w.e * c)
+# # Base.:/(w::Weight, c) = Weight(w.d / c, w.e / c)
+# # Base.:+(a::Weight, b::Weight) = Weight(a.d + b.d, a.e * b.e)
+# # Base.length(::Weight) = 1
+
+
+# function Test_user_type(totalstep, alg)
+
+#     function integrand(x, c) #return a tuple (real, complex) 
+#         #the code should handle real -> complex conversion
+#         return Weight(x[1], x[1]^2)
+#     end
+#     res = integrate(integrand; dof=[[1,],], neval=totalstep, print=-1, type=Weight, solver=alg, inplace=false, debug=true)
+#     config = res.config
+#     w = [Weight(0.0, 0.0),]
+#     @inferred integrand(config.var[1], w, config) #make sure the type is inferred for the integrand function
+#     return res
+# end
+
 @testset "Report" begin
     neval = 1000_00
     results = [
@@ -153,8 +270,11 @@ end
     println("Sphere 2D + 3D")
     check(Sphere2(neval, :mcmc), [π / 4.0, 4.0 * π / 3.0 / 8])
     check(Sphere2(neval, :mcmc; offset=2), [π / 4.0, 4.0 * π / 3.0 / 8])
+    check_vector(Sphere3(neval, :mcmc), [π / 4.0, [4.0 * π / 3.0 / 8, 4.0 * π / 3.0 / 4]])
     println("Discrete")
     check(TestDiscrete(neval, :mcmc), 6.0)
+    println("Discrete2")
+    check(TestDiscrete2(neval, :mcmc), 12.0)
     println("Singular1")
     res = TestSingular1(neval, :mcmc)
     @time res = TestSingular1(neval, :mcmc)
@@ -165,6 +285,7 @@ end
     println("Singular2")
     check(TestSingular2(neval, :mcmc), 1.3932)
     check(TestSingular2_CompositeVar(neval, :mcmc), 1.3932)
+    check(TestSingular2_Continuous_HighDim(neval, :mcmc), 1.3932)
 
     neval = 1000_00
     println("Complex1")
@@ -183,8 +304,11 @@ end
     println("Sphere 2D + 3D")
     check(Sphere2(neval, :vegas), [π / 4.0, 4.0 * π / 3.0 / 8])
     check(Sphere2(neval, :vegas; offset=2), [π / 4.0, 4.0 * π / 3.0 / 8])
+    check_vector(Sphere3(neval, :vegas), [π / 4.0, [4.0 * π / 3.0 / 8, 4.0 * π / 3.0 / 4]])
     println("Discrete")
     check(TestDiscrete(neval, :vegas), 6.0)
+    println("Discrete2")
+    check(TestDiscrete2(neval, :vegas), 12.0)
     println("Singular1")
     res = TestSingular1(neval, :vegas)
     @time res = TestSingular1(neval, :vegas)
@@ -194,6 +318,7 @@ end
     println("Singular2")
     check(TestSingular2(neval, :vegas), 1.3932)
     check(TestSingular2_CompositeVar(neval, :vegas), 1.3932)
+    check(TestSingular2_Continuous_HighDim(neval, :vegas), 1.3932)
 
     neval = 2000_00
     println("Complex1")
@@ -203,6 +328,12 @@ end
 
     println("inplace Complex2")
     check_complex(TestComplex2_inplace(neval, :vegas), [0.5, 1.0 / 3 * 1im])
+
+    println("hypersphere")
+    check(TestHyperSphere(neval, :vegas, 3), [0.9230, 0.94724, 0.96118])
+
+    # println("vector type")
+    # check_vector(Test_user_type(neval, :vegas), [0.5, 1.0 / 3])
 end
 
 @testset "Markov-Chain Vegas" begin
@@ -220,8 +351,11 @@ end
     println("Sphere2 with offset")
     check(Sphere2(neval, :vegasmc; offset=2), [π / 4.0, 4.0 * π / 3.0 / 8])
     # check(Sphere3(neval), [π / 4.0, 4.0 * π / 3.0 / 8])
+    check_vector(Sphere3(neval, :vegasmc), [π / 4.0, [4.0 * π / 3.0 / 8, 4.0 * π / 3.0 / 4]])
     println("Discrete")
     check(TestDiscrete(neval, :vegasmc), 6.0)
+    println("Discrete2")
+    check(TestDiscrete2(neval, :vegasmc), 12.0)
     println("Singular1")
     res = TestSingular1(neval, :vegasmc)
     @time res = TestSingular1(neval, :vegasmc)
@@ -231,6 +365,10 @@ end
     println("Singular2")
     check(TestSingular2(neval, :vegasmc), 1.3932)
     check(TestSingular2_CompositeVar(neval, :vegasmc), 1.3932)
+    check(TestSingular2_Continuous_HighDim(neval, :vegasmc), 1.3932)
+
+    @time TestSingular2_Continuous_HighDim(neval, :vegasmc)
+
 
     neval = 1000_00
     println("Complex1")
@@ -240,4 +378,10 @@ end
 
     println("inplace Complex2")
     check_complex(TestComplex2_inplace(neval, :vegasmc), [0.5, 1.0 / 3 * 1im])
+
+    println("hypersphere")
+    check(TestHyperSphere(neval, :vegasmc, 3), [0.9230, 0.94724, 0.96118])
+
+    # println("vector type")
+    # check_vector(Test_user_type(neval, :vegamcs), [0.5, 1.0 / 3])
 end

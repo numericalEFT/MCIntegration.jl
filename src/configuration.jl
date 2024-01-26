@@ -1,33 +1,77 @@
 """
-    mutable struct Configuration
+    mutable struct Configuration{NI,V,P,O,T}
 
     Struct that contains everything needed for MC.
 
- ## Static parameters
- - `seed`: seed to initialize random numebr generator, also serves as the unique pid of the configuration
- - `rng`: a MersenneTwister random number generator, seeded by `seed`
- - `userdata`: user-defined parameter
- - `var`: TUPLE of variables, each variable should be derived from the abstract type Variable, see variable.jl for details). Use a tuple rather than a vector improves the performance.
+# Parameters
+- `NI` : number of integrands
+- `V` : type of variables
+- `P` : type of user-defined data
+- `O` : type of observables 
+- `T` : type of integrand
 
- ## integrand properties
+# Static parameters
+- `seed`: seed to initialize random numebr generator, also serves as the unique pid of the configuration
+- `rng`: a MersenneTwister random number generator, seeded by `seed`
+- `userdata`: user-defined parameter
+- `var`: TUPLE of variables, each variable should be derived from the abstract type Variable, see variable.jl for details). Use a tuple rather than a vector improves the performance.
+
+# integrand properties
 - `neighbor::Vector{Tuple{Int, Int}}` : vector of tuples that defines the neighboring integrands. Two neighboring integrands are directly connected in the Markov chain. 
     e.g., [(1, 2), (2, 3)] means the integrand 1 and 2 are neighbor, and 2 and 3 are neighbor.  
    The neighbor vector defines a undirected graph showing how the integrands are connected. Please make sure all integrands are connected.
-   By default, we assume the N integrands are in the increase order, meaning the neighbor will be set to [(N+1, 1), (1, 2), (2, 4), ..., (N-1, N)], where the first N entries are for diagram 1, 2, ..., N and the last entry is for the normalization diagram. Only the first diagram is connected to the normalization diagram.
+   By default, we assume the N integrands are in increasing order, meaning the neighbor vector will be set to [(N+1, 1), (1, 2), (2, 3), ..., (N-1, N)], where the first N entries are for diagram 1, 2, ..., N and the last entry is for the normalization diagram. Only the first diagram is connected to the normalization diagram.
    Only highly correlated integrands are not highly correlated should be defined as neighbors. Otherwise, most of the updates between the neighboring integrands will be rejected and wasted.
- - `dof::Vector{Vector{Int}}`: degrees of freedom of each integrand, e.g., [[0, 1], [2, 3]] means the first integrand has zero var#1 and one var#2; while the second integrand has two var#1 and 3 var#2. 
- - `observable`: observables that is required to calculate the integrands, will be used in the `measure` function call.
+- `dof::Vector{Vector{Int}}`: degrees of freedom of each integrand, e.g., [[0, 1], [2, 3]] means the first integrand has zero var#1 and one var#2; while the second integrand has two var#1 and 3 var#2. 
+- `observable`: observables that are required to calculate the integrands; will be used in the `measure` function call.
     It is either an array of any type with the common operations like +-*/^ defined. 
- - `reweight`: reweight factors for each integrands. The reweight factor of the normalization diagram is assumed to be 1. Note that you don't need to explicitly add the normalization diagram. 
- - `visited`: how many times this integrand is visited by the Markov chain.
+- `reweight`: reweight factors for each integrand. The reweight factor of the normalization diagram is assumed to be 1. Note that you don't need to explicitly add the normalization diagram. 
+- `visited`: how many times this integrand is visited by the Markov chain.
 
- ## current MC state
- - `step`: the number of MC updates performed up to now
- - `norm`: the index of the normalization diagram. `norm` is larger than the index of any user-defined integrands 
- - `normalization`: the accumulated normalization factor. Physical observable = Configuration.observable/Configuration.normalization.
- - `propose/accept`: array to store the proposed and accepted updates for each integrands and variables.
+# current MC state
+- `step`: the number of MC updates performed thus far
+- `norm`: the index of the normalization diagram. `norm` is larger than the index of any user-defined integrands 
+- `normalization`: the accumulated normalization factor. Physical observable = Configuration.observable/Configuration.normalization.
+- `propose/accept`: array to store the proposed and accepted updates for each integrands and variables.
     Their shapes are (number of updates X integrand number X max(integrand number, variable number).
     The last index will waste some memory, but the dimension is small anyway.
+"""
+
+"""
+    mutable struct Configuration{NI,V,P,O,T}
+
+Struct that holds all the necessary parameters and variables for Monte Carlo integration.
+
+# Parameters
+
+- `NI` : Number of integrands
+- `V` : Type of variables
+- `P` : Type of user-defined data
+- `O` : Type of observables 
+- `T` : Type of integrand
+
+# Static parameters
+
+- `seed`: Seed to initialize the random number generator, also serves as the unique process ID of the configuration.
+- `rng`: A MersenneTwister random number generator, seeded by `seed`.
+- `userdata`: User-defined parameter.
+- `var`: Tuple of variables. Each variable should derive from the abstract type `Variable` (see `variable.jl` for details). Using a tuple instead of a vector improves performance.
+
+# Integrands properties
+
+- `neighbor::Vector{Tuple{Int, Int}}` : Vector of tuples defining neighboring integrands. Two neighboring integrands are directly connected in the Markov chain. 
+   The `neighbor` vector defines an undirected graph showing how the integrands are connected. Only highly correlated integrands should be defined as neighbors to reduce autocorrelations.
+- `dof::Vector{Vector{Int}}`: Degrees of freedom of each integrand, i.e., the dimensions in which each integrand can vary.
+- `observable`: Observables required to calculate the integrands, will be used in the `measure` function call.
+- `reweight`: Reweight factors for each integrand. The reweight factor of the normalization integrand (namely, the last element) is assumed to be 1.
+- `visited`: The number of times each integrand is visited by the Markov chain.
+
+# Current MC state
+
+- `step`: The number of Monte Carlo updates performed thus far.
+- `norm`: The index of the normalization integrand. `norm` is larger than the index of any user-defined integrands.
+- `normalization`: The accumulated normalization factor.
+- `propose/accept`: Arrays to store the proposed and accepted updates for each integrand and variable.
 """
 mutable struct Configuration{NI,V,P,O,T}
     ########### static parameters ###################
@@ -80,18 +124,55 @@ Create a Configuration struct
 By default, var = (Continuous(0.0, 1.0),), which is a single continuous variable.
 - `dof::Vector{Vector{Int}}`: degrees of freedom of each integrand, e.g., [[0, 1], [2, 3]] means the first integrand has zero var#1 and one var#2; while the second integrand has two var#1 and 3 var#2. 
 By default, dof=[ones(length(var)), ], which means that there is only one integrand, and each variable has one degree of freedom.
-- `obs`: observables that is required to calculate the integrands, will be used in the `measure` function call.
+- `obs`: observables that are required to calculate the integrands; will be used in the `measure` function call.
 It is either an array of any type with the common operations like +-*/^ defined. 
 By default, it will be set to 0.0 if there is only one integrand (e.g., length(dof)==1); otherwise, it will be set to zeros(length(dof)).
 - `para`: user-defined parameter, set to nothing if not needed
-- `reweight`: reweight factors for each integrands. If not set, then all factors will be initialized with one.
-- `seed`: seed to initialize random numebr generator, also serves as the unique pid of the configuration. If it is nothing, then use RandomDevice() to generate a random seed in [1, 1000_1000]
+- `reweight`: reweight factors for each integrand. If not set, then all factors will be initialized with one. Internally, a reweight factor of 1 will be appended to the end of the reweight vector, which is for the normalization integral.
+- `seed`: seed to initialize random numebr generator, also serves as the unique `pid` of the configuration. If it is `nothing`, then use `RandomDevice()` to generate a random seed in `[1, 1000_1000]`
 - `neighbor::Vector{Tuple{Int, Int}}` : vector of tuples that defines the neighboring integrands. Two neighboring integrands are directly connected in the Markov chain. 
     e.g., [(1, 2), (2, 3)] means the integrand 1 and 2 are neighbor, and 2 and 3 are neighbor.  
     The neighbor vector defines a undirected graph showing how the integrands are connected. Please make sure all integrands are connected.
-    By default, we assume the N integrands are in the increase order, meaning the neighbor will be set to [(N+1, 1), (1, 2), (2, 4), ..., (N-1, N)], where the first N entries are for diagram 1, 2, ..., N and the last entry is for the normalization diagram. Only the first diagram is connected to the normalization diagram.
-    Only highly correlated integrands are not highly correlated should be defined as neighbors. Otherwise, most of the updates between the neighboring integrands will be rejected and wasted.
+    By default, we assume the N integrands are in increasing order, meaning the neighbor vector will be set to [(N+1, 1), (1, 2), (2, 4), ..., (N-1, N)], where the first N entries are for integrals 1, 2, ..., N and the last entry is for the normalization integral. Only the first integral is connected to the normalization integral.
+    Only highly correlated integrands should be defined as neighbors. Otherwise, most of the updates between the neighboring integrands will be rejected and wasted.
 - `userdata`: User data you want to pass to the integrand and the measurement
+"""
+
+"""
+    function Configuration(;
+        var::Union{Variable,AbstractVector,Tuple}=(Continuous(0.0, 1.0),),
+        dof::Union{Int,AbstractVector,AbstractMatrix}=[ones(Int, length(var))],
+        type=Float64,  # type of the integrand
+        obs::AbstractVector=zeros(Float64, length(dof)),
+        reweight::Vector{Float64}=ones(length(dof) + 1),
+        seed::Int=rand(Random.RandomDevice(), 1:1000000),
+        userdata=nothing,
+        neighbor::Union{Vector{Vector{Int}},Vector{Tuple{Int,Int}},Nothing}=nothing,
+        kwargs...
+    )
+
+Create a Configuration struct for MC integration.
+
+# Arguments
+- `var`: Either a single `Variable`, a `CompositeVar`, or a tuple consisting of `Variable` and/or `CompositeVar` instances. Tuples are used to improve performance by ensuring type stability. By default, `var` is set to a tuple containing a single continuous variable, `(Continuous(0.0, 1.0),)`.
+- `dof`: Degrees of freedom for each integrand, as a vector of integers. For example, `[[0, 1], [2, 3]]` means the first integrand has zero instances of var#1 and one of var#2; while the second integrand has two instances of var#1 and 3 of var#2. Defaults to `[ones(length(var))]`, i.e., one degree of freedom for each variable.
+- `type`: Type of the integrand, Float64 by default.
+- `obs`: Vector of observables needed to calculate the integrands, which will be used in the `measure` function call. 
+- `reweight`: Vector of reweight factors for each integrand. By default, all factors are initialized to one. Internally, a reweight factor of 1 will be appended to the end of the reweight vector, which is for the normalization integral.
+- `seed`: Seed for the random number generator. This also serves as the unique identifier of the configuration. If it is `nothing`, then a random seed between 1 and 1,000,000 is generated. 
+- `userdata`: User data to pass to the integrand and the measurement.
+- `neighbor`: Vector of tuples that define neighboring integrands. For example, `[(1, 2), (2, 3)]` means that the first and second integrands, and the second and third integrands, are neighbors. Neighboring integrands are directly connected in the Markov chain. By default, all integrands are connected in ascending order. Note that the normalization integral is automatically appended at the end of the integrand list and is considered as neighbor with the first user-defined integrand.
+
+# Example
+```julia
+cfg = Configuration(
+    var = (Continuous(0.0, 1.0), Continuous(-1.0, 1.0)),
+    dof = [[1, 1], [2, 0]],
+    obs = [0.0, 0.0],
+    seed = 1234,
+    neighbor = [(1, 2)]
+)
+```
 """
 function Configuration(;
     var::V=(Continuous(0.0, 1.0),),
@@ -134,12 +215,21 @@ function Configuration(;
             dof = [collect(d) for d in dof]
         elseif eltype(dof) <: AbstractVector
             dof = deepcopy(dof) # don't modify the input dof
+        elseif eltype(dof) <: Int
+            dof = [[d,] for d in dof]
         else
-            error("Configuration.dof should be a Vector{Vector{Int}} or Vector{Tuple{Int, ..., Int}} to avoid mistakes. Now get $(typeof(dof))")
+            error("Configuration.dof should be a Vector{Int} or Tuple{Int, ..., Int} or Vector{Vector{Int}} or Vector{Tuple{Int, ..., Int}} to avoid mistakes. Now get $(typeof(dof))")
         end
     end
     # add normalization diagram to dof
     push!(dof, zeros(Int, length(var))) # add the degrees of freedom for the normalization diagram
+
+    maxdof = _maxdof(dof)
+    for i in eachindex(maxdof)
+        if maxdof[i] + var[i].offset >= poolsize(var[i]) - 2 # two more elements for caching purpose
+            resize!(var[i], maxdof[i] + 2 + var[i].offset)
+        end
+    end
 
     Nd = length(dof) # number of integrands + renormalization diagram
     @assert Nd > 1 "At least one integrand is required."
@@ -170,7 +260,7 @@ function Configuration(;
 
     return Configuration{Nd - 1,typeof(var),typeof(userdata),typeof(obs),type}(
         seed, MersenneTwister(seed), var, userdata,  # static parameters
-        Nd - 1, neighbor, dof, _maxdof(dof), obs, reweight, visited, # integrand properties
+        Nd - 1, neighbor, dof, maxdof, obs, reweight, visited, # integrand properties
         0, norm, normalization, propose, accept  # current MC state
     )
 end

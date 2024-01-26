@@ -7,64 +7,49 @@ end
 """
 
     function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval,
-        print=0, save=0, timer=[], debug=false;
+        verbose=0, timer=[], debug=false;
         measurefreq::Int=1, measure::Union{Nothing,Function}=nothing, idx::Int=1) where {N,V,P,O,T}
 
-This algorithm calculate high-dimensional integrals with a Markov-chain Monte Carlo.
-For multiple integrands invoves multiple variables, it finds the best distribution
-ansatz to fit them all together. In additional to the original integral, it also 
-introduces a normalization integral with integrand ~ 1.
+This algorithm computes high-dimensional integrals using a Markov-chain Monte Carlo (MCMC) method. It is particularly well-suited for cases involving multiple integrals over several variables. 
 
-Assume we want to calculate the integral ``f_1(x)`` and ``f_2(x, y)``, where x, y are two different types of variables.
-The algorithm will try to learn a distribution ``\\rho_x(x)`` and ``\\rho_y(y)`` so that ``f_1(x)/\\rho_x(x)`` and ``f_2(x, y)/\\rho_x(x)/\\rho_y(y)``
-are as flat as possible. 
+The MCMC algorithm learns an optimal distribution, or 'ansatz', to best fit all integrands under consideration. Additionally, it introduces a normalization integral (with an integrand ~ 1) alongside the original integrals.
 
-The algorithm then samples the variables x and y with a joint distribution using the Metropolis-Hastings algorithm,
+Assume we have two integrals to compute, ``f_1(x)`` and ``f_2(x, y)``, where ``x`` and ``y`` are variables of different types. The algorithm aims to learn the distributions ``\\rho_x(x)`` and ``\\rho_y(y)``, such that the quantities ``f_1(x)/\\rho_x(x)`` and ``f_2(x, y)/\\rho_x(x)/\\rho_y(y)`` are as flat as possible.
+
+Using the Metropolis-Hastings algorithm, the algorithm samples variables ``x`` and ``y`` based on the joint distribution:
 ```math
 p(x, y) = r_0 \\cdot \\rho_x(x) \\cdot \\rho_y(y) + r_1 \\cdot |f_1(x)| \\cdot \\rho_y(y) + r_2 \\cdot |f_2(x, y)|
 ```
-where ``r_i`` are certain reweighting factor to make sure all terms contribute same weights.
-One then estimate the integrals by averaging the observables ``f_1(x)\\rho_y(y)/p(x, y)`` and ``f_2(x, y)/p(x, y)``.
+where ``r_i`` are reweighting factors ensuring equal contribution from all terms. The integrals are then estimated by averaging the observables ``f_1(x)\\rho_y(y)/p(x, y)`` and ``f_2(x, y)/p(x, y)``.
 
-This algorithm reduces to the vanilla Vegas algorithm by setting ``r_0 = 1`` and ``r_{i>0} = 0``.
+Setting ``r_0 = 1`` and ``r_{i>0} = 0`` reduces this algorithm to the classic Vegas algorithm.
 
-The key difference between this algorithmm and the algorithm `:vegasmc` is the way that the joint distribution ``p(x, y)`` is sampled.
-In this algorithm, one use Metropolis-Hastings algorithm to sample each term in ``p(x, y)`` as well as the variables ``(x, y)``, so that the MC configuration space consists of
-``(idx, x, y)``, where ``idx`` is the index of the user-defined and the normalization integrals. On the other hand, the `:vegasmc` algorithm
-only uses Metropolis-Hastings algorithm to sample the configuration space ``(x, y)``. For a given set of x and y, all terms in ``p(x, y)`` are
-explicitly calculated on the fly. If one can afford calculating all the integrands on the fly, then `:vegasmc` should be more efficient than this algorithm.
+The key difference between this MCMC method and the :vegasmc solver lies in how the joint distribution ``p(x, y)`` is sampled. This MCMC solver uses the Metropolis-Hastings algorithm to sample each term in ``p(x, y)`` as well as the variables ``(x, y)``. The MC configuration space thus consists of `(idx, x, y)`, where `idx` represents the index of the user-defined and normalization integrals. In contrast, the `:vegasmc` algorithm only samples the `(x, y)` space, explicitly calculating all terms in ``p(x, y)`` on-the-fly for a given set of ``x`` and ``y``.
 
-NOTE: If there are more than one integrals, only one of them are sampled and measured at each Markov-chain Monte Carlo step!
+Note: When multiple integrals are involved, only one of them is sampled and measured at each Markov-chain Monte Carlo step!
 
-For low-dimensional integrations, this algorithm is much less efficient than the :vegasmc or :vegas solvers. For high-dimension integrations, however,
-this algorithm becomes as efficent and robust as the :vegasmc solver, and is more efficient and robust than the :vegas solver.
+While the MCMC method may be less efficient than the `:vegasmc or `:vegas` solvers for low-dimensional integrations, it exhibits superior efficiency and robustness when faced with a large number of integrals, a scenario where the `:vegasmc` and `:vegas` solvers tend to struggle.
 
 # Arguments
-- `integrand` : User-defined function with the following signature:
+- `integrand`: A user-defined function evaluating the integrand. The function should be `integrand(idx, var, config)`. Here, `idx` is the index of the integrand component to be evaluated, `var` are the random variables and `weights` is an output array to store the calculated weights. The last parameter passes the MC `Configuration` struct to the integrand, so that user has access to userdata, etc.
+
+- `measure`: An optional user-defined function to accumulate the integrand weights into the observable. The function signature should be `measure(idx, var, obs, relative_weight, config)`. Here, `idx` is the integrand index, `obs` is a vector of observable values for each component of the integrand and `relative_weight` is the weight calculated from the `idx`-th integrand multiplied by the probability of the corresponding variables. 
+
+The following are the snippets of the `integrand` and `measure` functions:
 ```julia
 function integrand(idx, var, config)
     # calculate your integrand values
     # return integrand of the index idx
 end
 ```
-The first argument `idx` is index of the integral being sampled.
-The second parameter `var` is either a Variable struct if there is only one type of variable, or a tuple of Varibles if there are more than one types of variables.
-The third parameter passes the MC `Configuration` struct to the integrand, so that user has access to userdata, etc.
-
-- `measure` : User-defined function with the following signature:
 ```julia
-function measure(idx, var, obs, weight, config)
+function measure(idx, var, obs, relative_weight, config)
     # accumulates the weight into the observable
     # For example,
-    # obs[idx] = weight # integral idx
+    # obs[idx] = relative_weight # integral idx
     # ...
 end
 ```
-The first argument `idx` is index of the integral being sampled.
-The second argument `var` is either a Variable struct if there is only one type of variable, or a tuple of Varibles if there are more than one types of variables.
-The third argument passes the user-defined observable to the function, it should be a vector with the length same as the integral number.
-The fourth argument is the integrand weights to be accumulated to the observable, it is a vector with the length same as the integral number.
-The last argument passes the MC `Configuration` struct to the integrand, so that user has access to userdata, etc.
 
 # Remark:
 
@@ -80,12 +65,12 @@ The last argument passes the MC `Configuration` struct to the integrand, so that
 # Examples
 The following command calls the MC Vegas solver,
 ```julia-repl
-julia> integrate((idx, x, c)->(x[1]^2+x[2]^2); var = Continuous(0.0, 1.0), dof = 2, print=-1, solver=:mcmc)
-Integral 1 = 0.6757665376867902 ± 0.008655534861083898   (chi2/dof = 0.681)
+julia> integrate((idx, x, c)->(x[1]^2+x[2]^2); var = Continuous(0.0, 1.0), dof = [[2,],], verbose=-1, solver=:mcmc)
+Integral 1 = 0.6757665376867902 ± 0.008655534861083898   (reduced chi2 = 0.681)
 ```
 """
 function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval,
-    print=0, save=0, timer=[], debug=false;
+    verbose=0, timer=[], debug=false;
     measurefreq::Int=1,
     measure::Union{Nothing,Function}=nothing,
     idx::Int=1 # the integral to start with
