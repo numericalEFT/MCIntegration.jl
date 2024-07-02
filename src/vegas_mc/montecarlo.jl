@@ -222,11 +222,8 @@ function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval
             end
             if isnothing(measure) == false
                 (fieldcount(V) == 1) ?
-                measure(config.var[1], config.observable, weights, relativeWeights, config) :
-                measure(config.var, config.observable, weights, relativeWeights, config)
-                # (fieldcount(V) == 1) ?
-                # measure(config.var[1], config.observable, relativeWeights, config) :
-                # measure(config.var, config.observable, relativeWeights, config)
+                measure(config.var[1], config.observable, relativeWeights, config) :
+                measure(config.var, config.observable, relativeWeights, config)
             end
 
             config.normalization += 1.0 * padding_probability[config.norm] / probability
