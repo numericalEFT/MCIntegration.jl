@@ -73,7 +73,8 @@ function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval
     verbose=0, timer=[], debug=false;
     measurefreq::Int=1,
     measure::Union{Nothing,Function}=nothing,
-    idx::Int=1 # the integral to start with
+    idx::Int=1, # the integral to start with
+    thermal_ratio::Int=100
 ) where {N,V,P,O,T}
 
     @assert measurefreq > 0
@@ -140,7 +141,7 @@ function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval
         if debug && (isfinite(state.probability) == false)
             @warn("integrand probability = $(state.probability) is not finite at step $(config.neval)")
         end
-        if i % measurefreq == 0 && i >= neval / 100
+        if i % measurefreq == 0 && i >= neval / thermal_ratio
 
             ######## accumulate variable #################
             if state.curr != config.norm
