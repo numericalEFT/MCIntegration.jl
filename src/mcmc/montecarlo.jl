@@ -86,13 +86,13 @@ function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval
     # println("kwargs in mcmc: ", kwargs)
 
     ################## test integrand type stability ######################
-    if debug
-        if (length(config.var) == 1)
-            MCUtility.test_type_stability(integrand, (1, config.var[1], config))
-        else
-            MCUtility.test_type_stability(integrand, (1, config.var, config))
-        end
-    end
+    # if debug
+    #     if (length(config.var) == 1)
+    #         MCUtility.test_type_stability(integrand, (1, config.var[1], config))
+    #     else
+    #         MCUtility.test_type_stability(integrand, (1, config.var, config))
+    #     end
+    # end
     #######################################################################
 
     curr = idx
