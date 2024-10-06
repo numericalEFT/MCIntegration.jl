@@ -2,8 +2,6 @@
 Utility data structures and functions
 """
 module MCUtility
-using Test
-using ..MPI
 using ..Threads
 using LinearAlgebra
 
@@ -13,7 +11,6 @@ export StopWatch, check
 include("color.jl")
 export black, red, green, yellow, blue, magenta, cyan, white
 
-include("parallel.jl")
 export disable_threading
 
 export locate, smooth, rescale
@@ -39,17 +36,17 @@ export locate, smooth, rescale
 #     return str
 # end
 
-function test_type_stability(f, args)
-    try
-        @inferred f(args...)
-    catch e
-        if isa(e, MethodError)
-            @warn("call $f with wrong args. Got $(args)")
-        else
-            @warn "Type instability issue detected for $f, it may makes the integration slow" exception = (e, catch_backtrace())
-            # @warn("Type instability issue detected for $f, it may makes the integration slow.\n$e")
-        end
-    end
-end
+# function test_type_stability(f, args)
+#     try
+#         @inferred f(args...)
+#     catch e
+#         if isa(e, MethodError)
+#             @warn("call $f with wrong args. Got $(args)")
+#         else
+#             @warn "Type instability issue detected for $f, it may makes the integration slow" exception = (e, catch_backtrace())
+#             # @warn("Type instability issue detected for $f, it may makes the integration slow.\n$e")
+#         end
+#     end
+# end
 
 end

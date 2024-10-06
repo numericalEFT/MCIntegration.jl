@@ -82,21 +82,21 @@ function montecarlo(config::Configuration{Ni,V,P,O,T}, integrand::Function, neva
     diff = [config.dof[i] == config.maxdof for i in 1:Ni] # check if the dof is the same as the maxdof, if the same, then there is no need to update the padding probability
 
     ################## test integrand type stability ######################
-    if debug
-        if inplace
-            if (length(config.var) == 1)
-                MCUtility.test_type_stability(integrand, (config.var[1], weights, config))
-            else
-                MCUtility.test_type_stability(integrand, (config.var, weights, config))
-            end
-        else
-            if (length(config.var) == 1)
-                MCUtility.test_type_stability(integrand, (config.var[1], config))
-            else
-                MCUtility.test_type_stability(integrand, (config.var, config))
-            end
-        end
-    end
+    # if debug
+    #     if inplace
+    #         if (length(config.var) == 1)
+    #             MCUtility.test_type_stability(integrand, (config.var[1], weights, config))
+    #         else
+    #             MCUtility.test_type_stability(integrand, (config.var, weights, config))
+    #         end
+    #     else
+    #         if (length(config.var) == 1)
+    #             MCUtility.test_type_stability(integrand, (config.var[1], config))
+    #         else
+    #             MCUtility.test_type_stability(integrand, (config.var, config))
+    #         end
+    #     end
+    # end
     #######################################################################
 
 

@@ -336,12 +336,3 @@ function doReweight!(config, gamma, reweight_goal)
     # config.reweight ./= sum(config.reweight)
 end
 
-function doReweightMPI!(config::Configuration, gamma, reweight_goal::Union{Vector{Float64},Nothing}, comm::MPI.Comm)
-    if MCUtility.mpi_master()
-        # only the master process will output results, no matter parallel = :mpi or :thread or :serial
-        doReweight!(config, gamma, reweight_goal)
-    end
-    reweight_array = Vector{Float64}(config.reweight)
-    MPI.Bcast!(reweight_array, 0, comm)
-    config.reweight .= reweight_array
-end

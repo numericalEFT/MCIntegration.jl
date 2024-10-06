@@ -123,21 +123,21 @@ function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval
     _weights = zeros(T, N)
 
     ################## test integrand type stability ######################
-    if debug
-        if inplace
-            if (length(config.var) == 1)
-                MCUtility.test_type_stability(integrand, (config.var[1], weights, config))
-            else
-                MCUtility.test_type_stability(integrand, (config.var, weights, config))
-            end
-        else
-            if (length(config.var) == 1)
-                MCUtility.test_type_stability(integrand, (config.var[1], config))
-            else
-                MCUtility.test_type_stability(integrand, (config.var, config))
-            end
-        end
-    end
+    # @debug begin
+    #     if inplace
+    #         if (length(config.var) == 1)
+    #             MCUtility.test_type_stability(integrand, (config.var[1], weights, config))
+    #         else
+    #             MCUtility.test_type_stability(integrand, (config.var, weights, config))
+    #         end
+    #     else
+    #         if (length(config.var) == 1)
+    #             MCUtility.test_type_stability(integrand, (config.var[1], config))
+    #         else
+    #             MCUtility.test_type_stability(integrand, (config.var, config))
+    #         end
+    #     end
+    # end
     #######################################################################
 
     relativeWeights = zeros(T, N)

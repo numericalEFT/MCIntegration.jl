@@ -14,7 +14,7 @@ using ..Dist
 
 using ..MCUtility
 
-using Random, MPI
+using Random
 using LinearAlgebra
 using Printf, Dates
 

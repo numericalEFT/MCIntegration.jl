@@ -1,15 +1,22 @@
 module MCIntegration
-using MPI
 using Printf, Dates
 using Random
 using Graphs
-using Test
 using ProgressMeter
 # using Measurements
 
 const RNG = Random.GLOBAL_RNG
 const TINY = eps(Float64(0)) * 1e50 # 4.940656458412466e-274
 const EPSILON = eps(Float64)
+
+abstract type ParallelBackend end
+struct DefaultBackend <: ParallelBackend end
+struct MPIBackend <: ParallelBackend end
+
+function integrate(f, x, config::DefaultBackend)
+end
+
+integrate(f, x) = integrate(f, x, Defaultbackend())
 
 # this is how vegas python package does it
 # cdef double TINY = 10 ** (sys.float_info.min_10_exp + 50)  # smallest and biggest
