@@ -22,18 +22,18 @@ pkg> add MCIntegration
 
 To estimate the integral $\int_0^1 \frac{\log(x)}{\sqrt{x}} dx = -4$, you can use:
 ```julia
-julia> f(x, c) = log(x[1]) / sqrt(x[1])   # Define your integrand
+julia> f(x, c) = log(x[1]) / sqrt(x[1]);   # Define your integrand
 julia> integrate(f, var = Continuous(0, 1), neval=1e5)   # Perform the MC integration for 1e5 steps
-Integral 1 = -3.99689518016736 ± 0.001364833686666744   (reduced chi2 = 0.695)
+Integral 1 = -4.000214460546475 ± 0.00030013116779460897   (reduced chi2 = 1.29)
 ```
 In this example, we define an integrand function `f(x, c)` where `x` represents the random variables in the integral and `c` is a [`Configuration`](https://numericaleft.github.io/MCIntegration.jl/dev/lib/montecarlo/) object that can hold extra parameters that might be necessary for more complex integrand functions. The `var` parameter of `integrate()` specifies the distributions of the variables `x`. Here we set `var = Continuous(0, 1)`, meaning that `x[1]` will be distributed continuously and uniformly on the interval $[0, 1)$. Learn more details from the [documentation](https://numericaleft.github.io/MCIntegration.jl/dev/lib/montecarlo/).
 
 `MCIntegration.jl` also supports Discrete variables. For instance, let's estimate $\pi$ through the Taylor series for $\pi/4 = 1 - 1/3 + 1/5 -1/7 + 1/9 - ...$:
 ```julia
 
-julia> term(n, c) = 4 * ((-1)^(n[1]+1)) / (2*n[1] - 1)  # Define your term function where 'n' represents the discrete variable in the integral
+julia> term(n, c) = 4 * ((-1)^(n[1]+1)) / (2*n[1] - 1);  # Define your term function where 'n' represents the discrete variable in the integral
 julia> integrate(term; var = Discrete(1, 100), neval = 1e5)  # Perform the MC integration for 1e5 steps where 'var' is used to specify the type and range of the discrete variable 'n'
-Integral 1 = 3.120372107250909 ± 0.016964643375124093   (reduced chi2 = 1.38)
+Integral 1 = 3.1544879154329437 ± 0.019339973171423743   (reduced chi2 = 0.926)
 ```
 
 ## Understanding Variables
@@ -55,23 +55,23 @@ Here are examples to illustrate the usage of different types of variable vectors
 
 - Symmetric Variables (Variable Vector): Estimate π
 ```julia
-julia> f(x, c) = x[1]^2 + x[2]^2 < 1
+julia> f(x, c) = x[1]^2 + x[2]^2 < 1;
 julia> integrate(f; var = Continuous(-1, 1), dof = [[2, ],]) # dof must be provided for multi-dimensional integrands
-Integral 1 = 3.1316915341619413 ± 0.008785871829296759   (reduced chi2 = 0.298)
+Integral 1 = 3.147871586250367 ± 0.008579987156265957   (reduced chi2 = 0.512)
 ```
 - Composite Variable Vector: Estimate π with polar coordinate (r, θ)
 ```julia
-julia> g((r, θ), c) = r[1] # Unpack the variables into r and θ. The integrand is independent of θ.
+julia> g((r, θ), c) = r[1]; # Unpack the variables into r and θ. The integrand is independent of θ.
 julia> integrate(g; var = Continuous([(0, 1), (0, 2π)]), dof = [(1, ),]) 
 # Alternatively, use the constructor: CompositeVar(Continuous(0, 1), Continuous(0, 2π))
-Integral 1 = 3.14367422926071 ± 0.0011572440016582415   (reduced chi2 = 0.735)
+Integral 1 = 3.1434441052487423 ± 0.0011585458821516787   (reduced chi2 = 1.18)
 ```
 
 - Tuple of Variable Vectors: Calculate $4\sum_{n \ge 0} \int_0^1 (-1)^n x^{2n}dx = \pi$
 ```julia
-julia> f((n, x), c) = 4*(-1)^n[1]*x[1]^(2*n[1])
+julia> f((n, x), c) = 4*(-1)^n[1]*x[1]^(2*n[1]);
 julia> integrate(f; var = (Discrete(0, 100), Continuous(0, 1)), dof = [(1, 1),], neval=1e5)
-Integral 1 = 3.141746201859978 ± 0.04261519744132012   (reduced chi2 = 0.611)
+Integral 1 = 3.1852676447869572 ± 0.04284225479116088   (reduced chi2 = 0.984)
 ```
 
 ## Selecting Algorithms
