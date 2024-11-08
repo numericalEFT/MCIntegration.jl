@@ -74,7 +74,7 @@ function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval
     measurefreq::Int=1,
     measure::Union{Nothing,Function}=nothing,
     idx::Int=1, # the integral to start with
-    thermal_ratio::Int=100
+    nburnin::Int=100
 ) where {N,V,P,O,T}
 
     @assert measurefreq > 0
@@ -131,7 +131,7 @@ function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval
     # end
     startTime = time()
 
-    for i = 1:neval
+    for i = 1:(neval+nburnin) 
         # config.neval += 1
         config.visited[state.curr] += 1
         _update = rand(config.rng, updates) # randomly select an update
@@ -141,7 +141,7 @@ function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval
         if debug && (isfinite(state.probability) == false)
             @warn("integrand probability = $(state.probability) is not finite at step $(config.neval)")
         end
-        if i % measurefreq == 0 && i >= neval / thermal_ratio
+        if i % measurefreq == 0 && i >= nburnin
 
             ######## accumulate variable #################
             if state.curr != config.norm
