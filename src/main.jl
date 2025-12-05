@@ -7,7 +7,7 @@
         block=16, 
         measure::Union{Nothing,Function}=nothing,
         measurefreq::Int=1,
-        nburnin::Int=100,
+        thermal_ratio::Float64=0.1,
         inplace::Bool=false,
         adapt=true,
         gamma=1.0, 
@@ -36,7 +36,7 @@ Calculate the integrals, collect statistics, and return a `Result` struct contai
     - For `solver = :vegas` or `:vegasmc`, the function signature should be `measure(var, obs, relative_weights, config)`. Here, `obs` is a vector of observable values for each component of the integrand and `relative_weights` are the weights calculated from the integrand multiplied by the probability of the corresponding variables. 
     - For `solver = :mcmc`, the signature should be `measure(idx, var, obs, relative_weight, config)`, where `obs` is the observable vector and `relative_weight` is the weight calculated from the `idx`-th integrand multiplied by the probability of the variables.
 - `measurefreq`: How often the measurement function is called (default: `1`).
-- `nburnin` : Tha thermalization steps for MCMC method
+- `thermal_ratio` : Tha thermalization ratio in one Marovov chain. Default is `0.1`.
 - `inplace`: Whether to use the inplace version of the integrand. Default is `false`, which is more convenient for integrand with a few return values but may cause type instability. Only useful for the :vegas and :vegasmc solver.
 - `adapt`: Whether to adapt the grid and the reweight factor (default: `true`).
 - `gamma`: Learning rate of the reweight factor after each iteration (default: `1.0`).
@@ -82,7 +82,7 @@ function integrate(integrand::Function;
     ignore::Int=adapt ? 1 : 0, #ignore the first `ignore` iterations in average
     measure::Union{Nothing,Function}=nothing,
     measurefreq::Int=1,
-    nburnin::Int = 100,
+    thermal_ratio::Float64=0.1,
     inplace::Bool=false, # whether to use the inplace version of the integrand
     parallel::Symbol=:nothread, # :thread or :nothread
     print=-1, printio=stdout, timer=[],
@@ -154,13 +154,13 @@ function integrate(integrand::Function;
                 Threads.@threads for _ in 1:block/MCUtility.mpi_nprocs()
                     _block!(configs, obsSum, obsSquaredSum, summedConfig, solver, progress,
                         integrand, nevalperblock, print, timer, debug,
-                        measure, measurefreq, nburnin, inplace, parallel)
+                        measure, measurefreq, thermal_ratio, inplace, parallel)
                 end
             else
                 for _ in 1:block/MCUtility.mpi_nprocs()
                     _block!(configs, obsSum, obsSquaredSum, summedConfig, solver, progress,
                         integrand, nevalperblock, print, timer, debug,
-                        measure, measurefreq, nburnin, inplace, parallel)
+                        measure, measurefreq, thermal_ratio, inplace, parallel)
                 end
             end
         end
@@ -236,7 +236,7 @@ end
 function _block!(configs, obsSum, obsSquaredSum, summedConfig,
     solver, progress,
     integrand::Function, nevalperblock, print, timer, debug::Bool,
-    measure::Union{Nothing,Function}, measurefreq, nburnin, inplace, parallel)
+    measure::Union{Nothing,Function}, measurefreq, thermal_ratio, inplace, parallel)
 
     rank = MCUtility.threadid(parallel)
     # println(rank)
@@ -252,7 +252,7 @@ function _block!(configs, obsSum, obsSquaredSum, summedConfig,
             measure=measure, measurefreq=measurefreq, inplace=inplace)
     elseif solver == :mcmc
         MCMC.montecarlo(config_n, integrand, nevalperblock, print, timer, debug;
-            measure=measure, measurefreq=measurefreq, nburnin = nburnin)
+            measure=measure, measurefreq=measurefreq, thermal_ratio=thermal_ratio)
     else
         error("Solver $solver is not supported!")
     end
