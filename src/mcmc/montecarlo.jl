@@ -131,7 +131,7 @@ function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval
     # end
     startTime = time()
 
-    nburnin = Int(neval * thermal_ratio)
+    nburnin = Int(floor(neval * thermal_ratio))
     for i = 1:(neval+nburnin)
         # config.neval += 1
         config.visited[state.curr] += 1
