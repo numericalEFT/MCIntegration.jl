@@ -255,8 +255,8 @@ function Configuration(;
 
     # propose and accept shape: number of updates X integrand number X max(integrand number, variable number)
     # the last index will waste some memory, but the dimension is small anyway
-    propose = zeros(Float64, (2, Nd, max(Nd, Nv))) .+ 1.0e-8 # add a small initial value to avoid Inf when inverted
-    accept = zeros(Float64, (2, Nd, max(Nd, Nv)))
+    propose = zeros(Float64, (3, Nd, max(Nd, Nv))) .+ 1.0e-8 # add a small initial value to avoid Inf when inverted
+    accept = zeros(Float64, (3, Nd, max(Nd, Nv)))
 
     return Configuration{Nd - 1,typeof(var),typeof(userdata),typeof(obs),type}(
         seed, MersenneTwister(seed), var, userdata,  # static parameters
@@ -494,6 +494,34 @@ function report(config::Configuration, total_neval=nothing)
         end
     end
     println(bar)
+
+    println(yellow(@sprintf("%-20s %12s %12s %12s", "SwapVariable", "Proposed", "Accepted", "Ratio  ")))
+    for idx = 1:Nd-1 # normalization diagram don't have variable to change
+        for (vi, var) in enumerate(var)
+            if var isa Continuous
+                typestr = "Continuous"
+            elseif var isa Discrete
+                typestr = "Discrete"
+            elseif var isa CompositeVar
+                typestr = "Composite"
+            elseif var isa FermiK
+                typestr = "FermiK"
+            else
+                typestr = "$(typeof(var))"
+                # typestr = split(typestr, ".")[end]
+            end
+            @printf(
+                "  %2d / %-11s:   %11.6f%% %11.6f%% %12.6f\n",
+                idx, typestr,
+                propose[3, idx, vi] / neval * 100.0,
+                accept[3, idx, vi] / neval * 100.0,
+                accept[3, idx, vi] / propose[3, idx, vi]
+            )
+            totalproposed += propose[3, idx, vi]
+        end
+    end
+    println(bar)
+
     println(yellow("Integrand            Visited      ReWeight"))
     @printf("  Norm   :     %12i %12.6f\n", visited[end], reweight[end])
     for idx = 1:Nd-1
