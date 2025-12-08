@@ -241,6 +241,12 @@ function _block!(configs, obsSum, obsSquaredSum, summedConfig,
     rank = MCUtility.threadid(parallel)
     # println(rank)
 
+    # Ensure rank is within bounds of configs array
+    # When Threads.nthreads() = 1, @threads can still create tasks with threadid() > 1
+    if rank > length(configs)
+        rank = 1  # Fall back to first config when thread ID exceeds array bounds
+    end
+
     config_n = configs[rank] # configuration for the worker with thread id `rank`
     clearStatistics!(config_n) # reset statistics
 
