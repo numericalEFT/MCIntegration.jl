@@ -196,9 +196,7 @@ end
 function accumulate!(T::Continuous, idx::Int, weight=1.0)
     if T.adapt
         T.histogram[T.gidx[idx]] += weight
-        return nothing
     end
-    return nothing
 end
 
 """

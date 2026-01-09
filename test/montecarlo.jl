@@ -3,20 +3,9 @@ Demostrate do syntax for Monte Carlo simulation.
 """
 function Sphere1(neval, alg)
     X = Continuous(0.0, 1.0)
-<<<<<<< HEAD
-    f(X) = (X[1]^2 + X[2]^2 < 1.0) ? 1.0 : 0.0
-    if alg == :mcmc
-        return integrate((idx, x, c) -> f(x);
-            var=(X,), dof=[[2,],], neval=neval, print=-1, solver=alg)
-    else
-        return integrate((x, _f, c) -> (_f[1] = f(x));
-            var=(X,), dof=[[2,],], neval=neval, print=-1, solver=alg)
-    end
-=======
     f(x, c) = (x[1]^2 + x[2]^2 < 1.0) ? 1.0 : 0.0
     f(idx, x, c)::Float64 = f(x, c)
     return integrate(f; var=(X,), dof=[[2,],], neval=neval, print=-1, solver=alg)
->>>>>>> master
 end
 
 """
@@ -28,11 +17,12 @@ function TestMCMCReweight(neval)
 end
 
 function Sphere2(totalstep, alg; offset=0)
-    function integrand(X, f, config) # return a tuple of two integrands
-        f[1] = (X[1+offset]^2 + X[2+offset]^2 < 1.0) ? 1.0 : 0.0
-        f[2] = (X[1+offset]^2 + X[2+offset]^2 + X[3+offset]^2 < 1.0) ? 1.0 : 0.0
+    function integrand(X, config) # return a tuple of two integrands
+        i1 = (X[1+offset]^2 + X[2+offset]^2 < 1.0) ? 1.0 : 0.0
+        i2 = (X[1+offset]^2 + X[2+offset]^2 + X[3+offset]^2 < 1.0) ? 1.0 : 0.0
+        return i1, i2
     end
-    function integrand_mcmc(idx, X, config) # return one of the integrand
+    function integrand(idx, X, config) # return one of the integrand
         @assert idx == 1 || idx == 2 "$(idx) is not a valid integrand"
         if idx == 1
             return (X[1+offset]^2 + X[2+offset]^2 < 1.0) ? 1.0 : 0.0
@@ -105,15 +95,9 @@ function TestDiscrete(totalstep, alg)
     X = Discrete(1, 3, adapt=true)
     dof = [[1,],] # number of X variable of the integrand
     config = Configuration(var=(X,), dof=dof)
-    # f(x, c) = x[1]
-    # f(idx, x, c)::Int = f(x, c)
-    if alg == :mcmc
-        return integrate((idx, x, c) -> x[1];
-            config=config, neval=totalstep, niter=10, print=-1, solver=alg, debug=true)
-    else
-        return integrate((x, f, c) -> f[1] = x[1];
-            config=config, neval=totalstep, niter=10, print=-1, solver=alg, debug=true)
-    end
+    f(x, c) = x[1]
+    f(idx, x, c)::Int = f(x, c)
+    return integrate(f; config=config, neval=totalstep, niter=10, print=-1, solver=alg, debug=true)
 end
 
 function TestDiscrete2(totalstep, alg)
@@ -127,12 +111,9 @@ end
 
 function TestSingular1(totalstep, alg)
     #log(x)/sqrt(x), singular in x->0
-    fs(x) = log(x) / sqrt(x)
-    if alg == :mcmc
-        return integrate((idx, x, c) -> fs(x[1]); neval=totalstep, print=-1, solver=alg)
-    else
-        return integrate((x, f, c) -> f[1] = fs(x[1]); neval=totalstep, print=-1, solver=alg)
-    end
+    f(X, c) = log(X[1]) / sqrt(X[1])
+    f(idx, X, c) = log(X[1]) / sqrt(X[1])
+    return integrate(f; neval=totalstep, print=-1, solver=alg)
 end
 
 function TestSingular2(totalstep, alg)
@@ -142,8 +123,8 @@ function TestSingular2(totalstep, alg)
             return 1.0 / (1.0 - cos(x[1]) * cos(x[2]) * cos(x[3])) / π^3
         end
     else
-        return integrate(var=(Continuous(0.0, 1π),), dof=[[3,],], neval=totalstep, print=-1, solver=alg) do x, f, c
-            f[1] = 1.0 / (1.0 - cos(x[1]) * cos(x[2]) * cos(x[3])) / π^3
+        return integrate(var=(Continuous(0.0, 1π),), dof=[[3,],], neval=totalstep, print=-1, solver=alg) do x, c
+            return 1.0 / (1.0 - cos(x[1]) * cos(x[2]) * cos(x[3])) / π^3
         end
     end
 end
@@ -158,9 +139,9 @@ function TestSingular2_CompositeVar(totalstep, alg)
             return 1.0 / (1.0 - cos(x[1]) * cos(y[1]) * cos(z[1])) / π^3
         end
     else
-        return integrate(var=C, dof=1, neval=totalstep, print=-1, solver=alg) do cvars, f, c
+        return integrate(var=C, dof=1, neval=totalstep, print=-1, solver=alg) do cvars, c
             x, y, z = cvars
-            f[1] = 1.0 / (1.0 - cos(x[1]) * cos(y[1]) * cos(z[1])) / π^3
+            return 1.0 / (1.0 - cos(x[1]) * cos(y[1]) * cos(z[1])) / π^3
         end
     end
 end
@@ -183,31 +164,23 @@ function TestSingular2_Continuous_HighDim(totalstep, alg)
 end
 
 function TestComplex1(totalstep, alg)
-    fc(x) = x[1] + x[1]^2 * 1im
-    if alg == :mcmc
-        return integrate((idx, x, c) -> fc(x); neval=totalstep, print=-1, type=ComplexF64, solver=alg, debug=true)
-    else
-        return integrate((x, f, c) -> f[1] = fc(x); neval=totalstep, print=-1, type=ComplexF64, solver=alg, debug=true)
-    end
+    f(x, c) = x[1] + x[1]^2 * 1im
+    f(idx, x, c)::ComplexF64 = f(x, c) # dispatch with args seems require type annotation
+    integrate(f; neval=totalstep, print=-1, type=ComplexF64, solver=alg, debug=true)
 end
 
 function TestComplex2(totalstep, alg)
-    function integrand(x, f, c) #return a tuple (real, complex) 
+    function integrand(x, c) #return a tuple (real, complex) 
         #the code should handle real -> complex conversion
-        f[1] = x[1]
-        f[2] = x[1]^2 * 1im
+        return x[1], x[1]^2 * 1im
     end
-    function integrand_mcmc(idx, x, c) # return one of the integrand
+    function integrand(idx, x, c) # return one of the integrand
         return idx == 1 ? x[1] + 0im : (x[1]^2 * 1im)
     end
-    if alg == :mcmc
-        res = integrate(integrand_mcmc; dof=[[1,], [1,]], neval=totalstep, print=-1, type=ComplexF64, solver=alg, debug=true)
-    else
-        res = integrate(integrand; dof=[[1,], [1,]], neval=totalstep, print=-1, type=ComplexF64, solver=alg, debug=true)
-    end
-    # config = res.config
-    # @inferred integrand(config.var[1], config) #make sure the type is inferred for the integrand function
-    # @inferred integrand(1, config.var[1], config) #make sure the type is inferred for the integrand function
+    res = integrate(integrand; dof=[[1,], [1,]], neval=totalstep, print=-1, type=ComplexF64, solver=alg, debug=true)
+    config = res.config
+    @inferred integrand(config.var[1], config) #make sure the type is inferred for the integrand function
+    @inferred integrand(1, config.var[1], config) #make sure the type is inferred for the integrand function
     return res
 end
 
@@ -329,9 +302,7 @@ end
     println("Sphere 2D")
     check(Sphere1(neval, :vegas), π / 4.0)
     println("Sphere 2D + 3D")
-    res = Sphere2(neval, :vegas)
-    println(res)
-    check(res, [π / 4.0, 4.0 * π / 3.0 / 8])
+    check(Sphere2(neval, :vegas), [π / 4.0, 4.0 * π / 3.0 / 8])
     check(Sphere2(neval, :vegas; offset=2), [π / 4.0, 4.0 * π / 3.0 / 8])
     check_vector(Sphere3(neval, :vegas), [π / 4.0, [4.0 * π / 3.0 / 8, 4.0 * π / 3.0 / 4]])
     println("Discrete")
