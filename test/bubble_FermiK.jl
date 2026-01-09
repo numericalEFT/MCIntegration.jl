@@ -3,7 +3,7 @@
 
 using LinearAlgebra, Random, Printf
 using StaticArrays
-using MCIntegration
+# using MCIntegration
 # using ProfileView
 # using Infiltrator
 
@@ -107,7 +107,7 @@ using MCIntegration
             neval=steps, print=0, block=16, debug=true)
 
         if isnothing(result) == false
-            avg, std = result.mean, result.stdev
+            avg, std = result.mean[1], result.stdev[1]
 
             println("Algorithm : $(alg)")
             @printf("%10s  %10s   %10s  %10s\n", "q/kF", "avg", "err", "exact")

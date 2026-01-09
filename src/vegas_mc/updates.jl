@@ -42,7 +42,11 @@
 #     return
 # end
 
+<<<<<<< HEAD
 function changeVariable(config::Configuration{N,V,P,O,T}, integrand,
+=======
+function changeVariable(config::Configuration{N,V,P,O,T}, integrand, inplace,
+>>>>>>> master
     currProbability::Float64, weights, _weights,
     padding_probability, _padding_probability) where {N,V,P,O,T}
     # update to change the variables of the current diagrams
@@ -65,10 +69,15 @@ function changeVariable(config::Configuration{N,V,P,O,T}, integrand,
         # return currProbability
     end
 
-    # weights = integrand_wrap(config, integrand)
-    (fieldcount(V) == 1) ?
-    integrand(config.var[1], _weights, config) :
-    integrand(config.var, _weights, config)
+    if inplace
+        (fieldcount(V) == 1) ?
+        integrand(config.var[1], _weights, config) :
+        integrand(config.var, _weights, config)
+    else
+        _weights = (fieldcount(V) == 1) ?
+                   integrand(config.var[1], config) :
+                   integrand(config.var, config)
+    end
     # evaulation acutally happens before this step
     config.neval += 1
 
@@ -84,9 +93,13 @@ function changeVariable(config::Configuration{N,V,P,O,T}, integrand,
         end
         # @assert _padding_probability[i] ≈ Dist.padding_probability(config, i) "$(_padding_probability[i]) ≈ $(Dist.padding_probability(config, i))\n $idx, $(config.dof[i][vi])"
     end
+<<<<<<< HEAD
     _padding_probability[config.norm] = padding_probability[config.norm] / prop
     # @assert _padding_probability[config.norm] ≈ Dist.padding_probability(config, N + 1) "$(_padding_probability[config.norm]) ≈ $(Dist.padding_probability(config, N+1))"
 
+=======
+    # Dist.padding_probability!(config, _padding_probability)
+>>>>>>> master
     # println(_padding_probability)
     newProbability = config.reweight[config.norm] * _padding_probability[config.norm] #normalization integral
     for i in 1:N #other integrals

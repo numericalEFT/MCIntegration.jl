@@ -2,7 +2,7 @@
 
 using LinearAlgebra, Random, Printf
 using StaticArrays
-using MCIntegration
+# using MCIntegration
 # using ProfileView
 
 @testset "Free electron polarization" begin
@@ -113,7 +113,7 @@ using MCIntegration
             neval=steps * 10, print=0, block=16, niter=10, config=result.config, debug=true)
 
         if isnothing(result) == false
-            avg, std = result.mean, result.stdev
+            avg, std = result.mean[1], result.stdev[1]
 
             println("Algorithm : $(alg)")
             @printf("%10s  %10s   %10s  %10s\n", "q/kF", "avg", "err", "exact")
@@ -125,6 +125,7 @@ using MCIntegration
             end
             report(result.config)
             # check(avg[1], std[1], lindhard(extQ[1][1], para))
+            report(result)
         end
     end
 

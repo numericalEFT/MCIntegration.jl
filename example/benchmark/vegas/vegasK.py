@@ -1,3 +1,5 @@
+# this script demonstrates a python implementation of the vegas algorithm, from Kristjan Haule's website: https://www.physics.rutgers.edu/~haule/509/src_numerics/Random/Vegas/Vegas_2021.html
+
 from scipy import *
 from numpy import *
 import vegas

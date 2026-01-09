@@ -5,7 +5,7 @@ using Random
 using Graphs
 using Test
 using ProgressMeter
-using Measurements
+# using Measurements
 
 const RNG = Random.GLOBAL_RNG
 const TINY = eps(Float64(0)) * 1e50 # 4.940656458412466e-274
@@ -17,6 +17,7 @@ const EPSILON = eps(Float64)
 
 include("utility/utility.jl")
 using .MCUtility
+export disable_threading
 
 include("distribution/distribution.jl")
 using .Dist

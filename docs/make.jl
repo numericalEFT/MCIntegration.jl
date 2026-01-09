@@ -24,6 +24,7 @@ makedocs(;
             "lib/vegas.md",
             "lib/mcmc.md",
             "lib/distribution.md",
+            "lib/utility.md",
             # map(s -> "lib/$(s)", sort(readdir(joinpath(@__DIR__, "src/lib"))))
             # "Internals" => map(s -> "lib/$(s)", sort(readdir(joinpath(@__DIR__, "src/lib"))))
         ]

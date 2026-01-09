@@ -48,35 +48,44 @@ function f3cuba(x, out)
     return
 end
 
+
+res = integrate(neval=10000, dof=[[4], [4], [4]], verbose=-1, solver=:vegas) do x, c
+    dx2 = 0.0
+    for d in 1:4
+        dx2 += (x[d] - 0.5)^2
+    end
+    f = exp(-200 * dx2) * 1000.0
+    return f, f * x[1], f * x[1]^2
+end
+println("MCIntegration.jl vegas (Julia): \n", res)
+println()
+
+res = integrate(neval=10000, dof=[[4], [4], [4]], verbose=-1, solver=:vegasmc) do x, c
+    dx2 = 0.0
+    for d in 1:4
+        dx2 += (x[d] - 0.5)^2
+    end
+    f = exp(-200 * dx2) * 1000.0
+    return f, f * x[1], f * x[1]^2
+end
+println("MCIntegration.jl vegasmc (Julia): \n", res)
+println()
+
+result = vegas(f3cuba, 4, 3, maxevals=1e5)
+println("Cuba (C): ", result)
+println()
+
 integ = Vegas.Integrator([[0, 1], [0, 1], [0, 1], [0, 1]])
 # adapt grid
 # training = integ(f, nitn=10, neval=2000)
 # final analysis
 result = integ(f3, nitn=10, neval=1e4, beta=0.0)
+println("Classic Vegas (Python): ", result)
+println()
 
 integ2 = Vegas.Integrator([[0, 1], [0, 1], [0, 1], [0, 1]])
 # adapt grid
 # training = integ(f, nitn=10, neval=2000)
 # final analysis
 result = integ2(f3, nitn=10, neval=1e4)
-
-result = vegas(f3cuba, 4, 3, maxevals=1e5)
-
-
-result = integrate(neval=10000, dof=[[1], [1], [1], [1]], print=0) do c
-    x = c.var[1]
-    dx2 = 0.0
-    for d in 1:4
-        dx2 += (x[d] - 0.5)^2
-    end
-    f = exp(-200 * dx2) * 1000.0
-    # f = exp(-1 * dx2)
-    if c.curr == 1
-        return f
-    elseif c.curr == 2
-        return f * (x[1] + 1e-4)
-    else
-        return f * (x[1] + 1e-4)^2
-    end
-end
-MCIntegration.summary(result, [obs -> obs[1], obs -> obs[2], obs -> obs[3]]; verbose=-1)
+println("Vegas+ (Python): ", result)

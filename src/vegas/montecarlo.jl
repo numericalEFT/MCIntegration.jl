@@ -24,38 +24,34 @@ end
 # end
 
 """
-
     function montecarlo(config::Configuration{Ni,V,P,O,T}, integrand::Function, neval,
-        print=0, save=0, timer=[], debug=false;
+        verbose=0, timer=[], debug=false;
         measure::Union{Nothing,Function}=nothing, measurefreq::Int=1) where {Ni,V,P,O,T}
 
-This algorithm implements the classic Vegas algorithm.
+This function implements the Vegas algorithm, a Monte Carlo method specifically designed for multi-dimensional integration. The underlying principle and methodology of the algorithm can be explored further in the [Vegas documentation](https://vegas.readthedocs.io/en/latest/background.html#importance-sampling).
 
-The main idea of the algorithm can be found in this [link](https://vegas.readthedocs.io/en/latest/background.html#importance-sampling).
+# Overview
+The Vegas algorithm employs an importance sampling scheme. For a one-dimensional integral with the integrand ``f(x)``, the algorithm constructs an optimized distribution ``\\rho(x)`` that approximates the integrand as closely as possible (a strategy known as the Vegas map trick; refer to [`Dist.Continuous`](@ref) for more details).
 
-The algorithm uses a simple important sampling scheme. 
-Consider an one-dimensional integral with the integrand ``f(x)``, the algorithm will try to learn an
-optimized distribution ``\\rho(x)>0`` which mimic the integrand as good as possible (a.k.a, the Vegas map trick, see [`Dist.Continuous`](@ref)) for more detail. 
+The variable ``x`` is then sampled using the distribution ``\\rho(x)``, and the integral is estimated by averaging the estimator ``f(x)/\\rho(x)``.
 
-One then sample the variable ``x`` with the distribution ``\\rho(x)``, and estimate the integral by averging the estimator ``f(x)/\\rho(x)``.
+# Note
+- If there are multiple integrals, all of them are sampled and measured at each Monte Carlo step.
+- This algorithm is particularly efficient for low-dimensional integrations but might be less efficient and robust than the Markov-chain Monte Carlo solvers for high-dimensional integrations.
 
-NOTE: If there are more than one integrals, then all integrals are sampled and measured at each Monte Carlo step.
-
-This algorithm is very efficient for low-dimensional integrations, but can be less
-efficient and less robust than the Markov-chain Monte Carlo solvers for high-dimensional integrations.
 
 # Arguments
-- `integrand` : User-defined function with the following signature:
+- `integrand`: A user-defined function evaluating the integrand. The function should be either `integrand(var, config)` or `integrand(var, weights, config)` depending on whether `inplace` is `false` or `true` respectively. Here, `var` are the random variables and `weights` is an output array to store the calculated weights. The last parameter passes the MC `Configuration` struct to the integrand, so that user has access to userdata, etc.
+
+- `measure`: An optional user-defined function to accumulate the integrand weights into the observable. The function signature should be `measure(var, obs, relative_weights, config)`. Here, `obs` is a vector of observable values for each component of the integrand and `relative_weights` are the weights calculated from the integrand multiplied by the probability of the corresponding variables.
+
+The following are the snippets of the `integrand` and `measure` functions:
 ```julia
 function integrand(var, config)
     # calculate your integrand values
     # return integrand1, integrand2, ...
 end
 ```
-The first parameter `var` is either a Variable struct if there is only one type of variable, or a tuple of Varibles if there are more than one types of variables.
-The second parameter passes the MC `Configuration` struct to the integrand, so that user has access to userdata, etc.
-
-- `measure` : User-defined function with the following signature:
 ```julia
 function measure(var, obs, weights, config)
     # accumulates the weight into the observable
@@ -65,34 +61,40 @@ function measure(var, obs, weights, config)
     # ...
 end
 ```
-The first argument `var` is either a Variable struct if there is only one type of variable, or a tuple of Varibles if there are more than one types of variables.
-The second argument passes the user-defined observable to the function, it should be a vector with the length same as the integral number.
-The third argument is the integrand weights to be accumulated to the observable, it is a vector with the length same as the integral number.
-The last argument passes the MC `Configuration` struct to the integrand, so that user has access to userdata, etc.
 
 # Examples
 The following command calls the Vegas solver,
 ```julia-repl
-julia> integrate((x, c)->(x[1]^2+x[2]^2); var = Continuous(0.0, 1.0), dof = 2, print=-1, solver=:vegas)
-Integral 1 = 0.667203631824444 ± 0.0005046485925614018   (chi2/dof = 1.46)
+julia> integrate((x, c)->(x[1]^2+x[2]^2); var = Continuous(0.0, 1.0), dof = [[2,],], verbose=-1, solver=:vegas)
+Integral 1 = 0.667203631824444 ± 0.0005046485925614018   (reduced chi2 = 1.46)
 ```
 """
 function montecarlo(config::Configuration{Ni,V,P,O,T}, integrand::Function, neval,
-    print=0, save=0, timer=[], debug=false;
-    measure::Union{Nothing,Function}=nothing, measurefreq::Int=1
+    verbose=0, timer=[], debug=false;
+    measure::Union{Nothing,Function}=nothing, measurefreq::Int=1, inplace::Bool=false
 ) where {Ni,V,P,O,T}
 
     @assert measurefreq > 0
 
     relativeWeights = zeros(T, Ni)
     weights = zeros(T, Ni)
+    padding_probability = ones(Ni)
+    diff = [config.dof[i] == config.maxdof for i in 1:Ni] # check if the dof is the same as the maxdof, if the same, then there is no need to update the padding probability
 
     ################## test integrand type stability ######################
     if debug
-        if (length(config.var) == 1)
-            MCUtility.test_type_stability(integrand, (config.var[1], weights, config))
+        if inplace
+            if (length(config.var) == 1)
+                MCUtility.test_type_stability(integrand, (config.var[1], weights, config))
+            else
+                MCUtility.test_type_stability(integrand, (config.var, weights, config))
+            end
         else
-            MCUtility.test_type_stability(integrand, (config.var, weights, config))
+            if (length(config.var) == 1)
+                MCUtility.test_type_stability(integrand, (config.var[1], config))
+            else
+                MCUtility.test_type_stability(integrand, (config.var, config))
+            end
         end
     end
     #######################################################################
@@ -102,7 +104,7 @@ function montecarlo(config::Configuration{Ni,V,P,O,T}, integrand::Function, neva
         @assert (config.observable isa AbstractVector) && (length(config.observable) == config.N) && (eltype(config.observable) == T) "the default measure can only handle observable as Vector{$T} with $(config.N) elements!"
     end
     ##############  initialization  ################################
-    # don't forget to initialize the variables 
+    # don't forget to initialize the variables
     for var in config.var
         Dist.initialize!(var, config)
     end
@@ -127,19 +129,32 @@ function montecarlo(config::Configuration{Ni,V,P,O,T}, integrand::Function, neva
                 # jac *= Dist.create!(var, idx + var.offset, config)
             end
         end
+        # Dist.padding_probability!(config, padding_probability)
+        for i in 1:Ni
+            if diff[i] == false
+                padding_probability[i] = Dist.padding_probability(config, i)
+            end
+        end
         # weights = @_expanded_integrand(config, integrand, 1) # very fast, but requires explicit N
         # weights = integrand_wrap(config, integrand) #make a lot of allocations
-        (fieldcount(V) == 1) ? integrand(config.var[1], weights, config) : integrand(config.var, weights, config)
+        if inplace
+            integrand((isone(fieldcount(V)) ? config.var[1] : config.var), weights, config)
+        else
+            weights .= integrand((isone(fieldcount(V)) ? config.var[1] : config.var), config)
+        end
+
+        # println("before: ", weights, "with jac = ", jac)
 
         if (ne % measurefreq == 0)
             if isnothing(measure)
+                # println("after: ", weights * jac)
                 for i in 1:Ni
-                    config.observable[i] += weights[i] * jac
+                    config.observable[i] += weights[i] * padding_probability[i] * jac
                 end
                 # observable += weights * jac
             else
                 for i in 1:Ni
-                    relativeWeights[i] = weights[i] * jac
+                    relativeWeights[i] = weights[i] * padding_probability[i] * jac
                 end
                 (fieldcount(V) == 1) ?
                 measure(config.var[1], config.observable, relativeWeights, config) :
@@ -157,6 +172,7 @@ function montecarlo(config::Configuration{Ni,V,P,O,T}, integrand::Function, neva
             for idx in eachindex(weights)
                 w2 = abs(weights[idx])
                 j2 = jac
+                # ! warning: need to check whether to use jac or jac*padding_probability[idx]
                 if debug && (isfinite(w2) == false)
                     @warn("abs of the integrand $idx = $(w2) is not finite at step $(config.neval)")
                 end

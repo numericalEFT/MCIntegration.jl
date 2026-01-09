@@ -25,22 +25,22 @@ end
 
 # MCIntegration : 1.3961243672238552 ± 0.008180219118720399
 # MCIntegratin with vegas-like grid: 1.3925602769659569 ± 0.0048896463116989905
-integrate(neval=200000, var=(Continuous(0.0, 1π, alpha=3.0, adapt=true),), dof=[[3,],]) do config
-    x = config.var[1]
-    return f(x)
+res = integrate(neval=200000, var=(Continuous(0.0, 1π, alpha=3.0, adapt=true),), dof=[[3,],], solver=:vegas) do var, config
+    return f(var)
 end
+println("MCIntegration.jl (Julia): ", res.mean[1], " ± ", res.stdev[1])
+
+# Cuba: 1.3922290364427665 ± 0.0010906210048935345
+result = vegas((x, g) -> g[1] = fc(x), 3, maxevals=2e6) # 10 iterations, 2e5 per iteration
+# @time result = vegas((x, g) -> g[1] = fc(x), 3, maxevals=2e6)
+println("Cuba (C): ", result.integral[1], " ± ", result.error[1])
 
 # classic Vegas : 1.39114(48)
 integ = Vegas.Integrator([[0, 1π], [0, 1π], [0, 1π]])
 result = integ(f, nitn=10, neval=2e5, beta=0.0, alpha=0.5)
-println(result)
+println("Classic Vegas (Python): ", result)
 
 # Vegas plus (vegas + hypercube) : 1.39314(15)
 integ2 = Vegas.Integrator([[0, 1π], [0, 1π], [0, 1π]])
 result = integ2(f, nitn=10, neval=2e5, alpha=0.5)
-println(result)
-
-# Cuba: 1.3922290364427665 ± 0.0010906210048935345
-result = vegas((x, g) -> g[1] = fc(x), 3, maxevals=2e6)
-@time result = vegas((x, g) -> g[1] = fc(x), 3, maxevals=2e6)
-println(result)
+println("Vegas+ (Python): ", result)

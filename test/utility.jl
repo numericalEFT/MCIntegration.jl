@@ -13,13 +13,28 @@ end
     # 3 integrals, 4 variables
     dof = [[1, 2, 3, 5], [3, 1, 2, 7], [2, 4, 1, 2]]
     @test MCIntegration._maxdof(dof) == [3, 4, 3, 7]
+
+    X = Continuous(0.0, 1.0; grid=[0.0, 0.1, 0.4, 1.0])
+    Y = Continuous(0.0, 1.0; grid=[0.0, 0.2, 0.6, 1.0])
+    Z = Discrete(1, 6; distribution=rand(6))
+
+    config = Configuration(var=[X, Y, Z])
+    @test typeof(config.var) == typeof((X, Y, Z)) #make sure var tuple type is concrete
+    @test isconcretetype(typeof(config.var)) == true
+
+    config = Configuration(var=[X, X, X, X, X, X])
+    @test typeof(config.var) == typeof((X, X, X, X, X, X)) #make sure var tuple type is concrete
+    @test isconcretetype(typeof(config.var)) == true
 end
+
 @testset "Probability" begin
     X = Continuous(0.0, 1.0; grid=[0.0, 0.1, 0.4, 1.0])
     Y = Continuous(0.0, 1.0; grid=[0.0, 0.2, 0.6, 1.0])
     Z = Discrete(1, 6; distribution=rand(6))
 
     config = Configuration(var=(X, Y, Z), dof=[[1, 1, 1], [2, 3, 3],])
+    println(config)
+    report(config)
     for vi in config.var
         Dist.initialize!(vi, config)
     end
