@@ -135,9 +135,9 @@ function swapVariable(config::Configuration{N,V,P,O,T}, integrand, state) where 
     newProbability = abs(weight) * config.reweight[curr]
     R = prop * newProbability / state.probability
 
-    config.propose[2, curr, vi] += 1.0
+    config.propose[3, curr, vi] += 1.0
     if rand(config.rng) < R
-        config.accept[2, curr, vi] += 1.0
+        config.accept[3, curr, vi] += 1.0
         state.weight = weight
         state.probability = newProbability
     else
