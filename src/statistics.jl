@@ -71,48 +71,35 @@ function Base.getindex(result::Result, idx::Int)
     return result.mean[idx], result.stdev[idx], result.chi2[idx]
 end
 
-function sig_digits(err)
-    if err == 0
+function sig_digits(err::Real)
+    if err == 0 || !isfinite(err)
         return 0
+    end
+    return max(0, 2 - floor(Int, log10(abs(err))))
+end
+
+function format_number(val::Real, ndigits::Int)
+    !isfinite(val) && return string(val)
+    fmt = Printf.Format("%.$(ndigits)f")
+    return Printf.format(fmt, val)
+end
+
+function tostring(mval::Real, merr::Real; pm="±")
+    if isfinite(mval) && isfinite(merr)
+        nd = sig_digits(merr)
+        val_str = format_number(mval, nd)
+        err_str = format_number(merr, nd)
+        return "$val_str $pm $err_str"
     else
-        return max(0, 2 - floor(Int, log10(abs(err))))
+        return "$mval $pm $merr"
     end
 end
-
-function format_number(val, ndigits)
-    s = string(round(val, digits=ndigits))
-    # println(s)
-    return s
+function tostring(mval::Complex, merr::Complex; pm="±")
+    re_part = tostring(real(mval), real(merr); pm=pm)
+    im_part = tostring(imag(mval), imag(merr); pm=pm)
+    return "($re_part) + ($im_part)im"
 end
-
-function tostring(mval, merr; pm="±")
-    # println(mval, ", ", merr)
-
-    if mval isa Real && merr isa Real && isfinite(mval) && isfinite(merr)
-        m = @sprintf("%24.8g %s %-24.8g", mval, pm, merr)
-        # m = measurement(mval, merr)
-        # return @sprintf("$m")
-    elseif mval isa Complex && merr isa Complex && isfinite(mval) && isfinite(merr)
-        # m = @sprintf("%16.6g(%6g) + %16.6g(%6g)im", real(mval), real(merr), imag(mval), imag(merr))
-        # m = measurement(real(mval), real(merr)) + measurement(imag(mval), imag(merr)) * 1im
-        # return @sprintf("%16.6g(%6g) + %16.6g(%6g)im", real(mval), real(merr), imag(mval), imag(merr))
-        # m = @sprintf("(%16.6g %s %6g) + (%16.6g %s %6g)im", real(mval), pm, real(merr), imag(mval), pm, imag(merr))
-        real_ndigits = sig_digits(real(merr))
-        imag_ndigits = sig_digits(imag(merr))
-        # ndigits = maximum([real_ndigits, imag_ndigits])
-        # println(real_ndigits, ", ", imag_ndigits)
-        realstr = "$(format_number(real(mval), real_ndigits))($(format_number(real(merr), real_ndigits)))"
-        imagstr = "$(format_number(real(mval), imag_ndigits))($(format_number(real(merr), imag_ndigits))) im"
-        m = @sprintf("%24s + %-24s", realstr, imagstr)
-
-        # m = "$(format_number(real(mval), real_ndigits))($(format_number(real(merr), real_ndigits)))+$(format_number(imag(mval), imag_ndigits))($(format_number(imag(merr), imag_ndigits)))im"
-        # m = "$(format_number(real(mval), ndigits))($(first_two_sig_digits_str(real(merr)))) + $(format_number(imag(mval), ndigits))($(first_two_sig_digits_str(imag(merr))))im"
-    else
-        m = "$mval $pm $merr"
-    end
-
-    return "$m"
-end
+tostring(mval, merr; pm="±") = "$mval $pm $merr"
 
 function Base.show(io::IO, result::Result)
     # print(io, summary(result.config))

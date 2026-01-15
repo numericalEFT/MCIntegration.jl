@@ -133,6 +133,7 @@ end
 
 @info "Performance of MCIntegration:"
 for alg in (:vegas, :vegasmc)
+    # for alg in (:vegasmc,)
     # Run the integrator a first time to compile the function.
     integrate(test3; dof=[[3,] for i in 1:11], neval=1e4, solver=alg, print=-1, inplace=true)
     start_time = time_ns()
