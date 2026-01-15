@@ -74,7 +74,7 @@ function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval
     measurefreq::Int=1,
     measure::Union{Nothing,Function}=nothing,
     idx::Int=1, # the integral to start with
-    nburnin::Int=100
+    thermal_ratio::Float64=0.1
 ) where {N,V,P,O,T}
 
     @assert measurefreq > 0
@@ -131,7 +131,8 @@ function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval
     # end
     startTime = time()
 
-    for i = 1:(neval+nburnin) 
+    nburnin = Int(floor(neval * thermal_ratio))
+    for i = 1:(neval+nburnin)
         # config.neval += 1
         config.visited[state.curr] += 1
         _update = rand(config.rng, updates) # randomly select an update
