@@ -220,7 +220,7 @@ function _neighbor(neighbor, Nd)
         @assert is_connected(g) "The neighbor graph is not connected."
         neighbor = [neighbors(g, ver) for ver in vertices(g)]
     end
-    neighbor = collect(neighbor)
+    neighbor = [collect(Int, ns) for ns in neighbor]
     @assert neighbor isa Vector{Vector{Int}} "Configuration.neighbor should be with a type of Vector{Vector{Int}} to avoid mistakes. Now get $(typeof(neighbor))"
     @assert Nd == length(neighbor) "$Nd elements are expected for neighbor=$neighbor"
     return neighbor
