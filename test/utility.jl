@@ -25,6 +25,10 @@ end
     config = Configuration(var=[X, X, X, X, X, X])
     @test typeof(config.var) == typeof((X, X, X, X, X, X)) #make sure var tuple type is concrete
     @test isconcretetype(typeof(config.var)) == true
+
+    config = Configuration(var=(X,), dof=[[2], [3]]; neighbor=[(1, 3), (1, 2)])
+    @test config.neighbor == [[2, 3], [1], [1]]
+    @test config.neighbor isa Vector{Vector{Int}}
 end
 
 @testset "Probability" begin
