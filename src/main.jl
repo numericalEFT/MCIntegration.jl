@@ -273,7 +273,10 @@ function _block!(configs, obsSum, obsSquaredSum, summedConfig,
     addConfig!(summedConfig[rank], config_n) # collect statistics from the config of each block to summedConfig
 
     for o in 1:config_n.N
-        if obsSum[rank][o] isa AbstractArray
+        if obsSum[rank][o] isa AbstractArray{<:Number}
+            # in place: the broadcast `+=` forms below allocate three arrays per integrand per block
+            _accumulate_block!(obsSum[rank][o], obsSquaredSum[rank][o], config_n.observable[o], config_n.normalization)
+        elseif obsSum[rank][o] isa AbstractArray
             m = config_n.observable[o] ./ config_n.normalization
             obsSum[rank][o] += m
             obsSquaredSum[rank][o] += (eltype(m) <: Complex) ? (@. real(m) * real(m) + imag(m) * imag(m) * 1im) : m .* m
@@ -289,6 +292,17 @@ function _block!(configs, obsSum, obsSquaredSum, summedConfig,
     if MCUtility.is_root(parallel)
         (print >= -1) && next!(progress)
     end
+end
+
+"""`osum += obs / norm` and `osq += Re(m)² + Im(m)² im` (or `m * m` for real data), element by element"""
+function _accumulate_block!(osum::AbstractArray, osq::AbstractArray, obs::AbstractArray, norm)
+    @inbounds for i in eachindex(osum, osq, obs)
+        m = obs[i] / norm
+        osum[i] += m
+        # avoid ^2 operator because it may not be defined for user defined types
+        osq[i] += (m isa Complex) ? real(m) * real(m) + imag(m) * imag(m) * 1im : m * m
+    end
+    return nothing
 end
 
 #obsSum or obsSquaredSum can be scalar or vector of float or complex
