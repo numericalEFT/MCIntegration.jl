@@ -114,13 +114,12 @@ function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval
 
     # updates = [changeIntegrand,] # TODO: sample changeVariable more often
     # updates = [changeIntegrand, swapVariable,] # TODO: sample changeVariable more often
-    updates = [changeIntegrand, swapVariable, changeVariable] # TODO: sample changeVariable more often
-    for i = 2:length(config.var)*2
-        push!(updates, changeVariable)
-    end
+    # update mix 1 changeIntegrand : 1 swapVariable : 2*nvar changeVariable, chosen by an integer switch
+    # (drawing from a Vector{Function} costs a dynamic dispatch on every step)
+    nupdates = 2 + 2 * length(config.var)
 
     if debug
-        for _update in updates
+        for _update in (changeIntegrand, swapVariable, changeVariable)
             MCUtility.test_type_stability(_update, (config, integrand, state))
         end
     end
@@ -132,11 +131,18 @@ function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval
     startTime = time()
 
     nburnin = Int(floor(neval * thermal_ratio))
-    for i = 1:(neval+nburnin)
+    nsteps = Int(neval) + nburnin   # Int counter: with a Float64 `neval` the `i % measurefreq` below is a float remainder
+    for i = 1:nsteps
         # config.neval += 1
         config.visited[state.curr] += 1
-        _update = rand(config.rng, updates) # randomly select an update
-        _update(config, integrand, state)
+        u = rand(config.rng, 1:nupdates) # randomly select an update
+        if u == 1
+            changeIntegrand(config, integrand, state)
+        elseif u == 2
+            swapVariable(config, integrand, state)
+        else
+            changeVariable(config, integrand, state)
+        end
         # push!(kwargs[:mem], (config.curr, config.relativeWeight))
         # if i % 10 == 0 && i >= neval / 100
         if debug && (isfinite(state.probability) == false)
@@ -146,12 +152,7 @@ function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval
 
             ######## accumulate variable #################
             if state.curr != config.norm
-                for (vi, var) in enumerate(config.var)
-                    offset = var.offset
-                    for pos = 1:config.dof[state.curr][vi]
-                        Dist.accumulate!(var, pos + offset, 1.0)
-                    end
-                end
+                _accumulate_all!(config.var, config.dof[state.curr], 1)
             end
             ###############################################
 
@@ -182,6 +183,18 @@ function montecarlo(config::Configuration{N,V,P,O,T}, integrand::Function, neval
 
     return config
 end
+
+# static recursion over the variable tuple: `for (vi, var) in enumerate(config.var)` over a heterogeneous
+# tuple is not unrolled, so every Dist call inside is a dynamic dispatch
+@inline function _accumulate_all!(vars::Tuple, dof::AbstractVector{Int}, vi::Int)
+    var = first(vars)
+    offset = var.offset
+    for pos = 1:dof[vi]
+        Dist.accumulate!(var, pos + offset, 1.0)
+    end
+    return _accumulate_all!(Base.tail(vars), dof, vi + 1)
+end
+@inline _accumulate_all!(::Tuple{}, dof::AbstractVector{Int}, vi::Int) = nothing
 
 @inline function integrand_wrap(new, config, _integrand)
     return _integrand(new, config.var..., config)

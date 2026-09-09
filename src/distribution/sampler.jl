@@ -196,7 +196,9 @@ Propose to shift oldK to newK. Work for generic momentum vector
 function shift!(K::FermiK{D}, idx::Int, config) where {D}
     @assert idx > K.offset
     (idx >= length(K.data) - 1) && error("$idx overflow!")
-    K[end] = K[idx]  # save current K
+    for d = 1:D   # save current K  (`K[end] = K[idx]` broadcasts a view and allocates)
+        K.data[d, end] = K.data[d, idx]
+    end
     K.prob[end] = K.prob[idx]
 
     rng = config.rng
@@ -204,9 +206,11 @@ function shift!(K::FermiK{D}, idx::Int, config) where {D}
     if x < 1.0 / 3
         λ = 1.5
         ratio = 1.0 / λ + rand(rng) * (λ - 1.0 / λ)
-        K[idx] *= ratio
+        for d = 1:D
+            K.data[d, idx] *= ratio
+        end
         prop = (D == 2) ? 1.0 : ratio
-        K.prob /= prop
+        K.prob ./= prop
         return prop
     elseif x < 2.0 / 3
         ϕ = rand(rng) * 2π
@@ -245,7 +249,9 @@ end
 
 function shiftRollback!(K::FermiK{D}, idx::Int, config) where {D}
     (idx >= length(K.data) - 1) && error("$idx overflow!")
-    K[idx] = K[end]
+    for d = 1:D
+        K.data[d, idx] = K.data[d, end]
+    end
     K.prob[idx] = K.prob[end]
 end
 
