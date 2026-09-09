@@ -195,15 +195,18 @@ end
     return _accumulate_all!(Base.tail(vars), dof, vi + 1)
 end
 @inline _accumulate_all!(::Tuple{}, dof::AbstractVector{Int}, vi::Int) = nothing
+@inline function _initialize_all!(vars::Tuple, config)
+    Dist.initialize!(first(vars), config)
+    return _initialize_all!(Base.tail(vars), config)
+end
+@inline _initialize_all!(::Tuple{}, config) = nothing
 
 @inline function integrand_wrap(new, config, _integrand)
     return _integrand(new, config.var..., config)
 end
 
 function initialize!(config::Configuration{N,V,P,O,T}, integrand, state) where {N,V,P,O,T}
-    for var in config.var
-        Dist.initialize!(var, config)
-    end
+    _initialize_all!(config.var, config)
     curr = state.curr
     if curr != config.norm
         # config.weights[curr] = integrand_wrap(curr, config, integrand)

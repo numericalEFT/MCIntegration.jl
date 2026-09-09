@@ -235,30 +235,39 @@ function _maxdof(dof)
     return maxdof
 end
 
+# walk the heterogeneous variable tuple by static recursion: `for var in config.var` is not unrolled,
+# so the tuple is boxed and every call inside it is a dynamic dispatch
+@inline _clearStatistics_all!(vars::Tuple) = (Dist.clearStatistics!(first(vars)); _clearStatistics_all!(Base.tail(vars)))
+@inline _clearStatistics_all!(::Tuple{}) = nothing
+@inline _addStatistics_all!(vars::Tuple, ivars::Tuple) = (Dist.addStatistics!(first(vars), first(ivars)); _addStatistics_all!(Base.tail(vars), Base.tail(ivars)))
+@inline _addStatistics_all!(::Tuple{}, ::Tuple{}) = nothing
+
+# observables are numbers, arrays of numbers or arrays of arrays: recurse into the arrays and zero /
+# accumulate the leaves in place (`observable[i] = zero(observable[i])` and `observable .+= ...` allocate
+# a fresh array per integrand per block when the entries are arrays); leaves keep the old expressions
+_zeroobs!(a::Array) = (for i in eachindex(a); a[i] = _zeroobs!(a[i]); end; a)
+_zeroobs!(a) = zero(a)
+_addobs!(a::Array, b) = (for i in eachindex(a, b); a[i] = _addobs!(a[i], b[i]); end; a)
+_addobs!(a, b) = a .+ b
+
 function clearStatistics!(config)
-    for i in eachindex(config.observable)
-        config.observable[i] = zero(config.observable[i])
-    end
+    config.observable = _zeroobs!(config.observable)
     config.neval = 0
     config.normalization = 1.0e-10
     fill!(config.visited, 1.0e-8)
     fill!(config.propose, 1.0e-8)
     fill!(config.accept, 1.0e-10)
-    for var in config.var
-        Dist.clearStatistics!(var)
-    end
+    _clearStatistics_all!(config.var)
 end
 
 function addConfig!(c::Configuration, ic::Configuration)
-    c.visited += ic.visited
-    c.accept += ic.accept
-    c.propose += ic.propose
+    c.visited .+= ic.visited
+    c.accept .+= ic.accept
+    c.propose .+= ic.propose
     c.neval += ic.neval
     c.normalization += ic.normalization
-    c.observable .+= ic.observable
-    for (vi, var) in enumerate(c.var)
-        Dist.addStatistics!(var, ic.var[vi])
-    end
+    c.observable = _addobs!(c.observable, ic.observable)
+    _addStatistics_all!(c.var, ic.var)
 end
 
 function MPIreduceConfig!(c::Configuration, root=0, comm=MPI.COMM_WORLD)
